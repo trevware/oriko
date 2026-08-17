@@ -2,7 +2,9 @@ export interface MediaRef {
   url: string;
   kind: "image" | "video";
   alt: string;
+  /** Sizes declared in the URL query. Used to lay out before archiving. */
   widthHint?: number;
+  heightHint?: number;
 }
 
 export interface ClippingRecord {
@@ -51,6 +53,11 @@ function widthHint(url: string): number | undefined {
   return match ? Number(match[1]) : undefined;
 }
 
+function heightHint(url: string): number | undefined {
+  const match = /[?&](?:h|height)=(\d+)/i.exec(url);
+  return match ? Number(match[1]) : undefined;
+}
+
 function asStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String);
   if (typeof value === "string" && value.trim()) return [value];
@@ -86,7 +93,10 @@ export function scanClipping(
   const push = (index: number, url: string, kind: MediaRef["kind"], alt: string): void => {
     if (!isRemote(url) || seen.has(url + kind)) return;
     seen.add(url + kind);
-    found.push({ index, ref: { url, kind, alt, widthHint: widthHint(url) } });
+    found.push({
+      index,
+      ref: { url, kind, alt, widthHint: widthHint(url), heightHint: heightHint(url) },
+    });
   };
 
   for (const m of clean.matchAll(MD_IMAGE)) {

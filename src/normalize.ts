@@ -5,6 +5,8 @@ export interface CanonicalMedia {
   url: string;
   kind: "image" | "video";
   alt: string;
+  widthHint?: number;
+  heightHint?: number;
 }
 
 /**
@@ -65,6 +67,13 @@ export function dedupeMedia(refs: MediaRef[]): CanonicalMedia[] {
 
   return order.map((key) => {
     const entry = best.get(key)!;
-    return { key, url: entry.ref.url, kind: entry.ref.kind, alt: entry.alt };
+    return {
+      key,
+      url: entry.ref.url,
+      kind: entry.ref.kind,
+      alt: entry.alt,
+      widthHint: entry.ref.widthHint,
+      heightHint: entry.ref.heightHint,
+    };
   });
 }

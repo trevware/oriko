@@ -73,13 +73,13 @@ describe("buildTiles", () => {
     expect(tiles[0].thumbPath).toBe("T6.webp");
   });
 
-  it("skips an entry that archived but has no thumbnail yet", () => {
+  it("uses the local original when the thumbnail is not derived yet", () => {
     const cache = cacheWith([
       [COMBO_7, { file: "F7.jpg", thumb: "", width: 1920, height: 1080 }],
-      [COMBO_6, { file: "F6.jpg", thumb: "T6.webp", width: 800, height: 600 }],
     ]);
     const tiles = buildTiles([combolands], cache);
-    expect(tiles[0].thumbPath).toBe("T6.webp");
+    expect(tiles[0].thumbPath).toBe("F7.jpg");
+    expect(tiles[0].remote).toBe(false);
   });
 
   it("uses the video for a video-only clipping", () => {
@@ -92,15 +92,17 @@ describe("buildTiles", () => {
     expect(tiles[0].thumbPath).toBe("clip.poster.webp");
   });
 
-  it("falls back to a gradient tile when nothing archived", () => {
-    const tiles = buildTiles([combolands], new MediaCache());
+  it("falls back to a gradient tile when the clipping has no media", () => {
+    const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
+    const tiles = buildTiles([empty], new MediaCache());
     expect(tiles[0].kind).toBe("fallback");
     expect(tiles[0].thumbPath).toBe("");
     expect(tiles[0].gradient).toMatch(/^linear-gradient\(/);
   });
 
   it("gives fallback tiles a sane default aspect ratio", () => {
-    const tiles = buildTiles([combolands], new MediaCache());
+    const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
+    const tiles = buildTiles([empty], new MediaCache());
     expect(tiles[0].width).toBe(4);
     expect(tiles[0].height).toBe(3);
   });
@@ -136,6 +138,82 @@ describe("buildTiles", () => {
   });
 });
 
+describe("remote covers before archiving", () => {
+  it("uses the remote url when nothing is archived yet", () => {
+    const tiles = buildTiles([combolands], new MediaCache());
+    expect(tiles[0].kind).toBe("image");
+    expect(tiles[0].remote).toBe(true);
+    expect(tiles[0].thumbPath).toContain("combolands-7.jpg");
+  });
+
+  it("marks remote dimensions as provisional", () => {
+    const tiles = buildTiles([combolands], new MediaCache());
+    expect(tiles[0].provisional).toBe(true);
+  });
+
+  it("takes provisional dimensions from the url size hints", () => {
+    const tiles = buildTiles([combolands], new MediaCache());
+    expect(tiles[0].width).toBe(1920);
+    expect(tiles[0].height).toBe(1080);
+  });
+
+  it("prefers an archived local file over the remote url", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.jpg", thumb: "T7.webp", width: 1920, height: 1080 }],
+    ]);
+    const tiles = buildTiles([combolands], cache);
+    expect(tiles[0].remote).toBe(false);
+    expect(tiles[0].provisional).toBe(false);
+    expect(tiles[0].thumbPath).toBe("T7.webp");
+  });
+
+  it("does not show a ref remotely when its archive failed", () => {
+    const cache = new MediaCache();
+    cache.mergeOutcome({ key: COMBO_7, kind: "image", failed: "unexpected content type text/html" });
+    cache.mergeOutcome({ key: COMBO_6, kind: "image", failed: "HTTP 404" });
+    const tiles = buildTiles([combolands], cache);
+    expect(tiles[0].kind).toBe("fallback");
+  });
+
+  it("falls back to a later ref when an earlier one failed", () => {
+    const cache = new MediaCache();
+    cache.mergeOutcome({ key: COMBO_7, kind: "image", failed: "HTTP 404" });
+    const tiles = buildTiles([combolands], cache);
+    expect(tiles[0].remote).toBe(true);
+    expect(tiles[0].thumbPath).toContain("combolands-6.jpg");
+  });
+
+  it("shows a remote video before it is archived", () => {
+    const tiles = buildTiles([nook], new MediaCache());
+    expect(tiles[0].kind).toBe("video");
+    expect(tiles[0].remote).toBe(true);
+    expect(tiles[0].filePath).toContain(".mp4");
+  });
+
+  it("still falls back to a gradient when there is no media at all", () => {
+    const empty = scanClipping("Clippings/E.md", { title: "E" }, "no media here");
+    expect(buildTiles([empty], new MediaCache())[0].kind).toBe("fallback");
+  });
+});
+
+describe("signature", () => {
+  it("changes when a tile swaps from remote to local", () => {
+    const before = buildTiles([combolands], new MediaCache())[0];
+    const after = buildTiles(
+      [combolands],
+      cacheWith([[COMBO_7, { file: "F7.jpg", thumb: "T7.webp", width: 1920, height: 1080 }]])
+    )[0];
+    expect(before.signature).not.toBe(after.signature);
+  });
+
+  it("is stable for an unchanged tile", () => {
+    const cache = cacheWith([[COMBO_7, { file: "F7.jpg", thumb: "T7.webp" }]]);
+    expect(buildTiles([combolands], cache)[0].signature).toBe(
+      buildTiles([combolands], cache)[0].signature
+    );
+  });
+});
+
 describe("animated covers", () => {
   it("marks a gif cover as animated", () => {
     const cache = cacheWith([
@@ -166,6 +244,18 @@ describe("animated covers", () => {
   });
 
   it("never marks a fallback tile as animated", () => {
-    expect(buildTiles([combolands], new MediaCache())[0].animated).toBe(false);
+    const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
+    expect(buildTiles([empty], new MediaCache())[0].animated).toBe(false);
+  });
+
+  // A remote gif animates on its own, but there is no still to swap back to,
+  // so playback has nothing to manage until it is archived.
+  it("does not manage a remote gif that is not archived yet", () => {
+    const record = scanClipping(
+      "Clippings/G.md",
+      { title: "G" },
+      "![demo](https://x.com/demo.gif)"
+    );
+    expect(buildTiles([record], new MediaCache())[0].animated).toBe(false);
   });
 });

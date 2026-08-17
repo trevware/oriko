@@ -47,7 +47,15 @@ export default class ClippingsGridPlugin extends Plugin {
       },
     });
 
-    this.app.workspace.onLayoutReady(() => void this.index.rebuild());
+    this.app.workspace.onLayoutReady(() => {
+      void this.index.rebuild().then(() => {
+        // Archiving runs behind the grid, which is already showing remote
+        // covers, and tiles swap to local files as they arrive.
+        if (this.settings.archiveOnCreate) {
+          window.setTimeout(() => void this.archiver.archiveMissing(), 1500);
+        }
+      });
+    });
 
     this.registerEvent(
       this.app.vault.on("create", (f: TAbstractFile) => {
@@ -56,7 +64,7 @@ export default class ClippingsGridPlugin extends Plugin {
           // The Web Clipper writes the body and frontmatter in stages, so
           // give it a moment before scanning for media to download.
           if (this.settings.archiveOnCreate) {
-            window.setTimeout(() => void this.archiver.archiveFile(f), 2000);
+            window.setTimeout(() => void this.archiver.archiveMissing(), 2000);
           }
         });
       })

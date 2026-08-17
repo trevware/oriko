@@ -148,8 +148,18 @@ export class ArchiveService {
     if (derived > 0) this.emit();
   }
 
-  async archiveRecord(record: ClippingRecord): Promise<void> {
-    const canonical = dedupeMedia(record.media).filter((m) => !this.cache.get(m.key)?.file);
+  /**
+   * @param retryFailed re-attempt refs that failed before. Off for the
+   * background pass, so a page that returns HTML is not re-downloaded on
+   * every launch; on for the explicit command, so a transient outage or a
+   * network change can be recovered from.
+   */
+  async archiveRecord(record: ClippingRecord, retryFailed = false): Promise<void> {
+    const canonical = dedupeMedia(record.media).filter((m) => {
+      const entry = this.cache.get(m.key);
+      if (entry?.file) return false;
+      return retryFailed || !entry?.failed;
+    });
     if (canonical.length === 0) return;
 
     await this.ensureFolder();
@@ -160,15 +170,36 @@ export class ArchiveService {
     this.emit();
   }
 
+  /**
+   * Background pass: fills in whatever is missing without blocking or
+   * announcing itself. The grid shows remote covers meanwhile and swaps to
+   * local ones as they land.
+   */
+  async archiveMissing(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+    try {
+      for (const record of this.index.records()) {
+        await this.archiveRecord(record, false);
+      }
+      await this.deriveAssets();
+      await this.saveCache();
+    } catch {
+      // Background work never interrupts the user; the next pass retries.
+    } finally {
+      this.running = false;
+    }
+  }
+
   async archiveEverything(): Promise<ArchiveSummary> {
     if (this.running) {
       new Notice("Clippings grid: already archiving");
-      return { ok: 0, failed: 0 };
+      return this.summary();
     }
     this.running = true;
     try {
       for (const record of this.index.records()) {
-        await this.archiveRecord(record);
+        await this.archiveRecord(record, true);
       }
       // Catches anything downloaded on an earlier run that never got a
       // thumbnail, for instance because the view was closed at the time.
@@ -188,11 +219,6 @@ export class ArchiveService {
       else if (entry.file) ok++;
     }
     return { ok, failed };
-  }
-
-  async archiveFile(file: TFile): Promise<void> {
-    const record = this.index.get(file.path);
-    if (record) await this.archiveRecord(record);
   }
 
   notifyResult(result: ArchiveSummary): void {

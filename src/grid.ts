@@ -11,6 +11,8 @@ interface TileElement {
   root: HTMLElement;
   media: HTMLElement | null;
   id: string;
+  signature: string;
+  kind: string;
 }
 
 function domainOf(url: string): string {
@@ -35,6 +37,9 @@ export class GridRenderer {
   private mounted = new Map<string, TileElement>();
   private pool: TileElement[] = [];
   private frame = 0;
+  private relayoutFrame = 0;
+  /** Real dimensions learned by loading a tile whose size was a guess. */
+  private measured = new Map<string, { w: number; h: number }>();
 
   /** Called after every render pass so the view can observe new video tiles. */
   onRendered: () => void = () => {};
@@ -68,13 +73,38 @@ export class GridRenderer {
     const width = this.scroller.clientWidth || 800;
     const columns = columnsForWidth(width, TARGET_COLUMN_WIDTH, GAP);
     this.layout = computeLayout(
-      this.tiles.map((t) => ({ id: t.id, width: t.width, height: t.height })),
+      this.tiles.map((t) => {
+        // A measurement only overrides a guess, never a size read from the
+        // archived file's own header.
+        const learned = t.provisional ? this.measured.get(t.id) : undefined;
+        return {
+          id: t.id,
+          width: learned?.w ?? t.width,
+          height: learned?.h ?? t.height,
+        };
+      }),
       width,
       columns,
       GAP
     );
     this.spacer.style.height = `${this.layout.totalHeight}px`;
     this.render();
+  }
+
+  private scheduleRelayout(): void {
+    if (this.relayoutFrame) return;
+    this.relayoutFrame = window.requestAnimationFrame(() => {
+      this.relayoutFrame = 0;
+      this.relayout();
+    });
+  }
+
+  private measure(id: string, w: number, h: number): void {
+    if (!(w > 0 && h > 0)) return;
+    const previous = this.measured.get(id);
+    if (previous && previous.w === w && previous.h === h) return;
+    this.measured.set(id, { w, h });
+    this.scheduleRelayout();
   }
 
   private schedule(): void {
@@ -89,21 +119,41 @@ export class GridRenderer {
     const recycled = this.pool.pop();
     if (recycled) return recycled;
     const root = this.spacer.createDiv({ cls: "cg-tile" });
-    return { root, media: null, id: "" };
+    return { root, media: null, id: "", signature: "", kind: "" };
   }
 
   private release(tile: TileElement): void {
     tile.root.style.display = "none";
     tile.root.empty();
     tile.id = "";
+    tile.signature = "";
+    tile.kind = "";
     tile.media = null;
     this.pool.push(tile);
   }
 
-  private resourceFor(path: string): string {
+  /** Remote covers address the origin directly; local ones go through the vault. */
+  private sourceFor(path: string, remote: boolean): string {
     if (!path) return "";
+    if (remote) return path;
     const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
     return file instanceof TFile ? this.app.vault.getResourcePath(file) : "";
+  }
+
+  /**
+   * Decodes the replacement before showing it, so a tile swapping from the
+   * origin server to its archived copy never flashes empty.
+   */
+  private swapImage(image: HTMLImageElement, next: string): void {
+    if (!next || image.src === next) return;
+    const preload = new Image();
+    preload.src = next;
+    void preload
+      .decode()
+      .then(() => {
+        if (image.isConnected) image.src = next;
+      })
+      .catch(() => undefined);
   }
 
   private openNote(model: TileModel, event: MouseEvent): void {
@@ -119,9 +169,36 @@ export class GridRenderer {
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
 
-    // Already showing this model: reposition only, never rebuild.
-    if (element.id === model.id) return;
+    // Same content already painted: reposition only, never rebuild.
+    if (element.signature === model.signature) return;
+
+    const still = this.sourceFor(model.thumbPath, model.remote);
+    const original = this.sourceFor(model.filePath, model.remote);
+
+    // An image tile whose source changed (archiving replaced the remote copy
+    // with a local one) swaps in place rather than rebuilding the tile.
+    if (
+      element.id === model.id &&
+      element.kind === "image" &&
+      model.kind === "image" &&
+      element.media instanceof HTMLImageElement
+    ) {
+      const image = element.media;
+      this.swapImage(image, still || original);
+      if (model.animated && original) {
+        image.dataset.stillSrc = still || original;
+        image.dataset.animatedSrc = original;
+      } else {
+        delete image.dataset.stillSrc;
+        delete image.dataset.animatedSrc;
+      }
+      element.signature = model.signature;
+      return;
+    }
+
     element.id = model.id;
+    element.signature = model.signature;
+    element.kind = model.kind;
     element.root.empty();
     element.media = null;
 
@@ -135,21 +212,25 @@ export class GridRenderer {
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
-      video.preload = "none";
-      const poster = this.resourceFor(model.thumbPath);
-      if (poster) video.poster = poster;
-      video.dataset.src = this.resourceFor(model.filePath);
+      // A remote video has no poster, so it needs metadata to paint a frame.
+      video.preload = model.remote ? "metadata" : "none";
+      if (still && !model.remote) video.poster = still;
+      if (model.remote) video.src = original;
+      else video.dataset.src = original;
+
+      if (model.provisional) {
+        video.addEventListener(
+          "loadedmetadata",
+          () => this.measure(model.id, video.videoWidth, video.videoHeight),
+          { once: true }
+        );
+      }
       element.media = video;
     } else {
       const image = frame.createEl("img", { cls: "cg-media" });
       image.loading = "lazy";
       image.decoding = "async";
-      image.width = model.width;
-      image.height = model.height;
       image.alt = model.record.title;
-
-      const still = this.resourceFor(model.thumbPath);
-      const original = this.resourceFor(model.filePath);
       image.src = still || original;
 
       if (model.animated && original) {
@@ -158,6 +239,29 @@ export class GridRenderer {
         image.dataset.stillSrc = still || original;
         image.dataset.animatedSrc = original;
       }
+
+      if (model.provisional) {
+        image.addEventListener(
+          "load",
+          () => this.measure(model.id, image.naturalWidth, image.naturalHeight),
+          { once: true }
+        );
+      }
+
+      // A remote cover can 403 on a hotlink-protected host. Degrade to the
+      // gradient rather than leaving a broken image in the wall.
+      image.addEventListener(
+        "error",
+        () => {
+          if (!image.isConnected) return;
+          frame.empty();
+          frame.style.background = model.gradient;
+          frame.createDiv({ cls: "cg-fallback-title", text: model.record.title });
+          element.media = null;
+        },
+        { once: true }
+      );
+
       element.media = image;
     }
 
@@ -221,7 +325,9 @@ export class GridRenderer {
 
   destroy(): void {
     if (this.frame) window.cancelAnimationFrame(this.frame);
+    if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
     this.mounted.clear();
+    this.measured.clear();
     this.pool = [];
   }
 }
