@@ -1064,7 +1064,7 @@ export class ClippingsGridView extends ItemView {
 - [ ] **Step 7: Verify in the vault**
 
 With `npm run dev` running, reload Obsidian (Cmd+R) and open the grid.
-Expected: "3 clippings" and three list rows. Combolands shows 12 media, manga-downloader shows 5, Nook shows 1. Those are pre-dedupe counts, which is correct at this stage.
+Expected: one row per clipping in `Clippings/`, excluding `_Categories.md` and `Clippings.base`. As of 2026-08-17 that is 7 rows totalling 23 media refs: Combolands 12, manga-downloader 5, the @luoyyisvic X post 3, Nook 1, the @belgeist X post 1, Ghost in the Shell 1, Rachel How 0. Those are pre-dedupe counts, which is correct at this stage.
 
 - [ ] **Step 8: Commit**
 
@@ -2194,7 +2194,7 @@ The delay lets the Web Clipper finish writing before the scan runs.
 - [ ] **Step 7: Verify in the vault**
 
 Reload Obsidian, open the command palette, run "Archive all clipping media".
-Expected: a notice reporting archived counts. `Attachments/Clippings/` fills with files named like `a3f91c2e-combolands-7.jpg`, including the Nook `.mp4`. Confirm the Combolands duplicates produced 4 files rather than 12, that the Ghost in the Shell clipping's YouTube page URL was rejected on content type rather than saved as a `.jpg`, and that `.obsidian/plugins/clippings-grid/cache.json` exists with width and height on each image entry.
+Expected: a notice reporting archived counts. `Attachments/Clippings/` fills with files named like `a3f91c2e-combolands-7.jpg`, including the Nook `.mp4`. Confirm the Combolands duplicates produced 6 files rather than 12, that the total across all clippings is 17 files rather than 23, that the Ghost in the Shell clipping's YouTube page URL was rejected on content type rather than saved as a `.jpg`, and that `.obsidian/plugins/clippings-grid/cache.json` exists with width and height on each image entry.
 
 - [ ] **Step 8: Commit**
 
@@ -3542,7 +3542,7 @@ Declare `private toolbar: Toolbar | null = null;`.
 - [ ] **Step 8: Verify in the vault**
 
 Reload Obsidian and open the grid.
-Expected: chips for `unread` / `read` / `archived`, then category chips with counts (`games 1`, `tools 1`, `design 1`, and so on). Clicking `games` leaves only Combolands. Typing "nook" in search leaves only Nook. Clearing both restores all three.
+Expected: chips for `unread` / `read` / `archived`, then category chips with counts (`games 1`, `tools 1`, `design 1`, and so on). Clicking `games` leaves only Combolands. Typing "nook" in search leaves only Nook. Clearing both restores every clipping.
 
 - [ ] **Step 9: Commit**
 
