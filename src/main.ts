@@ -1,4 +1,5 @@
-import { Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { ArchiveService } from "./archive-service";
 import { ClippingIndex } from "./index-store";
 import { ClippingsGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
@@ -6,11 +7,19 @@ import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
 export default class ClippingsGridPlugin extends Plugin {
   settings: ClippingsGridSettings = DEFAULT_SETTINGS;
   index!: ClippingIndex;
+  archiver!: ArchiveService;
 
   async onload(): Promise<void> {
     await this.loadSettings();
 
     this.index = new ClippingIndex(this.app, () => this.settings.clippingsFolder);
+    this.archiver = new ArchiveService(
+      this.app,
+      this.index,
+      () => this.settings,
+      this.manifest.dir ?? ".obsidian/plugins/clippings-grid"
+    );
+    await this.archiver.loadCache();
 
     this.registerView(
       VIEW_TYPE_GRID,
@@ -27,11 +36,29 @@ export default class ClippingsGridPlugin extends Plugin {
       callback: () => void this.activateView(),
     });
 
+    this.addCommand({
+      id: "archive-clipping-media",
+      name: "Archive all clipping media",
+      callback: () => {
+        new Notice("Clippings grid: archiving…");
+        void this.archiver
+          .archiveEverything()
+          .then((r) => this.archiver.notifyResult(r));
+      },
+    });
+
     this.app.workspace.onLayoutReady(() => void this.index.rebuild());
 
     this.registerEvent(
       this.app.vault.on("create", (f: TAbstractFile) => {
-        if (f instanceof TFile) void this.index.handleModify(f);
+        if (!(f instanceof TFile)) return;
+        void this.index.handleModify(f).then(() => {
+          // The Web Clipper writes the body and frontmatter in stages, so
+          // give it a moment before scanning for media to download.
+          if (this.settings.archiveOnCreate) {
+            window.setTimeout(() => void this.archiver.archiveFile(f), 2000);
+          }
+        });
       })
     );
     this.registerEvent(
