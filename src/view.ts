@@ -58,6 +58,16 @@ export class ClippingsGridView extends ItemView {
     this.observer = new ResizeObserver(() => this.grid?.relayout());
     this.observer.observe(this.contentEl);
 
+    // Paste a link anywhere in the grid to clip it, the way you would drop
+    // a URL into a board app.
+    this.registerDomEvent(document, "paste", (event: ClipboardEvent) => {
+      if (this.app.workspace.getActiveViewOfType(ClippingsGridView) !== this) return;
+      const text = event.clipboardData?.getData("text/plain")?.trim();
+      if (!text) return;
+      event.preventDefault();
+      void this.plugin.capture.capture(text);
+    });
+
     this.refresh();
   }
 

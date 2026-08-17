@@ -1,5 +1,6 @@
 import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { ArchiveService } from "./archive-service";
+import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { ClippingsGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
@@ -8,6 +9,7 @@ export default class ClippingsGridPlugin extends Plugin {
   settings: ClippingsGridSettings = DEFAULT_SETTINGS;
   index!: ClippingIndex;
   archiver!: ArchiveService;
+  capture!: CaptureService;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -20,6 +22,12 @@ export default class ClippingsGridPlugin extends Plugin {
       this.manifest.dir ?? ".obsidian/plugins/clippings-grid"
     );
     await this.archiver.loadCache();
+    this.capture = new CaptureService(
+      this.app,
+      () => this.settings,
+      this.archiver,
+      this.index
+    );
 
     this.registerView(
       VIEW_TYPE_GRID,
@@ -34,6 +42,12 @@ export default class ClippingsGridPlugin extends Plugin {
       id: "open-clippings-grid",
       name: "Open clippings grid",
       callback: () => void this.activateView(),
+    });
+
+    this.addCommand({
+      id: "clip-url-from-clipboard",
+      name: "Clip link from clipboard",
+      callback: () => void this.capture.captureFromClipboard(),
     });
 
     this.addCommand({

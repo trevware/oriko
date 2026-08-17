@@ -65,24 +65,29 @@ function decodeEntities(value: string): string {
     .replace(/&gt;/gi, ">");
 }
 
+/** Collects every og:/twitter: meta tag on a page, first declaration winning. */
+export function readMetaTags(html: string): Map<string, string> {
+  const found = new Map<string, string>();
+
+  for (const tag of html.matchAll(META_TAG)) {
+    const key = META_KEY.exec(tag[0])?.[1]?.toLowerCase();
+    if (!key) continue;
+    const content = META_CONTENT.exec(tag[0])?.[1];
+    if (!content || !content.trim()) continue;
+    // First declaration wins: pages repeat og:image for extra sizes.
+    if (!found.has(key)) found.set(key, decodeEntities(content.trim()));
+  }
+
+  return found;
+}
+
 /**
  * Pulls the page's declared social preview image. Nearly every modern site
  * publishes one, which makes it the best single cover for a clipping whose
  * body carries no usable image of its own.
  */
 export function extractPageImage(html: string, baseUrl: string): string | null {
-  const found = new Map<string, string>();
-
-  for (const tag of html.matchAll(META_TAG)) {
-    const key = META_KEY.exec(tag[0])?.[1]?.toLowerCase();
-    if (!key) continue;
-    if (key !== "og:image" && key !== "og:image:url" && key !== "twitter:image") continue;
-
-    const content = META_CONTENT.exec(tag[0])?.[1];
-    if (!content || !content.trim()) continue;
-    if (!found.has(key)) found.set(key, decodeEntities(content.trim()));
-  }
-
+  const found = readMetaTags(html);
   const raw = found.get("og:image") ?? found.get("og:image:url") ?? found.get("twitter:image");
   if (!raw) return null;
 

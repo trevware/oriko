@@ -1,0 +1,141 @@
+import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
+import type { ArchiveService } from "./archive-service";
+import type { ClippingIndex } from "./index-store";
+import {
+  ResolvedLink,
+  buildNote,
+  cleanUrl,
+  fxApiUrl,
+  isHttpUrl,
+  noteNameFor,
+  parseFxTweet,
+  parsePageMeta,
+  xStatus,
+} from "./resolve";
+import type { ClippingsGridSettings } from "./settings";
+
+/**
+ * Identifies the plugin honestly rather than impersonating a known crawler.
+ * Enough for sites that gate Open Graph tags on a non-browser agent, such
+ * as Threads; X withholds them from everything but named crawlers, which is
+ * why X posts go through the resolver instead.
+ */
+const USER_AGENT = "Mozilla/5.0 (compatible; ClippingsGrid/0.1; Obsidian link preview)";
+
+export class CaptureService {
+  constructor(
+    private app: App,
+    private settings: () => ClippingsGridSettings,
+    private archiver: ArchiveService,
+    private index: ClippingIndex
+  ) {}
+
+  async captureFromClipboard(): Promise<void> {
+    let text = "";
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      new Notice("Clippings grid: could not read the clipboard");
+      return;
+    }
+    await this.capture(text);
+  }
+
+  async capture(raw: string): Promise<void> {
+    const url = cleanUrl(raw);
+    if (!isHttpUrl(url)) {
+      new Notice("Clippings grid: that is not a link");
+      return;
+    }
+
+    const existing = this.index.records().find((r) => cleanUrl(r.source) === url);
+    if (existing) {
+      new Notice("Clippings grid: already clipped");
+      const file = this.app.vault.getAbstractFileByPath(existing.path);
+      if (file instanceof TFile) await this.app.workspace.getLeaf(false).openFile(file);
+      return;
+    }
+
+    new Notice("Clippings grid: resolving link…");
+    const link = await this.resolve(url);
+
+    if (!link || link.media.length === 0) {
+      new Notice("Clippings grid: no image or video found, nothing created");
+      return;
+    }
+
+    const file = await this.createNote(link);
+    if (!file) return;
+
+    new Notice(`Clippings grid: clipped "${link.title.slice(0, 40)}"`);
+
+    // Archive straight away: resolved CDN urls are often signed and short-lived.
+    await this.index.ingest(file);
+    const record = this.index.get(file.path);
+    if (record) await this.archiver.archiveRecord(record, true);
+  }
+
+  private async resolve(url: string): Promise<ResolvedLink | null> {
+    const status = xStatus(url);
+    if (status) {
+      const viaResolver = await this.resolveX(status, url);
+      if (viaResolver && viaResolver.media.length > 0) return viaResolver;
+    }
+    return this.resolvePage(url);
+  }
+
+  private async resolveX(
+    status: { user: string; id: string },
+    url: string
+  ): Promise<ResolvedLink | null> {
+    try {
+      const response = await requestUrl({
+        url: fxApiUrl(status),
+        method: "GET",
+        headers: { "User-Agent": USER_AGENT },
+        throw: false,
+      });
+      if (response.status < 200 || response.status >= 300) return null;
+      return parseFxTweet(response.json, url);
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolvePage(url: string): Promise<ResolvedLink | null> {
+    try {
+      const response = await requestUrl({
+        url,
+        method: "GET",
+        headers: { "User-Agent": USER_AGENT },
+        throw: false,
+      });
+      if (response.status < 200 || response.status >= 300) return null;
+      return parsePageMeta(response.text, url);
+    } catch {
+      return null;
+    }
+  }
+
+  private async createNote(link: ResolvedLink): Promise<TFile | null> {
+    const folder = normalizePath(this.settings().clippingsFolder);
+    if (!(await this.app.vault.adapter.exists(folder))) {
+      await this.app.vault.createFolder(folder);
+    }
+
+    const base = noteNameFor(link.title, link.url);
+    let path = normalizePath(`${folder}/${base}.md`);
+    let n = 2;
+    while (await this.app.vault.adapter.exists(path)) {
+      path = normalizePath(`${folder}/${base} ${n}.md`);
+      n++;
+    }
+
+    try {
+      return await this.app.vault.create(path, buildNote(link));
+    } catch (error) {
+      new Notice(`Clippings grid: could not create the note (${String(error)})`);
+      return null;
+    }
+  }
+}

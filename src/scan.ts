@@ -76,6 +76,26 @@ function domainOf(url: string): string {
   }
 }
 
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
+
+/**
+ * Sites that render media client-side (Threads, X) expose no video URL in
+ * their HTML, so neither the clipper nor this plugin can find it. A `media:`
+ * frontmatter list is the escape hatch: paste the direct URL and it is
+ * archived like anything else. Worth doing promptly, since those CDN URLs
+ * are signed and expire.
+ */
+function frontmatterMedia(value: unknown): MediaRef[] {
+  const urls = asStringArray(value).filter(isRemote);
+  return urls.map((url) => ({
+    url,
+    kind: VIDEO_EXT.test(url) ? ("video" as const) : ("image" as const),
+    alt: "",
+    widthHint: widthHint(url),
+    heightHint: heightHint(url),
+  }));
+}
+
 function basename(path: string): string {
   const file = path.split("/").pop() ?? path;
   return file.replace(/\.md$/i, "");
@@ -121,7 +141,9 @@ export function scanClipping(
   }
 
   found.sort((a, b) => a.index - b.index);
-  const media = found.map((f) => f.ref);
+
+  // Hand-listed media leads, so it wins the cover over anything in the body.
+  const media = [...frontmatterMedia(frontmatter.media), ...found.map((f) => f.ref)];
 
   const title = str(frontmatter.title) || basename(path);
   const source = str(frontmatter.source);
