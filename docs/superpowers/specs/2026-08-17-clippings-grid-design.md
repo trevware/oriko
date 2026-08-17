@@ -69,7 +69,7 @@ Recognizes three reference forms found in real clippings: markdown `![alt](url)`
 
 Collapses the same asset requested at several sizes into one file. Polygon serves `...builder-7.jpg?q=49&fit=contain&w=750&h=422&dpr=2` and `...builder-7.jpg?q=49&fit=contain&w=1920&h=1080&dpr=2`, which are one image, not two. Normalization strips known sizing query parameters (`w`, `h`, `dpr`, `q`, `fit`, `resize`, `s`), groups refs by scheme plus host plus path, and keeps the variant with the largest declared width as the canonical URL.
 
-For Combolands this reduces 12 refs to 6 files.
+For Combolands this reduces 12 refs to 4 files: four distinct screenshots, each served at 750, 1920, and 2560 wide.
 
 ### 3. Archiver
 
@@ -80,6 +80,7 @@ Downloads each canonical `MediaRef` and writes it into the attachment folder.
 - Write with `vault.createBinary`. Skip when the file already exists, which makes the whole archiver idempotent and re-runnable.
 - At most four downloads in flight.
 - Refuse anything over the configured size cap (default 25MB).
+- Refuse anything whose response `Content-Type` is not an image or video. Clippings contain markdown image syntax pointing at pages rather than assets: one real clipping embeds `https://www.youtube.com/watch?v=...` as an image. Without this check the archiver would save an HTML document as a `.jpg` and the grid would render a broken tile.
 
 After a successful write the archiver produces the derived assets described next, then records the result in the cache.
 

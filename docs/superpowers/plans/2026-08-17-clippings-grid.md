@@ -1516,7 +1516,9 @@ git commit -m "feat: masonry layout math and virtualization range"
 
 **Interfaces:**
 - Consumes: `CanonicalMedia`, `hashUrl`, `readDimensions`.
-- Produces: `ArchiveOutcome`, `ArchiveDeps`, `Fetcher`, `archiveOne(media, referer, deps): Promise<ArchiveOutcome>`, `archiveAll(list, referer, deps, concurrency): Promise<ArchiveOutcome[]>`, `archiveFilename(media): string`.
+- Produces: `ArchiveOutcome`, `ArchiveDeps`, `Fetcher`, `FetchResult { status: number; arrayBuffer: ArrayBuffer; contentType?: string }`, `archiveOne(media, referer, deps): Promise<ArchiveOutcome>`, `archiveAll(list, referer, deps, concurrency): Promise<ArchiveOutcome[]>`, `archiveFilename(media): string`.
+
+**Note added after Task 2 verified the scanner against the real vault:** one real clipping embeds `![...](https://www.youtube.com/watch?v=BZZoL_IoBZs)`, a page URL written with markdown image syntax. The archiver must reject responses whose `Content-Type` is not an image or video, or it will save an HTML document as a `.jpg`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1634,6 +1636,32 @@ describe("archiveOne", () => {
     expect(out.failed).toContain("404");
   });
 
+  it("refuses a response that is not image or video content", async () => {
+    const d = deps({
+      fetch: vi.fn(async () => ({
+        status: 200,
+        arrayBuffer: new TextEncoder().encode("<!doctype html><html>").buffer,
+        contentType: "text/html; charset=utf-8",
+      })),
+    });
+    const out = await archiveOne(
+      { ...media, url: "https://www.youtube.com/watch?v=BZZoL_IoBZs" },
+      "https://ref",
+      d
+    );
+    expect(out.failed).toContain("text/html");
+    expect(d.write).not.toHaveBeenCalled();
+  });
+
+  it("accepts a response with no content-type rather than guessing", async () => {
+    const d = deps({
+      fetch: vi.fn(async () => ({ status: 200, arrayBuffer: pngBuffer(10, 10) })),
+    });
+    const out = await archiveOne(media, "https://ref", d);
+    expect(out.failed).toBeUndefined();
+    expect(d.write).toHaveBeenCalledOnce();
+  });
+
   it("refuses files over the size cap without writing them", async () => {
     const d = deps({
       maxBytes: 100,
@@ -1707,6 +1735,7 @@ import type { CanonicalMedia } from "./normalize";
 export interface FetchResult {
   status: number;
   arrayBuffer: ArrayBuffer;
+  contentType?: string;
 }
 
 export type Fetcher = (
@@ -1777,6 +1806,13 @@ export async function archiveOne(
 
   if (response.status < 200 || response.status >= 300) {
     return { ...base, failed: `HTTP ${response.status}` };
+  }
+
+  // A clipping can point markdown image syntax at a web page. Trust the
+  // server's content type over the markup that referenced it.
+  const contentType = response.contentType?.split(";")[0]?.trim().toLowerCase();
+  if (contentType && !/^(image|video)\//.test(contentType)) {
+    return { ...base, failed: `unexpected content type ${contentType}` };
   }
 
   const bytes = response.arrayBuffer.byteLength;
@@ -2065,7 +2101,11 @@ export class ArchiveService {
           headers,
           throw: false,
         });
-        return { status: response.status, arrayBuffer: response.arrayBuffer };
+        return {
+          status: response.status,
+          arrayBuffer: response.arrayBuffer,
+          contentType: response.headers?.["content-type"],
+        };
       },
       exists: (path) => this.app.vault.adapter.exists(normalizePath(path)),
       write: async (path, data) => {
@@ -2154,7 +2194,7 @@ The delay lets the Web Clipper finish writing before the scan runs.
 - [ ] **Step 7: Verify in the vault**
 
 Reload Obsidian, open the command palette, run "Archive all clipping media".
-Expected: a notice reporting archived counts. `Attachments/Clippings/` fills with files named like `a3f91c2e-combolands-7.jpg`, including the Nook `.mp4`. Confirm the Combolands duplicates produced 6 files rather than 12, and that `.obsidian/plugins/clippings-grid/cache.json` exists with width and height on each image entry.
+Expected: a notice reporting archived counts. `Attachments/Clippings/` fills with files named like `a3f91c2e-combolands-7.jpg`, including the Nook `.mp4`. Confirm the Combolands duplicates produced 4 files rather than 12, that the Ghost in the Shell clipping's YouTube page URL was rejected on content type rather than saved as a `.jpg`, and that `.obsidian/plugins/clippings-grid/cache.json` exists with width and height on each image entry.
 
 - [ ] **Step 8: Commit**
 
