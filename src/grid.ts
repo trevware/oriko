@@ -348,7 +348,8 @@ export class GridRenderer {
 
     if (element.signature === model.signature) return;
 
-    const still = this.sourceFor(model.thumbPath, model.remote);
+    // Posters are always local files; the painted asset may be either.
+    const still = this.sourceFor(model.posterPath, false);
     const original = this.sourceFor(model.filePath, model.remote);
 
     // An image tile whose source changed (archiving replaced the remote copy
@@ -360,9 +361,9 @@ export class GridRenderer {
       element.media instanceof HTMLImageElement
     ) {
       const image = element.media;
-      this.swapImage(image, still || original);
-      if (model.animated && original) {
-        image.dataset.stillSrc = still || original;
+      this.swapImage(image, original);
+      if (model.animated && still && original) {
+        image.dataset.stillSrc = still;
         image.dataset.animatedSrc = original;
       } else {
         delete image.dataset.stillSrc;
@@ -404,10 +405,11 @@ export class GridRenderer {
       image.loading = "lazy";
       image.decoding = "async";
       image.alt = model.record.title;
-      image.src = still || original;
+      // Always the full-resolution asset, so the tile stays sharp at any zoom.
+      image.src = original;
 
-      if (model.animated && original) {
-        image.dataset.stillSrc = still || original;
+      if (model.animated && still) {
+        image.dataset.stillSrc = still;
         image.dataset.animatedSrc = original;
       }
 

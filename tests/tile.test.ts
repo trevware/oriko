@@ -38,7 +38,8 @@ describe("buildTiles", () => {
     const cache = cacheWith([[COMBO_7, { thumb: "T7.webp", file: "F7.jpg", width: 1920, height: 1080 }]]);
     const tiles = buildTiles([combolands], cache);
     expect(tiles).toHaveLength(1);
-    expect(tiles[0].thumbPath).toBe("T7.webp");
+    expect(tiles[0].filePath).toBe("F7.jpg");
+    expect(tiles[0].posterPath).toBe("");
     expect(tiles[0].kind).toBe("image");
     expect(tiles[0].width).toBe(1920);
   });
@@ -56,7 +57,7 @@ describe("buildTiles", () => {
       bytes: 1,
     });
     const tiles = buildTiles([combolands], cache);
-    expect(tiles[0].thumbPath).toBe("T6.webp");
+    expect(tiles[0].filePath).toBe("F6.jpg");
   });
 
   it("uses the local original when the thumbnail is not derived yet", () => {
@@ -64,7 +65,7 @@ describe("buildTiles", () => {
       [COMBO_7, { file: "F7.jpg", thumb: "", width: 1920, height: 1080 }],
     ]);
     const tiles = buildTiles([combolands], cache);
-    expect(tiles[0].thumbPath).toBe("F7.jpg");
+    expect(tiles[0].filePath).toBe("F7.jpg");
     expect(tiles[0].remote).toBe(false);
   });
 
@@ -75,7 +76,7 @@ describe("buildTiles", () => {
     const tiles = buildTiles([nook], cache);
     expect(tiles[0].kind).toBe("video");
     expect(tiles[0].filePath).toBe("clip.mp4");
-    expect(tiles[0].thumbPath).toBe("clip.poster.webp");
+    expect(tiles[0].posterPath).toBe("clip.poster.webp");
   });
 
   it("omits a clipping with no media and no source page", () => {
@@ -95,7 +96,7 @@ describe("buildTiles", () => {
       COMBOLANDS_BODY
     );
     const tiles = buildTiles([record], new MediaCache());
-    expect(tiles[0].thumbPath).toBe("Attachments/Clippings/manual.png");
+    expect(tiles[0].filePath).toBe("Attachments/Clippings/manual.png");
   });
 
   it("uses the note path as the tile id", () => {
@@ -124,7 +125,7 @@ describe("remote covers before archiving", () => {
     const tiles = buildTiles([combolands], new MediaCache());
     expect(tiles[0].kind).toBe("image");
     expect(tiles[0].remote).toBe(true);
-    expect(tiles[0].thumbPath).toContain("combolands-7.jpg");
+    expect(tiles[0].filePath).toContain("combolands-7.jpg");
   });
 
   it("marks remote dimensions as provisional", () => {
@@ -145,7 +146,7 @@ describe("remote covers before archiving", () => {
     const tiles = buildTiles([combolands], cache);
     expect(tiles[0].remote).toBe(false);
     expect(tiles[0].provisional).toBe(false);
-    expect(tiles[0].thumbPath).toBe("T7.webp");
+    expect(tiles[0].filePath).toBe("F7.jpg");
   });
 
   it("does not show a ref remotely when its archive failed", () => {
@@ -162,7 +163,7 @@ describe("remote covers before archiving", () => {
     cache.mergeOutcome({ key: COMBO_7, kind: "image", failed: "HTTP 404" });
     const tiles = buildTiles([combolands], cache);
     expect(tiles[0].remote).toBe(true);
-    expect(tiles[0].thumbPath).toContain("combolands-6.jpg");
+    expect(tiles[0].filePath).toContain("combolands-6.jpg");
   });
 
   it("shows a remote video before it is archived", () => {
@@ -195,7 +196,7 @@ describe("page covers", () => {
     const tiles = buildTiles([youtube], new MediaCache());
     expect(tiles).toHaveLength(1);
     expect(tiles[0].remote).toBe(true);
-    expect(tiles[0].thumbPath).toBe(
+    expect(tiles[0].filePath).toBe(
       "https://img.youtube.com/vi/BZZoL_IoBZs/maxresdefault.jpg"
     );
   });
@@ -209,7 +210,7 @@ describe("page covers", () => {
     ]);
     const tiles = buildTiles([youtube], cache);
     expect(tiles[0].remote).toBe(false);
-    expect(tiles[0].thumbPath).toBe("yt.thumb.webp");
+    expect(tiles[0].filePath).toBe("yt.jpg");
   });
 
   it("uses an archived og:image for a page that is not a known host", () => {
@@ -221,7 +222,7 @@ describe("page covers", () => {
     ]);
     const tiles = buildTiles([article], cache);
     expect(tiles).toHaveLength(1);
-    expect(tiles[0].thumbPath).toBe("og.thumb.webp");
+    expect(tiles[0].filePath).toBe("og.jpg");
   });
 
   it("omits a page whose cover resolution already failed", () => {
@@ -244,7 +245,7 @@ describe("page covers", () => {
       { title: "G", source: "https://www.youtube.com/watch?v=BZZoL_IoBZs" },
       "![a](https://x.com/inline.jpg)"
     );
-    expect(buildTiles([withMedia], new MediaCache())[0].thumbPath).toContain("inline.jpg");
+    expect(buildTiles([withMedia], new MediaCache())[0].filePath).toContain("inline.jpg");
   });
 });
 
@@ -300,6 +301,22 @@ describe("animated covers", () => {
       [COMBO_7, { file: "F7.gif", thumb: "", width: 960, height: 420, bytes: 101_000 }],
     ]);
     expect(buildTiles([combolands], cache)[0].animated).toBe(false);
+  });
+
+  it("keeps a still for a gif, so playback has something to freeze on", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.gif", thumb: "T7.webp", width: 960, height: 420, bytes: 101_000 }],
+    ]);
+    const tile = buildTiles([combolands], cache)[0];
+    expect(tile.filePath).toBe("F7.gif");
+    expect(tile.posterPath).toBe("T7.webp");
+  });
+
+  it("keeps a poster for video", () => {
+    const cache = cacheWith([
+      [NOOK_MP4, { kind: "video", file: "c.mp4", thumb: "c.poster.webp", width: 886, height: 1920 }],
+    ]);
+    expect(buildTiles([nook], cache)[0].posterPath).toBe("c.poster.webp");
   });
 
   // A remote gif animates on its own, but there is no still to swap back to,

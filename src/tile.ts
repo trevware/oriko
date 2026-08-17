@@ -7,9 +7,12 @@ import type { ClippingRecord } from "./scan";
 export interface TileModel {
   id: string;
   record: ClippingRecord;
-  /** What the tile paints. A vault path, or a remote URL when `remote`. */
-  thumbPath: string;
-  /** The full-resolution source, same addressing as `thumbPath`. */
+  /**
+   * A still frame, used only to post a video and to freeze a paused GIF.
+   * Empty for static images, which always paint at full resolution.
+   */
+  posterPath: string;
+  /** What the tile paints: the full-resolution source. */
   filePath: string;
   /** True while the tile is showing the origin server's copy. */
   remote: boolean;
@@ -44,23 +47,21 @@ const MAX_ANIMATED_BYTES = 8 * 1024 * 1024;
 type Cover = Omit<TileModel, "id" | "record" | "signature">;
 
 function signatureOf(cover: Cover): string {
-  return `${cover.kind}|${cover.animated ? 1 : 0}|${cover.thumbPath}|${cover.filePath}`;
+  return `${cover.kind}|${cover.animated ? 1 : 0}|${cover.posterPath}|${cover.filePath}`;
 }
 
 function localCover(
   entry: NonNullable<ReturnType<MediaCache["get"]>>
 ): Cover {
   const hasSize = entry.width > 0 && entry.height > 0;
+  const animatable = entry.kind === "image" && ANIMATED_EXT.test(entry.file);
   return {
-    thumbPath: entry.thumb || entry.file,
+    // Only video and animated GIFs have any use for a still.
+    posterPath: entry.kind === "video" || animatable ? entry.thumb : "",
     filePath: entry.file,
     remote: false,
     kind: entry.kind,
-    animated:
-      entry.kind === "image" &&
-      Boolean(entry.thumb) &&
-      ANIMATED_EXT.test(entry.file) &&
-      entry.bytes <= MAX_ANIMATED_BYTES,
+    animated: animatable && Boolean(entry.thumb) && entry.bytes <= MAX_ANIMATED_BYTES,
     width: hasSize ? entry.width : DEFAULT_RATIO.width,
     height: hasSize ? entry.height : DEFAULT_RATIO.height,
     provisional: !hasSize,
@@ -76,7 +77,7 @@ function remoteCover(
   const ratio = kind === "video" ? VIDEO_RATIO : DEFAULT_RATIO;
   const hinted = Boolean(widthHint && heightHint);
   return {
-    thumbPath: url,
+    posterPath: "",
     filePath: url,
     remote: true,
     kind,
@@ -89,9 +90,10 @@ function remoteCover(
 }
 
 /**
- * Picks what a tile shows, preferring the cheapest source that exists:
- * a local thumbnail, then the local original, then the origin server. The
- * grid therefore never waits on archiving to show something.
+ * Picks what a tile shows: the archived original when it exists, otherwise
+ * the origin server's copy. Always the full-resolution asset, so a tile
+ * stays sharp at any zoom. The grid never waits on archiving to show
+ * something.
  *
  * Returns null when the clipping has nothing to show, in which case it is
  * left out of the grid rather than represented by a placeholder.

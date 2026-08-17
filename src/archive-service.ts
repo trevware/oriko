@@ -121,6 +121,9 @@ export class ArchiveService {
 
     for (const entry of this.cache.entries()) {
       if (!entry.file || entry.thumb || entry.failed) continue;
+      // Tiles paint originals, so a still is only worth generating for the
+      // two things that need one: posting a video and freezing a GIF.
+      if (entry.kind !== "video" && !/\.gif$/i.test(entry.file)) continue;
 
       const source = await this.blobUrl(entry.file);
       if (!source) continue;
