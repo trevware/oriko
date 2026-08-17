@@ -23,7 +23,7 @@ function cacheWith(
       kind: e.kind ?? "image",
       width: e.width ?? 100,
       height: e.height ?? 100,
-      bytes: 1,
+      bytes: e.bytes ?? 1,
       ...(e.failed ? { failed: e.failed } : {}),
     });
   }
@@ -133,5 +133,39 @@ describe("buildTiles", () => {
 
   it("returns an empty list for no records", () => {
     expect(buildTiles([], new MediaCache())).toEqual([]);
+  });
+});
+
+describe("animated covers", () => {
+  it("marks a gif cover as animated", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.gif", thumb: "T7.webp", width: 960, height: 420, bytes: 101_000 }],
+    ]);
+    expect(buildTiles([combolands], cache)[0].animated).toBe(true);
+  });
+
+  it("does not mark a jpg as animated", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.jpg", thumb: "T7.webp", width: 1920, height: 1080 }],
+    ]);
+    expect(buildTiles([combolands], cache)[0].animated).toBe(false);
+  });
+
+  it("does not animate a gif over the size threshold", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.gif", thumb: "T7.webp", width: 960, height: 420, bytes: 50_000_000 }],
+    ]);
+    expect(buildTiles([combolands], cache)[0].animated).toBe(false);
+  });
+
+  it("does not mark video as animated, since video has its own path", () => {
+    const cache = cacheWith([
+      [NOOK_MP4, { kind: "video", file: "c.mp4", thumb: "c.poster.webp", width: 886, height: 1920 }],
+    ]);
+    expect(buildTiles([nook], cache)[0].animated).toBe(false);
+  });
+
+  it("never marks a fallback tile as animated", () => {
+    expect(buildTiles([combolands], new MediaCache())[0].animated).toBe(false);
   });
 });

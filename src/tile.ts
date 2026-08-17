@@ -9,6 +9,8 @@ export interface TileModel {
   thumbPath: string;
   filePath: string;
   kind: "image" | "video" | "fallback";
+  /** True when the cover moves on its own and should be played in view. */
+  animated: boolean;
   width: number;
   height: number;
   gradient: string;
@@ -16,6 +18,17 @@ export interface TileModel {
 
 /** Aspect ratio used when nothing is known about a tile's contents. */
 const FALLBACK_RATIO = { width: 4, height: 3 };
+
+/**
+ * Frame 0 of an animated GIF is often useless as a cover: a terminal
+ * recording opens on an empty prompt. Showing the original instead of a
+ * still lets it animate, which is both truer to the content and closer to
+ * how posts.design previews clips.
+ */
+const ANIMATED_EXT = /\.gif$/i;
+
+/** Above this, decoding every frame costs more than the motion is worth. */
+const MAX_ANIMATED_BYTES = 8 * 1024 * 1024;
 
 export function gradientFor(seed: string): string {
   const hash = hashUrl(seed);
@@ -46,6 +59,7 @@ export function buildTiles(records: ClippingRecord[], cache: MediaCache): TileMo
         thumbPath: record.cover,
         filePath: record.cover,
         kind: "image" as const,
+        animated: false,
         ...FALLBACK_RATIO,
       };
     }
@@ -62,6 +76,10 @@ export function buildTiles(records: ClippingRecord[], cache: MediaCache): TileMo
         thumbPath: entry.thumb,
         filePath: entry.file,
         kind: entry.kind,
+        animated:
+          entry.kind === "image" &&
+          ANIMATED_EXT.test(entry.file) &&
+          entry.bytes <= MAX_ANIMATED_BYTES,
         width: hasSize ? entry.width : FALLBACK_RATIO.width,
         height: hasSize ? entry.height : FALLBACK_RATIO.height,
       };
@@ -72,6 +90,7 @@ export function buildTiles(records: ClippingRecord[], cache: MediaCache): TileMo
       thumbPath: "",
       filePath: "",
       kind: "fallback" as const,
+      animated: false,
       ...FALLBACK_RATIO,
     };
   });

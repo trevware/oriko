@@ -147,7 +147,17 @@ export class GridRenderer {
       image.width = model.width;
       image.height = model.height;
       image.alt = model.record.title;
-      image.src = this.resourceFor(model.thumbPath) || this.resourceFor(model.filePath);
+
+      const still = this.resourceFor(model.thumbPath);
+      const original = this.resourceFor(model.filePath);
+      image.src = still || original;
+
+      if (model.animated && original) {
+        // A GIF cannot be paused in place, so playback swaps between the
+        // still thumbnail and the original.
+        image.dataset.stillSrc = still || original;
+        image.dataset.animatedSrc = original;
+      }
       element.media = image;
     }
 
@@ -198,10 +208,15 @@ export class GridRenderer {
     this.onRendered();
   }
 
-  mountedMedia(): HTMLElement[] {
-    return [...this.mounted.values()]
-      .map((t) => t.media)
-      .filter((m): m is HTMLElement => m !== null);
+  /** Video and animated-image elements currently in the DOM. */
+  mountedMedia(): Array<HTMLVideoElement | HTMLImageElement> {
+    const out: Array<HTMLVideoElement | HTMLImageElement> = [];
+    for (const tile of this.mounted.values()) {
+      const media = tile.media;
+      if (media instanceof HTMLVideoElement) out.push(media);
+      else if (media instanceof HTMLImageElement && media.dataset.animatedSrc) out.push(media);
+    }
+    return out;
   }
 
   destroy(): void {
