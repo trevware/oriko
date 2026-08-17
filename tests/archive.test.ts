@@ -233,6 +233,73 @@ describe("archiveOne", () => {
   });
 });
 
+describe("fallback urls", () => {
+  const withFallbacks: CanonicalMedia = {
+    key: "https://www.youtube.com/watch?v=BZZoL_IoBZs",
+    url: "https://img.youtube.com/vi/BZZoL_IoBZs/maxresdefault.jpg",
+    kind: "image",
+    alt: "",
+    fallbacks: [
+      "https://img.youtube.com/vi/BZZoL_IoBZs/hq720.jpg",
+      "https://img.youtube.com/vi/BZZoL_IoBZs/hqdefault.jpg",
+    ],
+  };
+
+  it("uses the primary when it succeeds", async () => {
+    const d = deps();
+    const out = await archiveOne(withFallbacks, "", d);
+    expect(out.file).toContain("maxresdefault");
+    expect(d.fetch).toHaveBeenCalledOnce();
+  });
+
+  it("walks down to the next candidate on a 404", async () => {
+    const fetch = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce({ status: 404, arrayBuffer: new ArrayBuffer(0) })
+      .mockResolvedValueOnce({ status: 200, arrayBuffer: pngBuffer(1280, 720) });
+    const out = await archiveOne(withFallbacks, "", deps({ fetch }));
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(out.file).toContain("hq720");
+    expect(out.width).toBe(1280);
+  });
+
+  it("reaches the last candidate when the earlier ones fail", async () => {
+    const fetch = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce({ status: 404, arrayBuffer: new ArrayBuffer(0) })
+      .mockResolvedValueOnce({ status: 404, arrayBuffer: new ArrayBuffer(0) })
+      .mockResolvedValueOnce({ status: 200, arrayBuffer: pngBuffer(480, 360) });
+    const out = await archiveOne(withFallbacks, "", deps({ fetch }));
+    expect(out.file).toContain("hqdefault");
+  });
+
+  it("reports the last failure when every candidate fails", async () => {
+    const fetch = vi.fn(async () => ({ status: 404, arrayBuffer: new ArrayBuffer(0) }));
+    const out = await archiveOne(withFallbacks, "", deps({ fetch }));
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(out.failed).toContain("404");
+    expect(out.file).toBeUndefined();
+  });
+
+  it("skips the download when a fallback was already archived", async () => {
+    const d = deps({
+      exists: vi.fn(async (path: string) => path.includes("hqdefault")),
+    });
+    const out = await archiveOne(withFallbacks, "", d);
+    expect(d.fetch).not.toHaveBeenCalled();
+    expect(out.file).toContain("hqdefault");
+  });
+
+  it("keys every candidate under the same cache key", async () => {
+    const fetch = vi
+      .fn<Fetcher>()
+      .mockResolvedValueOnce({ status: 404, arrayBuffer: new ArrayBuffer(0) })
+      .mockResolvedValueOnce({ status: 200, arrayBuffer: pngBuffer(10, 10) });
+    const out = await archiveOne(withFallbacks, "", deps({ fetch }));
+    expect(out.key).toBe("https://www.youtube.com/watch?v=BZZoL_IoBZs");
+  });
+});
+
 describe("archiveAll", () => {
   const list: CanonicalMedia[] = Array.from({ length: 9 }, (_, i) => ({
     key: `https://x.com/${i}.jpg`,

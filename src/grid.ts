@@ -41,13 +41,117 @@ export class GridRenderer {
   /** Real dimensions learned by loading a tile whose size was a guess. */
   private measured = new Map<string, { w: number; h: number }>();
 
+  private spaceHeld = false;
+  private panning = false;
+  /** True when the pointer moved enough to count as a pan, not a click. */
+  private panMoved = false;
+  private panOrigin = { x: 0, y: 0, left: 0, top: 0 };
+  private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
+  private onKeyUp: ((event: KeyboardEvent) => void) | null = null;
+  private onBlur: (() => void) | null = null;
+
   /** Called after every render pass so the view can observe new video tiles. */
   onRendered: () => void = () => {};
+
+  /** A tile's cover could not be loaded and it should leave the grid. */
+  onSourceFailed: (id: string) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
     this.scroller = container.createDiv({ cls: "cg-scroller" });
     this.spacer = this.scroller.createDiv({ cls: "cg-spacer" });
     this.scroller.addEventListener("scroll", () => this.schedule(), { passive: true });
+    this.installPanning();
+  }
+
+  /**
+   * Trackpad panning on both axes, plus hold-space to grab and drag, the
+   * way a canvas tool behaves. Horizontal movement only does anything when
+   * the wall is wider than the pane.
+   */
+  private installPanning(): void {
+    this.scroller.addEventListener(
+      "wheel",
+      (event: WheelEvent) => {
+        if (event.ctrlKey) return;
+        if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+        if (this.scroller.scrollWidth <= this.scroller.clientWidth) return;
+        event.preventDefault();
+        this.scroller.scrollLeft += event.deltaX;
+      },
+      { passive: false }
+    );
+
+    this.onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== "Space" || event.repeat) return;
+      const target = event.target as HTMLElement | null;
+      // Never steal the space bar from a text field.
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      if (!this.spaceHeld) {
+        this.spaceHeld = true;
+        this.scroller.addClass("is-pannable");
+      }
+      event.preventDefault();
+    };
+
+    this.onKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space") return;
+      this.endPan();
+    };
+
+    // Losing focus mid-drag would otherwise leave the grab cursor stuck on.
+    this.onBlur = () => this.endPan();
+
+    document.addEventListener("keydown", this.onKeyDown);
+    document.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("blur", this.onBlur);
+
+    this.scroller.addEventListener("pointerdown", (event: PointerEvent) => {
+      const middleClick = event.button === 1;
+      if (!this.spaceHeld && !middleClick) return;
+      event.preventDefault();
+      this.panning = true;
+      this.panMoved = false;
+      this.panOrigin = {
+        x: event.clientX,
+        y: event.clientY,
+        left: this.scroller.scrollLeft,
+        top: this.scroller.scrollTop,
+      };
+      this.scroller.addClass("is-panning");
+      this.scroller.setPointerCapture(event.pointerId);
+    });
+
+    this.scroller.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!this.panning) return;
+      const dx = event.clientX - this.panOrigin.x;
+      const dy = event.clientY - this.panOrigin.y;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) this.panMoved = true;
+      this.scroller.scrollLeft = this.panOrigin.left - dx;
+      this.scroller.scrollTop = this.panOrigin.top - dy;
+    });
+
+    const stop = (event: PointerEvent): void => {
+      if (!this.panning) return;
+      this.panning = false;
+      this.scroller.removeClass("is-panning");
+      if (this.scroller.hasPointerCapture(event.pointerId)) {
+        this.scroller.releasePointerCapture(event.pointerId);
+      }
+      // Cleared after the click event that follows pointerup has run.
+      window.setTimeout(() => {
+        this.panMoved = false;
+      }, 0);
+    };
+
+    this.scroller.addEventListener("pointerup", stop);
+    this.scroller.addEventListener("pointercancel", stop);
+  }
+
+  private endPan(): void {
+    this.spaceHeld = false;
+    this.panning = false;
+    this.scroller.removeClass("is-pannable");
+    this.scroller.removeClass("is-panning");
   }
 
   get scrollerEl(): HTMLElement {
@@ -204,10 +308,7 @@ export class GridRenderer {
 
     const frame = element.root.createDiv({ cls: "cg-frame" });
 
-    if (model.kind === "fallback") {
-      frame.style.background = model.gradient;
-      frame.createDiv({ cls: "cg-fallback-title", text: model.record.title });
-    } else if (model.kind === "video") {
+    if (model.kind === "video") {
       const video = frame.createEl("video", { cls: "cg-media" });
       video.muted = true;
       video.loop = true;
@@ -248,16 +349,12 @@ export class GridRenderer {
         );
       }
 
-      // A remote cover can 403 on a hotlink-protected host. Degrade to the
-      // gradient rather than leaving a broken image in the wall.
+      // A remote cover can 403 on a hotlink-protected host. Drop the tile
+      // rather than leaving a broken image in the wall.
       image.addEventListener(
         "error",
         () => {
-          if (!image.isConnected) return;
-          frame.empty();
-          frame.style.background = model.gradient;
-          frame.createDiv({ cls: "cg-fallback-title", text: model.record.title });
-          element.media = null;
+          if (image.isConnected) this.onSourceFailed(model.id);
         },
         { once: true }
       );
@@ -275,11 +372,11 @@ export class GridRenderer {
       sub.createSpan({ text: model.record.categories.join(", ") });
     }
 
-    if (model.record.status === "unread") {
-      element.root.createDiv({ cls: "cg-unread" });
-    }
-
-    element.root.onclick = (event: MouseEvent) => this.openNote(model, event);
+    element.root.onclick = (event: MouseEvent) => {
+      // A pan that ends over a tile must not also open it.
+      if (this.panMoved) return;
+      this.openNote(model, event);
+    };
   }
 
   render(): void {
@@ -324,6 +421,9 @@ export class GridRenderer {
   }
 
   destroy(): void {
+    if (this.onKeyDown) document.removeEventListener("keydown", this.onKeyDown);
+    if (this.onKeyUp) document.removeEventListener("keyup", this.onKeyUp);
+    if (this.onBlur) window.removeEventListener("blur", this.onBlur);
     if (this.frame) window.cancelAnimationFrame(this.frame);
     if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
     this.mounted.clear();

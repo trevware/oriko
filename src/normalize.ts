@@ -7,6 +7,8 @@ export interface CanonicalMedia {
   alt: string;
   widthHint?: number;
   heightHint?: number;
+  /** Alternate URLs to try, in order, when `url` is unavailable. */
+  fallbacks?: string[];
 }
 
 /**

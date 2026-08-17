@@ -9,10 +9,30 @@
 
 .cg-scroller {
   flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: auto;
   padding: 16px;
   contain: strict;
+  overscroll-behavior: contain;
+}
+
+/* Space is held: the wall is ready to be grabbed. */
+.cg-scroller.is-pannable,
+.cg-scroller.is-pannable .cg-tile {
+  cursor: grab;
+}
+
+.cg-scroller.is-panning,
+.cg-scroller.is-panning .cg-tile {
+  cursor: grabbing;
+}
+
+/* Dragging must not select text or start a native image drag. */
+.cg-scroller.is-pannable {
+  user-select: none;
+}
+
+.cg-scroller.is-pannable .cg-media {
+  pointer-events: none;
 }
 
 .cg-spacer {
@@ -46,14 +66,6 @@
   display: block;
 }
 
-.cg-fallback-title {
-  padding: 16px;
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
-  text-align: center;
-  line-height: 1.3;
-}
 
 .cg-meta {
   position: absolute;
@@ -90,13 +102,6 @@
   overflow: hidden;
 }
 
-.cg-unread {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+.cg-media {
+  -webkit-user-drag: none;
 }

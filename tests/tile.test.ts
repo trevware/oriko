@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MediaCache } from "../src/cache";
 import { scanClipping } from "../src/scan";
-import { buildTiles, gradientFor } from "../src/tile";
+import { buildTiles } from "../src/tile";
 import { COMBOLANDS_BODY, COMBOLANDS_FM, NOOK_BODY, NOOK_FM } from "./fixtures/clippings";
 
 const COMBO_7 =
@@ -32,20 +32,6 @@ function cacheWith(
 
 const combolands = scanClipping("Clippings/C.md", COMBOLANDS_FM, COMBOLANDS_BODY);
 const nook = scanClipping("Clippings/N.md", NOOK_FM, NOOK_BODY);
-
-describe("gradientFor", () => {
-  it("is stable for the same seed", () => {
-    expect(gradientFor("polygon.com")).toBe(gradientFor("polygon.com"));
-  });
-
-  it("differs across seeds", () => {
-    expect(gradientFor("polygon.com")).not.toBe(gradientFor("github.com"));
-  });
-
-  it("produces a css gradient", () => {
-    expect(gradientFor("x")).toMatch(/^linear-gradient\(/);
-  });
-});
 
 describe("buildTiles", () => {
   it("uses the first archived image as the cover", () => {
@@ -92,19 +78,14 @@ describe("buildTiles", () => {
     expect(tiles[0].thumbPath).toBe("clip.poster.webp");
   });
 
-  it("falls back to a gradient tile when the clipping has no media", () => {
+  it("omits a clipping with no media and no source page", () => {
     const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
-    const tiles = buildTiles([empty], new MediaCache());
-    expect(tiles[0].kind).toBe("fallback");
-    expect(tiles[0].thumbPath).toBe("");
-    expect(tiles[0].gradient).toMatch(/^linear-gradient\(/);
+    expect(buildTiles([empty], new MediaCache())).toEqual([]);
   });
 
-  it("gives fallback tiles a sane default aspect ratio", () => {
-    const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
-    const tiles = buildTiles([empty], new MediaCache());
-    expect(tiles[0].width).toBe(4);
-    expect(tiles[0].height).toBe(3);
+  it("omits explicitly excluded records", () => {
+    const tiles = buildTiles([combolands], new MediaCache(), new Set(["Clippings/C.md"]));
+    expect(tiles).toEqual([]);
   });
 
   it("honors an explicit cover in frontmatter", () => {
@@ -171,8 +152,9 @@ describe("remote covers before archiving", () => {
     const cache = new MediaCache();
     cache.mergeOutcome({ key: COMBO_7, kind: "image", failed: "unexpected content type text/html" });
     cache.mergeOutcome({ key: COMBO_6, kind: "image", failed: "HTTP 404" });
-    const tiles = buildTiles([combolands], cache);
-    expect(tiles[0].kind).toBe("fallback");
+    // Polygon's source page has no cached preview image either, so nothing
+    // is left to show and the clipping drops out of the grid.
+    expect(buildTiles([combolands], cache)).toEqual([]);
   });
 
   it("falls back to a later ref when an earlier one failed", () => {
@@ -190,9 +172,79 @@ describe("remote covers before archiving", () => {
     expect(tiles[0].filePath).toContain(".mp4");
   });
 
-  it("still falls back to a gradient when there is no media at all", () => {
+  it("omits a clipping with no media at all", () => {
     const empty = scanClipping("Clippings/E.md", { title: "E" }, "no media here");
-    expect(buildTiles([empty], new MediaCache())[0].kind).toBe("fallback");
+    expect(buildTiles([empty], new MediaCache())).toEqual([]);
+  });
+});
+
+describe("page covers", () => {
+  const youtube = scanClipping(
+    "Clippings/GITS.md",
+    { title: "Ghost in the Shell", source: "https://www.youtube.com/watch?v=BZZoL_IoBZs" },
+    "no inline media at all"
+  );
+
+  const article = scanClipping(
+    "Clippings/A.md",
+    { title: "An article", source: "https://www.polygon.com/article" },
+    "no inline media at all"
+  );
+
+  it("resolves a youtube page to its thumbnail with no fetch", () => {
+    const tiles = buildTiles([youtube], new MediaCache());
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].remote).toBe(true);
+    expect(tiles[0].thumbPath).toBe(
+      "https://img.youtube.com/vi/BZZoL_IoBZs/maxresdefault.jpg"
+    );
+  });
+
+  it("prefers the archived page cover over the remote thumbnail", () => {
+    const cache = cacheWith([
+      [
+        "https://www.youtube.com/watch?v=BZZoL_IoBZs",
+        { file: "yt.jpg", thumb: "yt.thumb.webp", width: 1280, height: 720 },
+      ],
+    ]);
+    const tiles = buildTiles([youtube], cache);
+    expect(tiles[0].remote).toBe(false);
+    expect(tiles[0].thumbPath).toBe("yt.thumb.webp");
+  });
+
+  it("uses an archived og:image for a page that is not a known host", () => {
+    const cache = cacheWith([
+      [
+        "https://www.polygon.com/article",
+        { file: "og.jpg", thumb: "og.thumb.webp", width: 1200, height: 630 },
+      ],
+    ]);
+    const tiles = buildTiles([article], cache);
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].thumbPath).toBe("og.thumb.webp");
+  });
+
+  it("omits a page whose cover resolution already failed", () => {
+    const cache = new MediaCache();
+    cache.mergeOutcome({
+      key: "https://www.polygon.com/article",
+      kind: "image",
+      failed: "no preview image",
+    });
+    expect(buildTiles([article], cache)).toEqual([]);
+  });
+
+  it("omits a non-known-host page with no cached cover yet", () => {
+    expect(buildTiles([article], new MediaCache())).toEqual([]);
+  });
+
+  it("prefers inline media over the page cover", () => {
+    const withMedia = scanClipping(
+      "Clippings/GITS.md",
+      { title: "G", source: "https://www.youtube.com/watch?v=BZZoL_IoBZs" },
+      "![a](https://x.com/inline.jpg)"
+    );
+    expect(buildTiles([withMedia], new MediaCache())[0].thumbPath).toContain("inline.jpg");
   });
 });
 
@@ -243,9 +295,11 @@ describe("animated covers", () => {
     expect(buildTiles([nook], cache)[0].animated).toBe(false);
   });
 
-  it("never marks a fallback tile as animated", () => {
-    const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
-    expect(buildTiles([empty], new MediaCache())[0].animated).toBe(false);
+  it("does not manage an archived gif that has no thumbnail to swap back to", () => {
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.gif", thumb: "", width: 960, height: 420, bytes: 101_000 }],
+    ]);
+    expect(buildTiles([combolands], cache)[0].animated).toBe(false);
   });
 
   // A remote gif animates on its own, but there is no still to swap back to,

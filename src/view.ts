@@ -10,6 +10,8 @@ export class ClippingsGridView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
+  /** Tiles whose cover failed to load, so they leave the grid. */
+  private unloadable = new Set<string>();
 
   constructor(leaf: WorkspaceLeaf, private plugin: ClippingsGridPlugin) {
     super(leaf);
@@ -44,6 +46,12 @@ export class ClippingsGridView extends ItemView {
       }
     };
 
+    this.grid.onSourceFailed = (id: string) => {
+      if (this.unloadable.has(id)) return;
+      this.unloadable.add(id);
+      this.refresh();
+    };
+
     this.plugin.index.onChange(() => this.refresh());
     this.plugin.archiver.onChange(() => this.refresh());
 
@@ -64,7 +72,11 @@ export class ClippingsGridView extends ItemView {
 
   refresh(): void {
     if (!this.grid) return;
-    const tiles = buildTiles(this.plugin.index.records(), this.plugin.archiver.cache);
+    const tiles = buildTiles(
+      this.plugin.index.records(),
+      this.plugin.archiver.cache,
+      this.unloadable
+    );
     this.grid.setTiles(tiles);
   }
 }

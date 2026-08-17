@@ -3,7 +3,9 @@ import { ArchiveDeps, archiveAll } from "./archive";
 import { MediaCache } from "./cache";
 import { posterPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
 import { ClippingIndex } from "./index-store";
-import { dedupeMedia } from "./normalize";
+import { dedupeMedia, normalizeUrl } from "./normalize";
+import type { CanonicalMedia } from "./normalize";
+import { extractPageImage, knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
 import type { ClippingsGridSettings } from "./settings";
 
@@ -160,14 +162,76 @@ export class ArchiveService {
       if (entry?.file) return false;
       return retryFailed || !entry?.failed;
     });
-    if (canonical.length === 0) return;
+    if (canonical.length === 0) {
+      await this.resolvePageCover(record, retryFailed);
+      return;
+    }
 
     await this.ensureFolder();
     const outcomes = await archiveAll(canonical, record.source, this.deps(), 4);
     for (const outcome of outcomes) this.cache.mergeOutcome(outcome);
+
+    // Everything inline failed, so the page's own preview image is the only
+    // thing left that could cover this tile.
+    if (!outcomes.some((o) => o.file)) {
+      await this.resolvePageCover(record, retryFailed);
+    }
+
     await this.deriveAssets();
     await this.saveCache();
     this.emit();
+  }
+
+  /**
+   * Finds a cover for a clipping whose body has no usable image: a known
+   * video host's thumbnail, resolved without a request, or the page's
+   * declared og:image. Cached under the source URL so it is fetched once.
+   */
+  private async resolvePageCover(record: ClippingRecord, retryFailed: boolean): Promise<void> {
+    if (!record.source) return;
+
+    const key = normalizeUrl(record.source);
+    const existing = this.cache.get(key);
+    if (existing?.file) return;
+    if (existing?.failed && !retryFailed) return;
+
+    // Only clippings with nothing else to show reach here, so an inline hit
+    // means the page cover is unnecessary.
+    const hasInline = dedupeMedia(record.media).some((m) => this.cache.get(m.key)?.file);
+    if (hasInline) return;
+
+    const known = knownHostThumbnail(record.source);
+    let candidate: CanonicalMedia | null = known
+      ? { key, url: known.url, kind: "image", alt: record.title, fallbacks: known.fallbacks }
+      : null;
+
+    if (!candidate) {
+      const imageUrl = await this.fetchPageImage(record.source);
+      if (imageUrl) {
+        candidate = { key, url: imageUrl, kind: "image", alt: record.title };
+      }
+    }
+
+    if (!candidate) {
+      this.cache.mergeOutcome({ key, kind: "image", failed: "no preview image" });
+      return;
+    }
+
+    await this.ensureFolder();
+    const [outcome] = await archiveAll([candidate], record.source, this.deps(), 1);
+    if (outcome) this.cache.mergeOutcome(outcome);
+  }
+
+  private async fetchPageImage(pageUrl: string): Promise<string | null> {
+    try {
+      const response = await requestUrl({ url: pageUrl, method: "GET", throw: false });
+      if (response.status < 200 || response.status >= 300) return null;
+      const type = response.headers?.["content-type"] ?? "";
+      if (type && !type.toLowerCase().includes("html")) return null;
+      return extractPageImage(response.text, pageUrl);
+    } catch {
+      return null;
+    }
   }
 
   /**

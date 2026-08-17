@@ -65,56 +65,81 @@ export function archiveFilename(media: CanonicalMedia): string {
   return `${hashUrl(media.key)}-${base}`;
 }
 
+/** Downloads and validates one URL. Returns a reason string on failure. */
+async function attempt(
+  url: string,
+  referer: string,
+  deps: ArchiveDeps
+): Promise<FetchResult | string> {
+  let response: FetchResult;
+  try {
+    response = await deps.fetch(url, {});
+    if (RETRYABLE.has(response.status) && referer) {
+      response = await deps.fetch(url, { Referer: referer });
+    }
+  } catch (error) {
+    return errorMessage(error);
+  }
+
+  if (response.status < 200 || response.status >= 300) return `HTTP ${response.status}`;
+
+  // A clipping can point markdown image syntax at a web page. Trust the
+  // server's content type over the markup that referenced it.
+  const contentType = response.contentType?.split(";")[0]?.trim().toLowerCase();
+  if (contentType && !/^(image|video)\//.test(contentType)) {
+    return `unexpected content type ${contentType}`;
+  }
+
+  const bytes = response.arrayBuffer.byteLength;
+  if (bytes === 0) return "empty response";
+  if (bytes > deps.maxBytes) return `too large (${bytes} bytes)`;
+
+  return response;
+}
+
 export async function archiveOne(
   media: CanonicalMedia,
   referer: string,
   deps: ArchiveDeps
 ): Promise<ArchiveOutcome> {
-  const path = `${deps.folder}/${archiveFilename(media)}`;
   const base: ArchiveOutcome = { key: media.key, kind: media.kind };
+  const candidates = [media.url, ...(media.fallbacks ?? [])];
 
-  if (await deps.exists(path)) return { ...base, file: path };
+  const pathFor = (url: string): string =>
+    `${deps.folder}/${archiveFilename({ ...media, url })}`;
 
-  let response: FetchResult;
-  try {
-    response = await deps.fetch(media.url, {});
-    if (RETRYABLE.has(response.status) && referer) {
-      response = await deps.fetch(media.url, { Referer: referer });
+  for (const url of candidates) {
+    const path = pathFor(url);
+    if (await deps.exists(path)) return { ...base, file: path };
+  }
+
+  let lastFailure = "no source url";
+
+  for (const url of candidates) {
+    const result = await attempt(url, referer, deps);
+    if (typeof result === "string") {
+      lastFailure = result;
+      continue;
     }
-  } catch (error) {
-    return { ...base, failed: errorMessage(error) };
+
+    const path = pathFor(url);
+    try {
+      await deps.write(path, result.arrayBuffer);
+    } catch (error) {
+      return { ...base, failed: errorMessage(error) };
+    }
+
+    const dimensions = media.kind === "image" ? readDimensions(result.arrayBuffer) : null;
+    return {
+      ...base,
+      file: path,
+      bytes: result.arrayBuffer.byteLength,
+      width: dimensions?.width,
+      height: dimensions?.height,
+    };
   }
 
-  if (response.status < 200 || response.status >= 300) {
-    return { ...base, failed: `HTTP ${response.status}` };
-  }
-
-  // A clipping can point markdown image syntax at a web page: one real
-  // clipping embeds a youtube.com/watch URL as an image. Trust the server's
-  // content type over the markup that referenced it.
-  const contentType = response.contentType?.split(";")[0]?.trim().toLowerCase();
-  if (contentType && !/^(image|video)\//.test(contentType)) {
-    return { ...base, failed: `unexpected content type ${contentType}` };
-  }
-
-  const bytes = response.arrayBuffer.byteLength;
-  if (bytes === 0) return { ...base, failed: "empty response" };
-  if (bytes > deps.maxBytes) return { ...base, failed: `too large (${bytes} bytes)` };
-
-  try {
-    await deps.write(path, response.arrayBuffer);
-  } catch (error) {
-    return { ...base, failed: errorMessage(error) };
-  }
-
-  const dimensions = media.kind === "image" ? readDimensions(response.arrayBuffer) : null;
-  return {
-    ...base,
-    file: path,
-    bytes,
-    width: dimensions?.width,
-    height: dimensions?.height,
-  };
+  return { ...base, failed: lastFailure };
 }
 
 export async function archiveAll(
