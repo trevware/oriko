@@ -22,7 +22,16 @@ export interface ClippingRecord {
 const MD_IMAGE = /!\[([^\]]*)\]\(\s*(<?)([^)\s>]+)\2(?:\s+"[^"]*")?\s*\)/g;
 const HTML_IMAGE = /<img\b[^>]*?\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
 const HTML_VIDEO = /<video\b[^>]*?\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
+/**
+ * Clippers emit both `<video src>` and `<video><source src></video>`. The
+ * second form is matched as a whole element so a `<source>` inside a
+ * `<picture>` is never mistaken for video.
+ */
+const HTML_VIDEO_BLOCK = /<video\b([^>]*)>([\s\S]*?)<\/video>/gi;
+const SRC_ATTR = /\bsrc\s*=\s*["']([^"']+)["']/i;
+const SOURCE_SRC = /<source\b[^>]*?\bsrc\s*=\s*["']([^"']+)["'][^>]*>/i;
 const HTML_ALT = /\balt\s*=\s*["']([^"']*)["']/i;
+const ARIA_LABEL = /\baria-label\s*=\s*["']([^"']*)["']/i;
 const FENCED_CODE = /(^|\n)(```|~~~)[\s\S]*?\n\2[ \t]*(?=\n|$)/g;
 
 /**
@@ -86,8 +95,19 @@ export function scanClipping(
   for (const m of clean.matchAll(HTML_IMAGE)) {
     push(m.index ?? 0, m[1], "image", HTML_ALT.exec(m[0])?.[1] ?? "");
   }
+  for (const m of clean.matchAll(HTML_VIDEO_BLOCK)) {
+    const attrs = m[1] ?? "";
+    const url = SRC_ATTR.exec(attrs)?.[1] ?? SOURCE_SRC.exec(m[2] ?? "")?.[1];
+    if (!url) continue;
+    const alt = HTML_ALT.exec(attrs)?.[1] ?? ARIA_LABEL.exec(attrs)?.[1] ?? "";
+    push(m.index ?? 0, url, "video", alt);
+  }
+
+  // Self-closing or unclosed <video src>. The seen-set makes the overlap
+  // with the block form harmless.
   for (const m of clean.matchAll(HTML_VIDEO)) {
-    push(m.index ?? 0, m[1], "video", HTML_ALT.exec(m[0])?.[1] ?? "");
+    const alt = HTML_ALT.exec(m[0])?.[1] ?? ARIA_LABEL.exec(m[0])?.[1] ?? "";
+    push(m.index ?? 0, m[1], "video", alt);
   }
 
   found.sort((a, b) => a.index - b.index);

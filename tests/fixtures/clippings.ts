@@ -62,3 +62,31 @@ export const NOOK_BODY = `
 
 Nook - Write mode by Jay Bong
 `;
+
+export const RACHEL_FM = {
+  title: "Rachel How",
+  source: "https://www.rachelhow.com/cursors",
+  description: "Custom cursors I've spotted on random desktop sites",
+  created: "2026-08-17",
+  tags: ["clippings"],
+  type: "clipping",
+  categories: ["design", "interaction", "web"],
+  status: "unread",
+};
+
+/** Videos declared with a nested <source> element rather than src on the tag. */
+export const RACHEL_BODY = `
+## Custom Cursors
+
+<video aria-label="interfaces.new" controls=""><source src="https://www.rachelhow.com/images/cursors/interfaces-new.mp4" type="video/mp4"></video>
+
+### interfaces.new
+
+[Open interfaces.new](https://www.interfaces.new/?ref=rachelhow.com)
+
+<video aria-label="tinycamp.site" controls=""><source src="https://www.rachelhow.com/images/cursors/tinycamp.mp4" type="video/mp4"></video>
+
+### tinycamp.site
+
+[Open tinycamp.site](https://www.chloeyan.me/digital-spaces/campsite?ref=rachelhow.com)
+`;

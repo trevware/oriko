@@ -7,6 +7,8 @@ import {
   MANGA_FM,
   NOOK_BODY,
   NOOK_FM,
+  RACHEL_BODY,
+  RACHEL_FM,
 } from "./fixtures/clippings";
 
 describe("scanClipping", () => {
@@ -55,6 +57,46 @@ describe("scanClipping", () => {
     expect(r.haystack).toContain("nook - write mode");
     expect(r.haystack).toContain("spottedinprod.com");
     expect(r.haystack).toContain("design");
+  });
+
+  it("finds video declared with a nested source element", () => {
+    const r = scanClipping("Clippings/Rachel How.md", RACHEL_FM, RACHEL_BODY);
+    expect(r.media).toHaveLength(2);
+    expect(r.media[0].kind).toBe("video");
+    expect(r.media[0].url).toContain("interfaces-new.mp4");
+    expect(r.media[1].url).toContain("tinycamp.mp4");
+  });
+
+  it("falls back to aria-label when a video has no alt", () => {
+    const r = scanClipping("Clippings/Rachel How.md", RACHEL_FM, RACHEL_BODY);
+    expect(r.media[0].alt).toBe("interfaces.new");
+  });
+
+  it("prefers src on the video tag over a nested source", () => {
+    const body =
+      '<video src="https://x.com/outer.mp4"><source src="https://x.com/inner.mp4"></video>';
+    const r = scanClipping("Clippings/X.md", NOOK_FM, body);
+    expect(r.media).toHaveLength(1);
+    expect(r.media[0].url).toContain("outer.mp4");
+  });
+
+  it("still finds a self-closing video tag with src", () => {
+    const r = scanClipping("Clippings/X.md", NOOK_FM, '<video src="https://x.com/a.mp4" />');
+    expect(r.media).toHaveLength(1);
+    expect(r.media[0].kind).toBe("video");
+  });
+
+  it("ignores a video element with no resolvable source", () => {
+    const r = scanClipping("Clippings/X.md", NOOK_FM, "<video controls=''></video>");
+    expect(r.media).toHaveLength(0);
+  });
+
+  it("does not treat a picture source as video", () => {
+    const body =
+      '<picture><source srcset="https://x.com/a.webp"><img src="https://x.com/a.jpg"></picture>';
+    const r = scanClipping("Clippings/X.md", NOOK_FM, body);
+    expect(r.media).toHaveLength(1);
+    expect(r.media[0].kind).toBe("image");
   });
 
   it("skips data URIs and vault-relative links", () => {
