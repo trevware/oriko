@@ -1,16 +1,20 @@
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import { Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { ClippingIndex } from "./index-store";
 import { ClippingsGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
 
 export default class ClippingsGridPlugin extends Plugin {
   settings: ClippingsGridSettings = DEFAULT_SETTINGS;
+  index!: ClippingIndex;
 
   async onload(): Promise<void> {
     await this.loadSettings();
 
+    this.index = new ClippingIndex(this.app, () => this.settings.clippingsFolder);
+
     this.registerView(
       VIEW_TYPE_GRID,
-      (leaf: WorkspaceLeaf) => new ClippingsGridView(leaf)
+      (leaf: WorkspaceLeaf) => new ClippingsGridView(leaf, this)
     );
 
     this.addRibbonIcon("layout-grid", "Open clippings grid", () => {
@@ -22,6 +26,36 @@ export default class ClippingsGridPlugin extends Plugin {
       name: "Open clippings grid",
       callback: () => void this.activateView(),
     });
+
+    this.app.workspace.onLayoutReady(() => void this.index.rebuild());
+
+    this.registerEvent(
+      this.app.vault.on("create", (f: TAbstractFile) => {
+        if (f instanceof TFile) void this.index.handleModify(f);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("modify", (f: TAbstractFile) => {
+        if (f instanceof TFile) void this.index.handleModify(f);
+      })
+    );
+    this.registerEvent(
+      this.app.vault.on("delete", (f: TAbstractFile) => this.index.handleDelete(f.path))
+    );
+    this.registerEvent(
+      this.app.vault.on("rename", (f: TAbstractFile, oldPath: string) => {
+        if (f instanceof TFile) void this.index.handleRename(f, oldPath);
+      })
+    );
+
+    // Frontmatter arrives through the metadata cache, which resolves after
+    // the file write. Without this the first scan of a fresh clipping sees
+    // no categories or status.
+    this.registerEvent(
+      this.app.metadataCache.on("changed", (f: TFile) => {
+        void this.index.handleModify(f);
+      })
+    );
   }
 
   async activateView(): Promise<void> {
