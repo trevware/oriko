@@ -1,0 +1,138 @@
+import { describe, expect, it } from "vitest";
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  PAN_MARGIN,
+  clampCamera,
+  clampZoom,
+  initialCamera,
+  toContent,
+  visibleContentBand,
+  zoomAt,
+} from "../src/camera";
+
+const viewport = { width: 1000, height: 800 };
+const content = { width: 1000, height: 5000 };
+
+describe("clampZoom", () => {
+  it("passes a zoom inside the range through", () => {
+    expect(clampZoom(1.5)).toBe(1.5);
+  });
+
+  it("clamps below the minimum", () => {
+    expect(clampZoom(0.001)).toBe(MIN_ZOOM);
+  });
+
+  it("clamps above the maximum", () => {
+    expect(clampZoom(99)).toBe(MAX_ZOOM);
+  });
+
+  it("returns the minimum for a non-finite zoom", () => {
+    expect(clampZoom(Number.NaN)).toBe(MIN_ZOOM);
+    expect(clampZoom(Number.POSITIVE_INFINITY)).toBe(MAX_ZOOM);
+  });
+});
+
+describe("zoomAt", () => {
+  const camera = { x: 0, y: 0, zoom: 1 };
+
+  it("holds the content point under the cursor in place", () => {
+    const pointer = { x: 300, y: 400 };
+    const before = toContent(camera, pointer);
+    const after = toContent(zoomAt(camera, 2, pointer), pointer);
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.y).toBeCloseTo(before.y, 6);
+  });
+
+  it("holds the anchor when zooming out too", () => {
+    const pointer = { x: 700, y: 200 };
+    const start = { x: -120, y: -640, zoom: 1.8 };
+    const before = toContent(start, pointer);
+    const after = toContent(zoomAt(start, 0.5, pointer), pointer);
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.y).toBeCloseTo(before.y, 6);
+  });
+
+  it("scales the zoom by the factor", () => {
+    expect(zoomAt(camera, 2, { x: 0, y: 0 }).zoom).toBe(2);
+  });
+
+  it("stops at the maximum", () => {
+    expect(zoomAt({ x: 0, y: 0, zoom: MAX_ZOOM }, 2, { x: 0, y: 0 }).zoom).toBe(MAX_ZOOM);
+  });
+
+  it("stops at the minimum", () => {
+    expect(zoomAt({ x: 0, y: 0, zoom: MIN_ZOOM }, 0.5, { x: 0, y: 0 }).zoom).toBe(MIN_ZOOM);
+  });
+
+  it("returns the same camera when the zoom cannot change", () => {
+    const pinned = { x: 5, y: 6, zoom: MAX_ZOOM };
+    expect(zoomAt(pinned, 4, { x: 0, y: 0 })).toBe(pinned);
+  });
+});
+
+describe("clampCamera", () => {
+  it("allows panning up to the margin past the top", () => {
+    const out = clampCamera({ x: 0, y: 9999, zoom: 1 }, viewport, content);
+    expect(out.y).toBe(PAN_MARGIN);
+  });
+
+  it("allows panning up to the margin past the bottom", () => {
+    const out = clampCamera({ x: 0, y: -99999, zoom: 1 }, viewport, content);
+    expect(out.y).toBe(viewport.height - content.height - PAN_MARGIN);
+  });
+
+  it("leaves a camera inside the bounds untouched", () => {
+    const inside = { x: 0, y: -1000, zoom: 1 };
+    expect(clampCamera(inside, viewport, content)).toEqual(inside);
+  });
+
+  it("keeps a band to move in when the content is smaller than the viewport", () => {
+    const small = { width: 200, height: 200 };
+    const low = clampCamera({ x: -99999, y: -99999, zoom: 1 }, viewport, small);
+    const high = clampCamera({ x: 99999, y: 99999, zoom: 1 }, viewport, small);
+    expect(high.x).toBeGreaterThan(low.x);
+    expect(high.y).toBeGreaterThan(low.y);
+  });
+
+  it("accounts for zoom when computing the bottom bound", () => {
+    const out = clampCamera({ x: 0, y: -99999, zoom: 0.5 }, viewport, content);
+    expect(out.y).toBe(viewport.height - content.height * 0.5 - PAN_MARGIN);
+  });
+
+  it("clamps the zoom as well as the position", () => {
+    expect(clampCamera({ x: 0, y: 0, zoom: 99 }, viewport, content).zoom).toBe(MAX_ZOOM);
+  });
+});
+
+describe("visibleContentBand", () => {
+  it("maps the viewport to content space at zoom 1", () => {
+    expect(visibleContentBand({ x: 0, y: -500, zoom: 1 }, viewport)).toEqual({
+      top: 500,
+      height: 800,
+    });
+  });
+
+  it("covers more content when zoomed out", () => {
+    expect(visibleContentBand({ x: 0, y: 0, zoom: 0.5 }, viewport).height).toBe(1600);
+  });
+
+  it("covers less content when zoomed in", () => {
+    expect(visibleContentBand({ x: 0, y: 0, zoom: 2 }, viewport).height).toBe(400);
+  });
+});
+
+describe("initialCamera", () => {
+  it("starts at the top of the content", () => {
+    expect(initialCamera(viewport, content).y).toBe(0);
+  });
+
+  it("starts at zoom 1", () => {
+    expect(initialCamera(viewport, content).zoom).toBe(1);
+  });
+
+  it("centres content narrower than the viewport", () => {
+    const out = initialCamera(viewport, { width: 600, height: 400 });
+    expect(out.x).toBe(200);
+  });
+});

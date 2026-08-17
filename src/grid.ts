@@ -1,4 +1,13 @@
 import { App, TFile, normalizePath } from "obsidian";
+import {
+  MAX_ZOOM,
+  MIN_ZOOM,
+  clampCamera,
+  initialCamera,
+  visibleContentBand,
+  zoomAt,
+} from "./camera";
+import type { Camera } from "./camera";
 import { columnsForWidth, computeLayout, visibleRange } from "./layout";
 import type { LayoutResult, Position } from "./layout";
 import type { TileModel } from "./tile";
@@ -6,6 +15,11 @@ import type { TileModel } from "./tile";
 const GAP = 14;
 const TARGET_COLUMN_WIDTH = 300;
 const OVERSCAN = 600;
+const MAX_OVERSCAN = 1500;
+/** Movement past which a pointer gesture is a pan, not a click. */
+const CLICK_SLOP = 3;
+/** Trackpad pinch arrives as ctrl+wheel; this tunes how fast it zooms. */
+const PINCH_SENSITIVITY = 0.01;
 
 interface TileElement {
   root: HTMLElement;
@@ -24,13 +38,16 @@ function domainOf(url: string): string {
 }
 
 /**
- * Virtualized masonry with a recycled element pool. Only the viewport plus
- * one screen of overscan exists in the DOM, and scrolling reuses elements
- * rather than creating and destroying them.
+ * A pannable, zoomable canvas of virtualized masonry tiles.
+ *
+ * The camera is a transform on a single layer rather than scroll position,
+ * which is what allows zooming and panning into empty space. Only the tiles
+ * inside the camera's content band exist in the DOM, and scrolling reuses
+ * elements from a pool rather than building them.
  */
 export class GridRenderer {
-  private scroller: HTMLElement;
-  private spacer: HTMLElement;
+  private viewport: HTMLElement;
+  private canvas: HTMLElement;
   private tiles: TileModel[] = [];
   private byId = new Map<string, TileModel>();
   private layout: LayoutResult = { positions: [], totalHeight: 0 };
@@ -38,132 +55,77 @@ export class GridRenderer {
   private pool: TileElement[] = [];
   private frame = 0;
   private relayoutFrame = 0;
-  /** Real dimensions learned by loading a tile whose size was a guess. */
   private measured = new Map<string, { w: number; h: number }>();
+
+  private camera: Camera = { x: 0, y: 0, zoom: 1 };
+  private contentWidth = 0;
+  private placed = false;
 
   private spaceHeld = false;
   private panning = false;
-  /** True when the pointer moved enough to count as a pan, not a click. */
   private panMoved = false;
-  private panOrigin = { x: 0, y: 0, left: 0, top: 0 };
+  private panOrigin = { x: 0, y: 0, camX: 0, camY: 0 };
   private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
   private onKeyUp: ((event: KeyboardEvent) => void) | null = null;
   private onBlur: (() => void) | null = null;
 
-  /** Called after every render pass so the view can observe new video tiles. */
   onRendered: () => void = () => {};
-
-  /** A tile's cover could not be loaded and it should leave the grid. */
   onSourceFailed: (id: string) => void = () => {};
+  onZoomChanged: (zoom: number) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
-    this.scroller = container.createDiv({ cls: "cg-scroller" });
-    this.spacer = this.scroller.createDiv({ cls: "cg-spacer" });
-    this.scroller.addEventListener("scroll", () => this.schedule(), { passive: true });
-    this.installPanning();
+    this.viewport = container.createDiv({ cls: "cg-viewport" });
+    this.canvas = this.viewport.createDiv({ cls: "cg-canvas" });
+    this.installGestures();
   }
 
-  /**
-   * Trackpad panning on both axes, plus hold-space to grab and drag, the
-   * way a canvas tool behaves. Horizontal movement only does anything when
-   * the wall is wider than the pane.
-   */
-  private installPanning(): void {
-    this.scroller.addEventListener(
-      "wheel",
-      (event: WheelEvent) => {
-        if (event.ctrlKey) return;
-        if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
-        if (this.scroller.scrollWidth <= this.scroller.clientWidth) return;
-        event.preventDefault();
-        this.scroller.scrollLeft += event.deltaX;
-      },
-      { passive: false }
-    );
-
-    this.onKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat) return;
-      const target = event.target as HTMLElement | null;
-      // Never steal the space bar from a text field.
-      if (target?.closest("input, textarea, [contenteditable='true']")) return;
-      if (!this.spaceHeld) {
-        this.spaceHeld = true;
-        this.scroller.addClass("is-pannable");
-      }
-      event.preventDefault();
-    };
-
-    this.onKeyUp = (event: KeyboardEvent) => {
-      if (event.code !== "Space") return;
-      this.endPan();
-    };
-
-    // Losing focus mid-drag would otherwise leave the grab cursor stuck on.
-    this.onBlur = () => this.endPan();
-
-    document.addEventListener("keydown", this.onKeyDown);
-    document.addEventListener("keyup", this.onKeyUp);
-    window.addEventListener("blur", this.onBlur);
-
-    this.scroller.addEventListener("pointerdown", (event: PointerEvent) => {
-      const middleClick = event.button === 1;
-      if (!this.spaceHeld && !middleClick) return;
-      event.preventDefault();
-      this.panning = true;
-      this.panMoved = false;
-      this.panOrigin = {
-        x: event.clientX,
-        y: event.clientY,
-        left: this.scroller.scrollLeft,
-        top: this.scroller.scrollTop,
-      };
-      this.scroller.addClass("is-panning");
-      this.scroller.setPointerCapture(event.pointerId);
-    });
-
-    this.scroller.addEventListener("pointermove", (event: PointerEvent) => {
-      if (!this.panning) return;
-      const dx = event.clientX - this.panOrigin.x;
-      const dy = event.clientY - this.panOrigin.y;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) this.panMoved = true;
-      this.scroller.scrollLeft = this.panOrigin.left - dx;
-      this.scroller.scrollTop = this.panOrigin.top - dy;
-    });
-
-    const stop = (event: PointerEvent): void => {
-      if (!this.panning) return;
-      this.panning = false;
-      this.scroller.removeClass("is-panning");
-      if (this.scroller.hasPointerCapture(event.pointerId)) {
-        this.scroller.releasePointerCapture(event.pointerId);
-      }
-      // Cleared after the click event that follows pointerup has run.
-      window.setTimeout(() => {
-        this.panMoved = false;
-      }, 0);
-    };
-
-    this.scroller.addEventListener("pointerup", stop);
-    this.scroller.addEventListener("pointercancel", stop);
+  get viewportEl(): HTMLElement {
+    return this.viewport;
   }
 
-  private endPan(): void {
-    this.spaceHeld = false;
-    this.panning = false;
-    this.scroller.removeClass("is-pannable");
-    this.scroller.removeClass("is-panning");
+  get zoom(): number {
+    return this.camera.zoom;
   }
 
-  get scrollerEl(): HTMLElement {
-    return this.scroller;
+  private viewportSize(): { width: number; height: number } {
+    return {
+      width: this.viewport.clientWidth || 800,
+      height: this.viewport.clientHeight || 600,
+    };
+  }
+
+  private contentSize(): { width: number; height: number } {
+    return { width: this.contentWidth, height: this.layout.totalHeight };
+  }
+
+  private applyCamera(): void {
+    this.camera = clampCamera(this.camera, this.viewportSize(), this.contentSize());
+    this.canvas.style.transform =
+      `translate3d(${this.camera.x}px, ${this.camera.y}px, 0) scale(${this.camera.zoom})`;
+    this.schedule();
+  }
+
+  setCamera(camera: Camera): void {
+    this.camera = camera;
+    this.applyCamera();
+    this.onZoomChanged(this.camera.zoom);
+  }
+
+  zoomBy(factor: number, pointer?: { x: number; y: number }): void {
+    const size = this.viewportSize();
+    const anchor = pointer ?? { x: size.width / 2, y: size.height / 2 };
+    this.setCamera(zoomAt(this.camera, factor, anchor, MIN_ZOOM, MAX_ZOOM));
+  }
+
+  resetView(): void {
+    this.placed = false;
+    this.relayout();
   }
 
   setTiles(tiles: TileModel[]): void {
     this.tiles = tiles;
     this.byId = new Map(tiles.map((t) => [t.id, t]));
 
-    // Drop mounted elements whose model is gone, so filtering cannot leave
-    // a stale tile painted at a recycled position.
     for (const [id, element] of [...this.mounted]) {
       if (!this.byId.has(id)) {
         this.mounted.delete(id);
@@ -174,25 +136,28 @@ export class GridRenderer {
   }
 
   relayout(): void {
-    const width = this.scroller.clientWidth || 800;
-    const columns = columnsForWidth(width, TARGET_COLUMN_WIDTH, GAP);
+    // The wall is laid out at the unzoomed viewport width, so zooming out
+    // reveals empty space around it rather than reflowing the columns.
+    const size = this.viewportSize();
+    this.contentWidth = size.width;
+    const columns = columnsForWidth(size.width, TARGET_COLUMN_WIDTH, GAP);
+
     this.layout = computeLayout(
       this.tiles.map((t) => {
-        // A measurement only overrides a guess, never a size read from the
-        // archived file's own header.
         const learned = t.provisional ? this.measured.get(t.id) : undefined;
-        return {
-          id: t.id,
-          width: learned?.w ?? t.width,
-          height: learned?.h ?? t.height,
-        };
+        return { id: t.id, width: learned?.w ?? t.width, height: learned?.h ?? t.height };
       }),
-      width,
+      size.width,
       columns,
       GAP
     );
-    this.spacer.style.height = `${this.layout.totalHeight}px`;
-    this.render();
+
+    if (!this.placed && this.tiles.length > 0) {
+      this.placed = true;
+      this.camera = initialCamera(size, this.contentSize());
+    }
+
+    this.applyCamera();
   }
 
   private scheduleRelayout(): void {
@@ -211,6 +176,119 @@ export class GridRenderer {
     this.scheduleRelayout();
   }
 
+  private installGestures(): void {
+    this.viewport.addEventListener(
+      "wheel",
+      (event: WheelEvent) => {
+        event.preventDefault();
+        const rect = this.viewport.getBoundingClientRect();
+        const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+
+        // Trackpad pinch and cmd/ctrl+wheel both arrive with ctrlKey set.
+        if (event.ctrlKey || event.metaKey) {
+          this.setCamera(
+            zoomAt(this.camera, Math.exp(-event.deltaY * PINCH_SENSITIVITY), pointer)
+          );
+          return;
+        }
+
+        this.camera = {
+          ...this.camera,
+          x: this.camera.x - event.deltaX,
+          y: this.camera.y - event.deltaY,
+        };
+        this.applyCamera();
+      },
+      { passive: false }
+    );
+
+    this.onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+
+      if (event.code === "Space" && !event.repeat) {
+        this.spaceHeld = true;
+        this.viewport.addClass("is-pannable");
+        event.preventDefault();
+        return;
+      }
+
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (event.key === "0") {
+        this.resetView();
+        event.preventDefault();
+      } else if (event.key === "=" || event.key === "+") {
+        this.zoomBy(1.2);
+        event.preventDefault();
+      } else if (event.key === "-") {
+        this.zoomBy(1 / 1.2);
+        event.preventDefault();
+      }
+    };
+
+    this.onKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") this.endPan();
+    };
+
+    // Losing focus mid-drag would otherwise leave the grab cursor stuck on.
+    this.onBlur = () => this.endPan();
+
+    document.addEventListener("keydown", this.onKeyDown);
+    document.addEventListener("keyup", this.onKeyUp);
+    window.addEventListener("blur", this.onBlur);
+
+    this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (!this.spaceHeld && event.button !== 1) return;
+      event.preventDefault();
+      this.panning = true;
+      this.panMoved = false;
+      this.panOrigin = {
+        x: event.clientX,
+        y: event.clientY,
+        camX: this.camera.x,
+        camY: this.camera.y,
+      };
+      this.viewport.addClass("is-panning");
+      this.viewport.setPointerCapture(event.pointerId);
+    });
+
+    this.viewport.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!this.panning) return;
+      const dx = event.clientX - this.panOrigin.x;
+      const dy = event.clientY - this.panOrigin.y;
+      if (Math.abs(dx) > CLICK_SLOP || Math.abs(dy) > CLICK_SLOP) this.panMoved = true;
+      this.camera = {
+        ...this.camera,
+        x: this.panOrigin.camX + dx,
+        y: this.panOrigin.camY + dy,
+      };
+      this.applyCamera();
+    });
+
+    const stop = (event: PointerEvent): void => {
+      if (!this.panning) return;
+      this.panning = false;
+      this.viewport.removeClass("is-panning");
+      if (this.viewport.hasPointerCapture(event.pointerId)) {
+        this.viewport.releasePointerCapture(event.pointerId);
+      }
+      // Cleared after the click that follows pointerup has been handled.
+      window.setTimeout(() => {
+        this.panMoved = false;
+      }, 0);
+    };
+
+    this.viewport.addEventListener("pointerup", stop);
+    this.viewport.addEventListener("pointercancel", stop);
+  }
+
+  private endPan(): void {
+    this.spaceHeld = false;
+    this.panning = false;
+    this.viewport.removeClass("is-pannable");
+    this.viewport.removeClass("is-panning");
+  }
+
   private schedule(): void {
     if (this.frame) return;
     this.frame = window.requestAnimationFrame(() => {
@@ -222,7 +300,7 @@ export class GridRenderer {
   private acquire(): TileElement {
     const recycled = this.pool.pop();
     if (recycled) return recycled;
-    const root = this.spacer.createDiv({ cls: "cg-tile" });
+    const root = this.canvas.createDiv({ cls: "cg-tile" });
     return { root, media: null, id: "", signature: "", kind: "" };
   }
 
@@ -236,7 +314,6 @@ export class GridRenderer {
     this.pool.push(tile);
   }
 
-  /** Remote covers address the origin directly; local ones go through the vault. */
   private sourceFor(path: string, remote: boolean): string {
     if (!path) return "";
     if (remote) return path;
@@ -244,10 +321,6 @@ export class GridRenderer {
     return file instanceof TFile ? this.app.vault.getResourcePath(file) : "";
   }
 
-  /**
-   * Decodes the replacement before showing it, so a tile swapping from the
-   * origin server to its archived copy never flashes empty.
-   */
   private swapImage(image: HTMLImageElement, next: string): void {
     if (!next || image.src === next) return;
     const preload = new Image();
@@ -273,7 +346,6 @@ export class GridRenderer {
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
 
-    // Same content already painted: reposition only, never rebuild.
     if (element.signature === model.signature) return;
 
     const still = this.sourceFor(model.thumbPath, model.remote);
@@ -313,7 +385,6 @@ export class GridRenderer {
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
-      // A remote video has no poster, so it needs metadata to paint a frame.
       video.preload = model.remote ? "metadata" : "none";
       if (still && !model.remote) video.poster = still;
       if (model.remote) video.src = original;
@@ -326,6 +397,7 @@ export class GridRenderer {
           { once: true }
         );
       }
+      video.addEventListener("error", () => this.onSourceFailed(model.id), { once: true });
       element.media = video;
     } else {
       const image = frame.createEl("img", { cls: "cg-media" });
@@ -335,8 +407,6 @@ export class GridRenderer {
       image.src = still || original;
 
       if (model.animated && original) {
-        // A GIF cannot be paused in place, so playback swaps between the
-        // still thumbnail and the original.
         image.dataset.stillSrc = still || original;
         image.dataset.animatedSrc = original;
       }
@@ -380,12 +450,11 @@ export class GridRenderer {
   }
 
   render(): void {
-    const visible = visibleRange(
-      this.layout.positions,
-      this.scroller.scrollTop,
-      this.scroller.clientHeight,
-      OVERSCAN
-    );
+    const band = visibleContentBand(this.camera, this.viewportSize());
+    // Overscan is a screen-space budget, so it grows in content units as you
+    // zoom out. Capped, or a far-out view would mount hundreds of tiles.
+    const overscan = Math.min(OVERSCAN / this.camera.zoom, MAX_OVERSCAN);
+    const visible = visibleRange(this.layout.positions, band.top, band.height, overscan);
     const wanted = new Set(visible.map((p) => p.id));
 
     for (const [id, element] of [...this.mounted]) {
@@ -409,7 +478,6 @@ export class GridRenderer {
     this.onRendered();
   }
 
-  /** Video and animated-image elements currently in the DOM. */
   mountedMedia(): Array<HTMLVideoElement | HTMLImageElement> {
     const out: Array<HTMLVideoElement | HTMLImageElement> = [];
     for (const tile of this.mounted.values()) {

@@ -7,37 +7,43 @@
   flex-direction: column;
 }
 
-.cg-scroller {
+.cg-viewport {
   flex: 1 1 auto;
-  overflow: auto;
-  padding: 16px;
+  position: relative;
+  overflow: hidden;
   contain: strict;
   overscroll-behavior: contain;
+  touch-action: none;
+}
+
+.cg-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 /* Space is held: the wall is ready to be grabbed. */
-.cg-scroller.is-pannable,
-.cg-scroller.is-pannable .cg-tile {
+.cg-viewport.is-pannable,
+.cg-viewport.is-pannable .cg-tile {
   cursor: grab;
 }
 
-.cg-scroller.is-panning,
-.cg-scroller.is-panning .cg-tile {
+.cg-viewport.is-panning,
+.cg-viewport.is-panning .cg-tile {
   cursor: grabbing;
 }
 
 /* Dragging must not select text or start a native image drag. */
-.cg-scroller.is-pannable {
+.cg-viewport.is-pannable {
   user-select: none;
 }
 
-.cg-scroller.is-pannable .cg-media {
+.cg-viewport.is-pannable .cg-media {
   pointer-events: none;
-}
-
-.cg-spacer {
-  position: relative;
-  width: 100%;
 }
 
 .cg-tile {

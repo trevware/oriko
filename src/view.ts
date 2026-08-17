@@ -35,7 +35,7 @@ export class ClippingsGridView extends ItemView {
 
     this.grid = new GridRenderer(this.app, this.contentEl);
     this.playback = new PlaybackController(
-      this.grid.scrollerEl,
+      this.grid.viewportEl,
       this.plugin.settings.autoplayVideo
     );
 
