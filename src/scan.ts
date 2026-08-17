@@ -13,6 +13,8 @@ export interface ClippingRecord {
   categories: string[];
   status: string;
   created: string;
+  /** Optional hand-set override for the grid tile's cover image. */
+  cover: string;
   media: MediaRef[];
   haystack: string;
 }
@@ -102,5 +104,18 @@ export function scanClipping(
     .join(" ")
     .toLowerCase();
 
-  return { path, title, source, description, categories, status, created, media, haystack };
+  const cover = str(frontmatter.cover);
+
+  return {
+    path,
+    title,
+    source,
+    description,
+    categories,
+    status,
+    created,
+    cover,
+    media,
+    haystack,
+  };
 }

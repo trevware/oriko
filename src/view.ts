@@ -1,9 +1,14 @@
 import { ItemView, WorkspaceLeaf } from "obsidian";
+import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
+import { buildTiles } from "./tile";
 
 export const VIEW_TYPE_GRID = "clippings-grid";
 
 export class ClippingsGridView extends ItemView {
+  private grid: GridRenderer | null = null;
+  private observer: ResizeObserver | null = null;
+
   constructor(leaf: WorkspaceLeaf, private plugin: ClippingsGridPlugin) {
     super(leaf);
   }
@@ -21,24 +26,30 @@ export class ClippingsGridView extends ItemView {
   }
 
   async onOpen(): Promise<void> {
-    this.plugin.index.onChange(() => this.render());
-    this.render();
+    this.contentEl.empty();
+    this.contentEl.addClass("clippings-grid-view");
+
+    this.grid = new GridRenderer(this.app, this.contentEl);
+
+    this.plugin.index.onChange(() => this.refresh());
+    this.plugin.archiver.onChange(() => this.refresh());
+
+    this.observer = new ResizeObserver(() => this.grid?.relayout());
+    this.observer.observe(this.contentEl);
+
+    this.refresh();
   }
 
-  private render(): void {
-    const el = this.contentEl;
-    el.empty();
-    el.addClass("clippings-grid-view");
+  async onClose(): Promise<void> {
+    this.observer?.disconnect();
+    this.observer = null;
+    this.grid?.destroy();
+    this.grid = null;
+  }
 
-    const records = this.plugin.index.records();
-    const totalMedia = records.reduce((sum, r) => sum + r.media.length, 0);
-    el.createEl("p", { text: `${records.length} clippings, ${totalMedia} media refs` });
-
-    const list = el.createEl("ul");
-    for (const r of records) {
-      list.createEl("li", {
-        text: `${r.title} — ${r.media.length} media — ${r.categories.join(", ") || "uncategorized"}`,
-      });
-    }
+  refresh(): void {
+    if (!this.grid) return;
+    const tiles = buildTiles(this.plugin.index.records(), this.plugin.archiver.cache);
+    this.grid.setTiles(tiles);
   }
 }

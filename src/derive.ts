@@ -29,10 +29,20 @@ export interface Rendered {
 }
 
 async function encode(canvas: HTMLCanvasElement): Promise<ArrayBuffer | null> {
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/webp", 0.8)
-  );
-  return blob ? await blob.arrayBuffer() : null;
+  try {
+    const blob = await new Promise<Blob | null>((resolve) => {
+      try {
+        canvas.toBlob(resolve, "image/webp", 0.8);
+      } catch {
+        // Tainted canvas. Callers pass blob: URLs precisely to avoid this,
+        // but never let a render failure lose the archived original.
+        resolve(null);
+      }
+    });
+    return blob ? await blob.arrayBuffer() : null;
+  } catch {
+    return null;
+  }
 }
 
 function draw(
@@ -88,7 +98,6 @@ export async function renderPoster(
   const video = document.createElement("video");
   video.muted = true;
   video.preload = "metadata";
-  video.crossOrigin = "anonymous";
   video.src = sourceUrl;
 
   const ready = await new Promise<boolean>((resolve) => {

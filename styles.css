@@ -1,5 +1,102 @@
 .clippings-grid-view {
   height: 100%;
+  padding: 0;
   overflow: hidden;
   background: var(--background-primary);
+  display: flex;
+  flex-direction: column;
+}
+
+.cg-scroller {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  contain: strict;
+}
+
+.cg-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.cg-tile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  contain: layout paint size;
+  cursor: pointer;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--background-secondary);
+}
+
+.cg-frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cg-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cg-fallback-title {
+  padding: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  line-height: 1.3;
+}
+
+.cg-meta {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 28px 12px 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
+  color: #fff;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.cg-tile:hover .cg-meta {
+  opacity: 1;
+}
+
+.cg-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cg-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  opacity: 0.75;
+  display: flex;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cg-unread {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
 }

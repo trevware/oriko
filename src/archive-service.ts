@@ -78,9 +78,34 @@ export class ArchiveService {
     };
   }
 
-  private resourceUrl(path: string): string | null {
+  private static mimeFor(path: string): string {
+    const ext = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
+    const map: Record<string, string> = {
+      mp4: "video/mp4",
+      webm: "video/webm",
+      mov: "video/quicktime",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      webp: "image/webp",
+      avif: "image/avif",
+      svg: "image/svg+xml",
+    };
+    return map[ext] ?? "application/octet-stream";
+  }
+
+  /**
+   * Loads an archived file as a blob: URL rather than an app:// resource
+   * URL. app:// is cross-origin to the page, which taints the canvas and
+   * makes toBlob throw; blob: is same-origin and does not.
+   */
+  private async blobUrl(path: string): Promise<{ url: string; revoke: () => void } | null> {
     const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
-    return file instanceof TFile ? this.app.vault.getResourcePath(file) : null;
+    if (!(file instanceof TFile)) return null;
+    const data = await this.app.vault.readBinary(file);
+    const url = URL.createObjectURL(new Blob([data], { type: ArchiveService.mimeFor(path) }));
+    return { url, revoke: () => URL.revokeObjectURL(url) };
   }
 
   /**
@@ -95,21 +120,29 @@ export class ArchiveService {
     for (const entry of this.cache.entries()) {
       if (!entry.file || entry.thumb || entry.failed) continue;
 
-      const source = this.resourceUrl(entry.file);
+      const source = await this.blobUrl(entry.file);
       if (!source) continue;
 
       const target = entry.kind === "video" ? posterPath(entry.file) : thumbPath(entry.file);
-      const rendered =
-        entry.kind === "video"
-          ? await renderPoster(source, width)
-          : await renderThumbnail(source, width);
-      if (!rendered) continue;
+      try {
+        const rendered =
+          entry.kind === "video"
+            ? await renderPoster(source.url, width)
+            : await renderThumbnail(source.url, width);
+        if (!rendered) continue;
 
-      if (!(await this.app.vault.adapter.exists(normalizePath(target)))) {
-        await this.app.vault.createBinary(normalizePath(target), rendered.data);
+        if (!(await this.app.vault.adapter.exists(normalizePath(target)))) {
+          await this.app.vault.createBinary(normalizePath(target), rendered.data);
+        }
+        this.cache.setThumb(entry.key, target, rendered.width, rendered.height);
+        derived++;
+      } catch {
+        // A failed render is recoverable: the original is already archived
+        // and deriveAssets re-runs on the next pass.
+        continue;
+      } finally {
+        source.revoke();
       }
-      this.cache.setThumb(entry.key, target, rendered.width, rendered.height);
-      derived++;
     }
 
     if (derived > 0) this.emit();
