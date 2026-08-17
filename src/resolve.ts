@@ -56,6 +56,49 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
+const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|svg)(?:[?#]|$)/i;
+const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
+
+/**
+ * True when the pasted URL is the asset itself rather than a page about it.
+ * Threads never exposes its video URL, so copying the video address and
+ * pasting that is the only route to archiving it.
+ */
+export function directMediaKind(url: string): "image" | "video" | null {
+  let path: string;
+  try {
+    const parsed = new URL(url);
+    path = parsed.pathname + parsed.search;
+  } catch {
+    return null;
+  }
+  if (VIDEO_EXT.test(path)) return "video";
+  if (IMAGE_EXT.test(path)) return "image";
+  return null;
+}
+
+/** Builds a link for a URL that points straight at an image or video. */
+export function directMediaLink(url: string, kind: "image" | "video"): ResolvedLink {
+  let name = "";
+  let host = "";
+  try {
+    const parsed = new URL(url);
+    host = parsed.hostname.replace(/^www\./, "");
+    name = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
+  } catch {
+    host = "link";
+  }
+  const label = kind === "video" ? "Video" : "Image";
+  return {
+    url,
+    title: name ? `${label}: ${name}` : `${label} from ${host}`,
+    description: "",
+    author: "",
+    published: "",
+    media: [{ url, kind }],
+  };
+}
+
 const X_HOSTS = new Set(["x.com", "twitter.com", "mobile.x.com", "mobile.twitter.com"]);
 const X_STATUS = /^\/([A-Za-z0-9_]{1,15})\/status(?:es)?\/(\d{5,25})/;
 

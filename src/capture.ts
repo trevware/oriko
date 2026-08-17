@@ -5,6 +5,8 @@ import {
   ResolvedLink,
   buildNote,
   cleanUrl,
+  directMediaKind,
+  directMediaLink,
   fxApiUrl,
   isHttpUrl,
   noteNameFor,
@@ -76,6 +78,12 @@ export class CaptureService {
   }
 
   private async resolve(url: string): Promise<ResolvedLink | null> {
+    // A URL that already points at an asset needs no resolving. This is the
+    // route for sites like Threads that never publish their video URL: copy
+    // the video address and paste that.
+    const direct = directMediaKind(url);
+    if (direct) return directMediaLink(url, direct);
+
     const status = xStatus(url);
     if (status) {
       const viaResolver = await this.resolveX(status, url);
@@ -111,6 +119,12 @@ export class CaptureService {
         throw: false,
       });
       if (response.status < 200 || response.status >= 300) return null;
+
+      // Some CDN urls carry no file extension; trust what the server says.
+      const type = (response.headers?.["content-type"] ?? "").toLowerCase();
+      if (type.startsWith("image/")) return directMediaLink(url, "image");
+      if (type.startsWith("video/")) return directMediaLink(url, "video");
+
       return parsePageMeta(response.text, url);
     } catch {
       return null;

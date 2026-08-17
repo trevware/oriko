@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanUrl,
+  directMediaKind,
+  directMediaLink,
   fxApiUrl,
   isHttpUrl,
   noteNameFor,
@@ -218,5 +220,49 @@ describe("noteNameFor", () => {
   it("never returns an empty name", () => {
     expect(noteNameFor("", "not a url")).toBe("Untitled clipping");
     expect(noteNameFor("///", "not a url")).toBe("Untitled clipping");
+  });
+});
+
+describe("directMediaKind", () => {
+  it("recognises a video url", () => {
+    expect(directMediaKind("https://cdn/a.mp4")).toBe("video");
+    expect(directMediaKind("https://cdn/a.webm")).toBe("video");
+  });
+
+  it("recognises an image url", () => {
+    expect(directMediaKind("https://cdn/a.jpg")).toBe("image");
+    expect(directMediaKind("https://cdn/a.PNG")).toBe("image");
+  });
+
+  it("sees through a long signed query string", () => {
+    const fbcdn =
+      "https://instagram.fymq2-1.fna.fbcdn.net/o1/v/t16/f2/m84/AQMh5iLz.mp4?_nc_cat=104&oe=6A8576AC";
+    expect(directMediaKind(fbcdn)).toBe("video");
+  });
+
+  it("returns null for a page url", () => {
+    expect(directMediaKind("https://www.threads.com/@a/post/B")).toBeNull();
+    expect(directMediaKind("https://x.com/a/status/123")).toBeNull();
+  });
+
+  it("returns null for unparseable input", () => {
+    expect(directMediaKind("not a url")).toBeNull();
+  });
+});
+
+describe("directMediaLink", () => {
+  it("uses the filename in the title", () => {
+    expect(directMediaLink("https://cdn/clip.mp4", "video").title).toBe("Video: clip.mp4");
+  });
+
+  it("falls back to the host when there is no filename", () => {
+    expect(directMediaLink("https://cdn.example.com/", "image").title).toBe(
+      "Image from cdn.example.com"
+    );
+  });
+
+  it("carries exactly one media item of the given kind", () => {
+    const out = directMediaLink("https://cdn/a.mp4", "video");
+    expect(out.media).toEqual([{ url: "https://cdn/a.mp4", kind: "video" }]);
   });
 });

@@ -99,6 +99,55 @@ describe("scanClipping", () => {
     expect(r.media[0].kind).toBe("image");
   });
 
+  it("reads a media list from frontmatter", () => {
+    const fm = {
+      ...NOOK_FM,
+      media: ["https://cdn/a.mp4", "https://cdn/b.jpg"],
+    };
+    const r = scanClipping("Clippings/X.md", fm, "");
+    expect(r.media).toHaveLength(2);
+    expect(r.media[0].kind).toBe("video");
+    expect(r.media[1].kind).toBe("image");
+  });
+
+  it("accepts a single media string", () => {
+    const r = scanClipping("Clippings/X.md", { ...NOOK_FM, media: "https://cdn/a.mp4" }, "");
+    expect(r.media).toHaveLength(1);
+    expect(r.media[0].url).toBe("https://cdn/a.mp4");
+  });
+
+  it("classifies a signed fbcdn video url as video", () => {
+    const url =
+      "https://instagram.fymq2-1.fna.fbcdn.net/o1/v/t16/f2/m84/AQMh5iLz.mp4?_nc_cat=104&oe=6A8576AC";
+    const r = scanClipping("Clippings/X.md", { ...NOOK_FM, media: url }, "");
+    expect(r.media[0].kind).toBe("video");
+  });
+
+  it("puts frontmatter media ahead of body media, so it wins the cover", () => {
+    const r = scanClipping(
+      "Clippings/X.md",
+      { ...NOOK_FM, media: "https://cdn/hand.mp4" },
+      "![body](https://cdn/body.jpg)"
+    );
+    expect(r.media[0].url).toBe("https://cdn/hand.mp4");
+    expect(r.media[1].url).toBe("https://cdn/body.jpg");
+  });
+
+  it("ignores non-remote entries in the media list", () => {
+    const r = scanClipping(
+      "Clippings/X.md",
+      { ...NOOK_FM, media: ["Attachments/local.png", "https://cdn/a.jpg"] },
+      ""
+    );
+    expect(r.media).toHaveLength(1);
+    expect(r.media[0].url).toBe("https://cdn/a.jpg");
+  });
+
+  it("tolerates a missing or malformed media key", () => {
+    expect(scanClipping("Clippings/X.md", { ...NOOK_FM, media: null }, "").media).toEqual([]);
+    expect(scanClipping("Clippings/X.md", { ...NOOK_FM, media: 42 }, "").media).toEqual([]);
+  });
+
   it("skips data URIs and vault-relative links", () => {
     const body = "![a](data:image/png;base64,AAAA)\n![b](Attachments/local.png)\n![[embed.png]]";
     const r = scanClipping("Clippings/X.md", NOOK_FM, body);
