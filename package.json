@@ -1,0 +1,22 @@
+{
+  "name": "obsidian-clippings-grid",
+  "version": "0.1.0",
+  "description": "A fast masonry grid over your Obsidian web clippings, with local media archiving.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "tsc --noEmit && node esbuild.config.mjs --production",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "builtin-modules": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "obsidian": "^1.7.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.6"
+  }
+}

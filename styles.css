@@ -1,0 +1,5 @@
+.clippings-grid-view {
+  height: 100%;
+  overflow: hidden;
+  background: var(--background-primary);
+}

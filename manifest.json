@@ -1,0 +1,9 @@
+{
+  "id": "clippings-grid",
+  "name": "Clippings Grid",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "A fast masonry grid over your web clippings, with local media archiving so clippings survive link rot.",
+  "author": "Trevor Tarakjian",
+  "isDesktopOnly": false
+}
