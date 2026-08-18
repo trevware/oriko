@@ -153,6 +153,9 @@ export class ArchiveService {
     if (derived > 0) this.emit();
   }
 
+  /** Reports archive progress for a single record, for the capture bar. */
+  onRecordProgress: ((completed: number, total: number) => void) | null = null;
+
   /**
    * @param retryFailed re-attempt refs that failed before. Off for the
    * background pass, so a page that returns HTML is not re-downloaded on
@@ -171,7 +174,9 @@ export class ArchiveService {
     }
 
     await this.ensureFolder();
-    const outcomes = await archiveAll(canonical, record.source, this.deps(), 4);
+    const outcomes = await archiveAll(canonical, record.source, this.deps(), 4, (done, total) =>
+      this.onRecordProgress?.(done, total)
+    );
     for (const outcome of outcomes) this.cache.mergeOutcome(outcome);
 
     // Everything inline failed, so the page's own preview image is the only

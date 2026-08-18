@@ -14,6 +14,7 @@ import {
   parsePageMeta,
   xStatus,
 } from "./resolve";
+import type { ProgressState } from "./progress";
 import type { ClippingsGridSettings } from "./settings";
 
 /**
@@ -25,6 +26,10 @@ import type { ClippingsGridSettings } from "./settings";
 const USER_AGENT = "Mozilla/5.0 (compatible; ClippingsGrid/0.1; Obsidian link preview)";
 
 export class CaptureService {
+  /** Set by the grid view so capture can drive its progress bar. */
+  onProgress: ((state: ProgressState | null) => void) | null = null;
+  onFinished: ((label: string) => void) | null = null;
+
   constructor(
     private app: App,
     private settings: () => ClippingsGridSettings,
@@ -43,6 +48,10 @@ export class CaptureService {
     await this.capture(text);
   }
 
+  private report(fraction: number | null, label: string): void {
+    this.onProgress?.({ fraction, label });
+  }
+
   async capture(raw: string): Promise<void> {
     const url = cleanUrl(raw);
     if (!isHttpUrl(url)) {
@@ -52,29 +61,47 @@ export class CaptureService {
 
     const existing = this.index.records().find((r) => cleanUrl(r.source) === url);
     if (existing) {
+      this.onProgress?.(null);
       new Notice("Clippings grid: already clipped");
       const file = this.app.vault.getAbstractFileByPath(existing.path);
       if (file instanceof TFile) await this.app.workspace.getLeaf(false).openFile(file);
       return;
     }
 
-    new Notice("Clippings grid: resolving link…");
+    this.report(0.1, "Reading link…");
     const link = await this.resolve(url);
 
     if (!link || link.media.length === 0) {
+      this.onProgress?.(null);
       new Notice("Clippings grid: no image or video found, nothing created");
       return;
     }
 
+    this.report(0.3, "Creating clipping…");
     const file = await this.createNote(link);
-    if (!file) return;
-
-    new Notice(`Clippings grid: clipped "${link.title.slice(0, 40)}"`);
+    if (!file) {
+      this.onProgress?.(null);
+      return;
+    }
 
     // Archive straight away: resolved CDN urls are often signed and short-lived.
+    this.report(0.4, `Downloading media…`);
     await this.index.ingest(file);
     const record = this.index.get(file.path);
-    if (record) await this.archiver.archiveRecord(record, true);
+
+    if (record) {
+      this.archiver.onRecordProgress = (done, total) => {
+        // Downloading owns the back 60% of the bar.
+        this.report(0.4 + (done / Math.max(1, total)) * 0.6, `Downloading ${done}/${total}…`);
+      };
+      try {
+        await this.archiver.archiveRecord(record, true);
+      } finally {
+        this.archiver.onRecordProgress = null;
+      }
+    }
+
+    this.onFinished?.(link.title.slice(0, 40));
   }
 
   private async resolve(url: string): Promise<ResolvedLink | null> {

@@ -2,6 +2,7 @@ import { ItemView, WorkspaceLeaf } from "obsidian";
 import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
 import { PlaybackController } from "./playback";
+import { ProgressBar } from "./progress";
 import { buildTiles } from "./tile";
 
 export const VIEW_TYPE_GRID = "clippings-grid";
@@ -10,6 +11,7 @@ export class ClippingsGridView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
+  private progress: ProgressBar | null = null;
   /** Tiles whose cover failed to load, so they leave the grid. */
   private unloadable = new Set<string>();
 
@@ -32,6 +34,10 @@ export class ClippingsGridView extends ItemView {
   async onOpen(): Promise<void> {
     this.contentEl.empty();
     this.contentEl.addClass("clippings-grid-view");
+
+    this.progress = new ProgressBar(this.contentEl);
+    this.plugin.capture.onProgress = (state) => this.progress?.set(state);
+    this.plugin.capture.onFinished = (label) => this.progress?.finish(`Clipped ${label}`);
 
     this.grid = new GridRenderer(this.app, this.contentEl);
     this.playback = new PlaybackController(
@@ -76,6 +82,10 @@ export class ClippingsGridView extends ItemView {
     this.observer = null;
     this.playback?.destroy();
     this.playback = null;
+    this.plugin.capture.onProgress = null;
+    this.plugin.capture.onFinished = null;
+    this.progress?.destroy();
+    this.progress = null;
     this.grid?.destroy();
     this.grid = null;
   }

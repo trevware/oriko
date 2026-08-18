@@ -108,3 +108,15 @@ export function initialCamera(viewport: Size, content: Size): Camera {
     content
   );
 }
+
+/**
+ * Holds a content point still on screen across a relayout.
+ *
+ * Clippings sort newest first, so adding one inserts at the top and pushes
+ * every existing tile down. Without this the camera stays put while the
+ * wall slides underneath it, which reads as the canvas jumping.
+ */
+export function preserveAnchor(camera: Camera, oldY: number, newY: number): Camera {
+  if (!Number.isFinite(oldY) || !Number.isFinite(newY)) return camera;
+  return { ...camera, y: camera.y + (oldY - newY) * camera.zoom };
+}

@@ -1,4 +1,5 @@
 .clippings-grid-view {
+  position: relative;
   height: 100%;
   padding: 0;
   overflow: hidden;
@@ -110,4 +111,50 @@
 
 .cg-media {
   -webkit-user-drag: none;
+}
+
+.cg-progress {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  height: 2px;
+  background: var(--background-modifier-border);
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.cg-progress.is-visible {
+  opacity: 1;
+}
+
+.cg-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--color-accent);
+  transition: width 220ms ease;
+}
+
+/* Work of unknown length: a travelling sliver rather than a fake percentage. */
+.cg-progress.is-indeterminate .cg-progress-fill {
+  width: 30%;
+  transition: none;
+  animation: cg-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes cg-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+.cg-progress-label {
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--background-primary);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
 }

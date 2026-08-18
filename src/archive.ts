@@ -146,15 +146,19 @@ export async function archiveAll(
   list: CanonicalMedia[],
   referer: string,
   deps: ArchiveDeps,
-  concurrency = 4
+  concurrency = 4,
+  onItemDone?: (completed: number, total: number) => void
 ): Promise<ArchiveOutcome[]> {
   const results = new Array<ArchiveOutcome>(list.length);
   let cursor = 0;
+  let completed = 0;
 
   const worker = async (): Promise<void> => {
     while (cursor < list.length) {
       const index = cursor++;
       results[index] = await archiveOne(list[index], referer, deps);
+      completed++;
+      onItemDone?.(completed, list.length);
     }
   };
 

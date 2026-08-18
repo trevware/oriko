@@ -4,6 +4,7 @@ import {
   MIN_ZOOM,
   clampCamera,
   initialCamera,
+  preserveAnchor,
   visibleContentBand,
   zoomAt,
 } from "./camera";
@@ -135,9 +136,28 @@ export class GridRenderer {
     this.relayout();
   }
 
+  /** The tile nearest the viewport centre, used to hold position across a relayout. */
+  private anchor(): { id: string; y: number } | null {
+    if (!this.placed || this.layout.positions.length === 0) return null;
+    const band = visibleContentBand(this.camera, this.viewportSize());
+    const centre = band.top + band.height / 2;
+
+    let best: { id: string; y: number } | null = null;
+    let bestDistance = Infinity;
+    for (const p of this.layout.positions) {
+      const distance = Math.abs(p.y + p.h / 2 - centre);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = { id: p.id, y: p.y };
+      }
+    }
+    return best;
+  }
+
   relayout(): void {
     // The wall is laid out at the unzoomed viewport width, so zooming out
     // reveals empty space around it rather than reflowing the columns.
+    const anchor = this.anchor();
     const size = this.viewportSize();
     this.contentWidth = size.width;
     const columns = columnsForWidth(size.width, TARGET_COLUMN_WIDTH, GAP);
@@ -155,6 +175,11 @@ export class GridRenderer {
     if (!this.placed && this.tiles.length > 0) {
       this.placed = true;
       this.camera = initialCamera(size, this.contentSize());
+    } else if (anchor) {
+      // Adding a clipping inserts at the top and pushes everything down;
+      // shift the camera by the same amount so the view does not jump.
+      const moved = this.layout.positions.find((p) => p.id === anchor.id);
+      if (moved) this.camera = preserveAnchor(this.camera, anchor.y, moved.y);
     }
 
     this.applyCamera();

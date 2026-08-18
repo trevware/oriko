@@ -6,6 +6,7 @@ import {
   clampCamera,
   clampZoom,
   initialCamera,
+  preserveAnchor,
   toContent,
   visibleContentBand,
   zoomAt,
@@ -134,5 +135,37 @@ describe("initialCamera", () => {
   it("centres content narrower than the viewport", () => {
     const out = initialCamera(viewport, { width: 600, height: 400 });
     expect(out.x).toBe(200);
+  });
+});
+
+describe("preserveAnchor", () => {
+  it("keeps an anchor at the same screen position when content shifts down", () => {
+    const camera = { x: 0, y: -500, zoom: 1 };
+    const moved = preserveAnchor(camera, 600, 900);
+    // The anchor was 300px lower after relayout, so the camera rises by 300.
+    expect(moved.y).toBe(-800);
+    expect(600 * 1 + camera.y).toBe(900 * 1 + moved.y);
+  });
+
+  it("accounts for zoom", () => {
+    const camera = { x: 0, y: -500, zoom: 2 };
+    const moved = preserveAnchor(camera, 600, 900);
+    expect(600 * 2 + camera.y).toBe(900 * 2 + moved.y);
+  });
+
+  it("does nothing when the anchor did not move", () => {
+    const camera = { x: 0, y: -500, zoom: 1 };
+    expect(preserveAnchor(camera, 600, 600)).toEqual(camera);
+  });
+
+  it("leaves x and zoom untouched", () => {
+    const moved = preserveAnchor({ x: 40, y: -500, zoom: 1.5 }, 100, 200);
+    expect(moved.x).toBe(40);
+    expect(moved.zoom).toBe(1.5);
+  });
+
+  it("ignores a non-finite anchor rather than flinging the camera", () => {
+    const camera = { x: 0, y: -500, zoom: 1 };
+    expect(preserveAnchor(camera, Number.NaN, 900)).toEqual(camera);
   });
 });
