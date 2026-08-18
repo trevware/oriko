@@ -1,4 +1,18 @@
 .power-grid-view {
+  /* One floating surface, defined once. The selection toolbar is the
+     reference: every bar, menu and popup over the wall is the same material,
+     so they read as one system rather than four things that happen to be
+     dark. Change it here, not in the rules below. */
+  --pg-surface: rgba(28, 28, 30, 0.82);
+  --pg-surface-radius: 22px;
+  --pg-surface-blur: blur(20px) saturate(160%);
+  --pg-surface-ring: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --pg-surface-lift: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --pg-surface-text: rgba(255, 255, 255, 0.92);
+  /* Anything sitting inside a surface: a row, an icon button. */
+  --pg-inner-radius: 14px;
+  --pg-inner-hover: rgba(255, 255, 255, 0.14);
+
   position: relative;
   height: 100%;
   padding: 0;
@@ -371,13 +385,11 @@
   align-items: center;
   gap: 4px;
   padding: 7px 14px;
-  border-radius: 22px;
-  background: rgba(28, 28, 30, 0.82);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.45);
+  border-radius: var(--pg-surface-radius);
+  background: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   /* Parked below the edge and non-interactive until a selection exists. */
   transform: translate(-50%, calc(100% + 30px));
   opacity: 0;
@@ -419,7 +431,7 @@
   height: 38px;
   padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--pg-inner-radius);
   background-color: transparent;
   background-image: none;
   box-shadow: none;
@@ -455,9 +467,13 @@
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
+  /* Fully round rather than the surface radius: at this height the two are
+     the same shape anyway, and a label should read as a pill. */
   border-radius: 999px;
-  background: rgba(28, 28, 30, 0.94);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -507,15 +523,13 @@
 .pg-menu {
   position: absolute;
   z-index: 41;
-  min-width: 250px;
-  padding: 8px;
-  border-radius: 18px;
-  background: rgba(38, 38, 40, 0.94);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 18px 44px rgba(0, 0, 0, 0.5);
+  min-width: 260px;
+  padding: 10px;
+  border-radius: var(--pg-surface-radius);
+  background: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   opacity: 0;
   transform: scale(0.94);
   transition:
@@ -532,15 +546,15 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 9px 12px;
-  border-radius: 11px;
-  color: rgba(255, 255, 255, 0.94);
+  padding: 10px 13px;
+  border-radius: var(--pg-inner-radius);
+  color: var(--pg-surface-text);
   cursor: pointer;
   user-select: none;
 }
 
 .pg-menu-item:hover {
-  background: rgba(255, 255, 255, 0.11);
+  background: var(--pg-inner-hover);
 }
 
 .pg-menu-item.is-destructive:hover {
@@ -741,13 +755,11 @@
   display: flex;
   gap: 4px;
   padding: 7px 12px;
-  border-radius: 22px;
-  background: rgba(28, 28, 30, 0.86);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.45);
+  border-radius: var(--pg-surface-radius);
+  background: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   transform: translate(-50%, 14px);
   opacity: 0;
   /* Exit: a quick drop away with no delay, short enough to be finished
@@ -774,7 +786,7 @@
   height: 38px;
   padding: 0;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--pg-inner-radius);
   background-color: transparent;
   background-image: none;
   box-shadow: none;
@@ -831,14 +843,12 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  background-color: rgba(28, 28, 30, 0.82);
+  background-color: var(--pg-surface);
   background-image: none;
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.45);
-  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
+  color: var(--pg-surface-text);
   cursor: pointer;
   transition:
     background-color 120ms ease,
@@ -846,7 +856,8 @@
 }
 
 .pg-spacebar button:hover {
-  background-color: rgba(48, 48, 52, 0.9);
+  background-color: var(--pg-surface);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift), inset 0 0 0 999px var(--pg-inner-hover);
 }
 
 /* Managing grids is a rare, deliberate act, so it sits apart from the two

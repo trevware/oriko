@@ -1,6 +1,9 @@
 import { setIcon } from "obsidian";
 import type { GridSpace } from "./spaces";
 
+/** Space left between a control and the menu it launches. */
+const LAUNCH_GAP = 10;
+
 export interface SpaceBarHandlers {
   /** Open the grid list, anchored at the given point. */
   onSwitcher: (x: number, y: number) => void;
@@ -47,9 +50,12 @@ export class SpaceBar {
     this.switcher.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       // Anchored to the button, not the pointer, so the menu lands in the same
-      // place however the button was reached.
+      // place however the button was reached. The right edge is passed rather
+      // than the left: placeMenu flips a menu that would overflow, and against
+      // the right of the pane that flip is what lines the menu's right edge up
+      // with the button's, so it opens leftward and upward out of it.
       const rect = this.switcher.getBoundingClientRect();
-      handlers.onSwitcher(rect.left, rect.top);
+      handlers.onSwitcher(rect.right, rect.top - LAUNCH_GAP);
     };
 
     const create = right.createEl("button", { cls: "pg-space-create" });
@@ -58,7 +64,7 @@ export class SpaceBar {
     create.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       const rect = create.getBoundingClientRect();
-      handlers.onCreate(rect.right, rect.top);
+      handlers.onCreate(rect.right, rect.top - LAUNCH_GAP);
     };
   }
 
