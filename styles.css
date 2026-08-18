@@ -332,8 +332,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 8px;
-  border-radius: 16px;
+  padding: 7px 14px;
+  border-radius: 22px;
   background: rgba(28, 28, 30, 0.82);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -356,7 +356,7 @@
 }
 
 .cg-actionbar-count {
-  padding: 0 10px 0 8px;
+  padding: 0 10px 0 4px;
   font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.72);
@@ -370,29 +370,38 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
-.cg-actionbar-button {
+/* Selector carries the bar as well, so it outranks Obsidian's own button
+   styling, which otherwise paints a filled background at rest. */
+.cg-actionbar button.cg-actionbar-button {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 0;
-  border-radius: 11px;
-  background: transparent;
+  border-radius: 14px;
+  background-color: transparent;
+  background-image: none;
   box-shadow: none;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  transition: background 120ms ease;
+  transition: background-color 120ms ease;
 }
 
-.cg-actionbar-button:hover {
-  background: rgba(255, 255, 255, 0.12);
+.cg-actionbar button.cg-actionbar-button:focus,
+.cg-actionbar button.cg-actionbar-button:focus-visible {
+  background-color: transparent;
+  box-shadow: none;
 }
 
-.cg-actionbar-button:active {
-  background: rgba(255, 255, 255, 0.2);
+.cg-actionbar button.cg-actionbar-button:hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+.cg-actionbar button.cg-actionbar-button:active {
+  background-color: rgba(255, 255, 255, 0.22);
 }
 
 .cg-actionbar-tip {
