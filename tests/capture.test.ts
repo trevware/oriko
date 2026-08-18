@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNote, buildPastedImageNote, extensionForMime } from "../src/resolve";
+import { buildNote, buildPastedImageNote } from "../src/resolve";
 import type { ResolvedLink } from "../src/resolve";
 
 function link(overrides: Partial<ResolvedLink> = {}): ResolvedLink {
@@ -121,27 +121,5 @@ describe("buildPastedImageNote", () => {
   it("leaves it unparsed, so it lands in the queue", () => {
     expect(note).not.toContain("type: clipping");
     expect(note).not.toContain("categories:");
-  });
-});
-
-describe("extensionForMime", () => {
-  it("maps the common clipboard types", () => {
-    expect(extensionForMime("image/png")).toBe("png");
-    expect(extensionForMime("image/jpeg")).toBe("jpg");
-    expect(extensionForMime("image/gif")).toBe("gif");
-    expect(extensionForMime("image/webp")).toBe("webp");
-  });
-
-  it("ignores parameters on the mime type", () => {
-    expect(extensionForMime("image/png; charset=binary")).toBe("png");
-  });
-
-  it("is case insensitive", () => {
-    expect(extensionForMime("IMAGE/PNG")).toBe("png");
-  });
-
-  it("falls back to png for anything unknown", () => {
-    expect(extensionForMime("image/x-weird")).toBe("png");
-    expect(extensionForMime("")).toBe("png");
   });
 });

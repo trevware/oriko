@@ -1,5 +1,6 @@
 import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
 import type { ArchiveService } from "./archive-service";
+import { extensionForMime } from "./formats";
 import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
@@ -12,7 +13,6 @@ import {
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
-  extensionForMime,
   parsePageMeta,
   xStatus,
 } from "./resolve";

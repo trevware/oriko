@@ -1,3 +1,5 @@
+import { extensionOf, kindForExtension } from "./formats";
+
 export interface MediaRef {
   url: string;
   kind: "image" | "video";
@@ -76,8 +78,6 @@ function domainOf(url: string): string {
   }
 }
 
-const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
-
 /**
  * Sites that render media client-side (Threads, X) expose no video URL in
  * their HTML, so neither the clipper nor this plugin can find it. A `media:`
@@ -86,14 +86,20 @@ const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
  * are signed and expire.
  */
 function frontmatterMedia(value: unknown): MediaRef[] {
-  const urls = asStringArray(value).filter(isRemote);
-  return urls.map((url) => ({
-    url,
-    kind: VIDEO_EXT.test(url) ? ("video" as const) : ("image" as const),
-    alt: "",
-    widthHint: widthHint(url),
-    heightHint: heightHint(url),
-  }));
+  const refs: MediaRef[] = [];
+  for (const url of asStringArray(value).filter(isRemote)) {
+    const kind = kindForExtension(extensionOf(url));
+    refs.push({
+      // No extension means we cannot tell; assume an image, which is the
+      // common case and the cheaper mistake.
+      kind: kind ?? "image",
+      url,
+      alt: "",
+      widthHint: widthHint(url),
+      heightHint: heightHint(url),
+    });
+  }
+  return refs;
 }
 
 function basename(path: string): string {

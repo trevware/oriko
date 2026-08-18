@@ -1,4 +1,5 @@
 import { readDimensions } from "./dimensions";
+import { defaultExtension } from "./formats";
 import { hashUrl } from "./hash";
 import type { CanonicalMedia } from "./normalize";
 
@@ -56,7 +57,7 @@ export function archiveFilename(media: CanonicalMedia): string {
   if (!base) base = "media";
 
   if (!/\.[a-z0-9]{2,5}$/i.test(base)) {
-    base += media.kind === "video" ? ".mp4" : ".jpg";
+    base += `.${defaultExtension(media.kind)}`;
   }
   if (base.length > MAX_BASENAME) {
     const dot = base.lastIndexOf(".");

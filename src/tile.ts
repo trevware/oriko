@@ -1,4 +1,5 @@
 import type { MediaCache } from "./cache";
+import { extensionOf, isRenderable } from "./formats";
 import { dedupeMedia, normalizeUrl } from "./normalize";
 import type { CanonicalMedia } from "./normalize";
 import { knownHostThumbnail } from "./page-cover";
@@ -50,21 +51,68 @@ function signatureOf(cover: Cover): string {
   return `${cover.kind}|${cover.animated ? 1 : 0}|${cover.posterPath}|${cover.filePath}`;
 }
 
+/**
+ * Returns null when the file is archived but cannot be shown: a format
+ * Chromium will not decode, whose preview has not been generated yet. The
+ * caller moves on to the next ref rather than painting a broken tile.
+ */
 function localCover(
   entry: NonNullable<ReturnType<MediaCache["get"]>>
-): Cover {
+): Cover | null {
   const hasSize = entry.width > 0 && entry.height > 0;
-  const animatable = entry.kind === "image" && ANIMATED_EXT.test(entry.file);
-  return {
-    // Only video and animated GIFs have any use for a still.
-    posterPath: entry.kind === "video" || animatable ? entry.thumb : "",
-    filePath: entry.file,
-    remote: false,
-    kind: entry.kind,
-    animated: animatable && Boolean(entry.thumb) && entry.bytes <= MAX_ANIMATED_BYTES,
+  const size = {
     width: hasSize ? entry.width : DEFAULT_RATIO.width,
     height: hasSize ? entry.height : DEFAULT_RATIO.height,
     provisional: !hasSize,
+  };
+  const renderable = isRenderable(extensionOf(entry.file));
+
+  if (entry.kind === "video") {
+    if (renderable) {
+      return {
+        posterPath: entry.thumb,
+        filePath: entry.file,
+        remote: false,
+        kind: "video",
+        animated: false,
+        ...size,
+      };
+    }
+    // A container Chromium cannot play, such as AVI. The extracted frame is
+    // the honest thing to show; the original stays archived.
+    if (!entry.thumb) return null;
+    return {
+      posterPath: "",
+      filePath: entry.thumb,
+      remote: false,
+      kind: "image",
+      animated: false,
+      ...size,
+    };
+  }
+
+  if (!renderable) {
+    // HEIC, TIFF, RAW and friends: paint the generated preview instead.
+    if (!entry.thumb) return null;
+    return {
+      posterPath: "",
+      filePath: entry.thumb,
+      remote: false,
+      kind: "image",
+      animated: false,
+      ...size,
+    };
+  }
+
+  const animatable = ANIMATED_EXT.test(entry.file);
+  return {
+    // Only an animated GIF has any use for a still, to freeze on when paused.
+    posterPath: animatable ? entry.thumb : "",
+    filePath: entry.file,
+    remote: false,
+    kind: "image",
+    animated: animatable && Boolean(entry.thumb) && entry.bytes <= MAX_ANIMATED_BYTES,
+    ...size,
   };
 }
 
@@ -113,7 +161,11 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
     // A recorded failure means the ref is bad at the source too, so there is
     // no point falling back to its remote URL.
     if (entry?.failed) continue;
-    if (entry?.file) return localCover(entry);
+    if (entry?.file) {
+      const cover = localCover(entry);
+      if (cover) return cover;
+      continue;
+    }
     return remoteCover(item.url, item.kind, item.widthHint, item.heightHint);
   }
 
@@ -122,7 +174,10 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
   if (!record.source) return null;
 
   const pageEntry = cache.get(normalizeUrl(record.source));
-  if (pageEntry?.file) return localCover(pageEntry);
+  if (pageEntry?.file) {
+    const cover = localCover(pageEntry);
+    if (cover) return cover;
+  }
   if (pageEntry?.failed) return null;
 
   // Known video hosts resolve to a thumbnail with no page fetch, so those

@@ -1,3 +1,4 @@
+import { extensionOf, kindForExtension } from "./formats";
 import { readMetaTags } from "./page-cover";
 
 export interface ResolvedMedia {
@@ -56,25 +57,18 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
-const IMAGE_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|svg)(?:[?#]|$)/i;
-const VIDEO_EXT = /\.(mp4|webm|mov|m4v|ogv)(?:[?#]|$)/i;
-
 /**
  * True when the pasted URL is the asset itself rather than a page about it.
  * Threads never exposes its video URL, so copying the video address and
  * pasting that is the only route to archiving it.
  */
 export function directMediaKind(url: string): "image" | "video" | null {
-  let path: string;
   try {
-    const parsed = new URL(url);
-    path = parsed.pathname + parsed.search;
+    new URL(url);
   } catch {
     return null;
   }
-  if (VIDEO_EXT.test(path)) return "video";
-  if (IMAGE_EXT.test(path)) return "image";
-  return null;
+  return kindForExtension(extensionOf(url));
 }
 
 /** Builds a link for a URL that points straight at an image or video. */
@@ -255,21 +249,6 @@ export function buildNote(link: ResolvedLink, created = today()): string {
 
   lines.push(`[${link.url}](${link.url})`, "");
   return lines.join("\n");
-}
-
-/** Extension for a pasted image, from its clipboard MIME type. */
-export function extensionForMime(mime: string): string {
-  const map: Record<string, string> = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/gif": "gif",
-    "image/webp": "webp",
-    "image/avif": "avif",
-    "image/svg+xml": "svg",
-    "image/bmp": "bmp",
-    "image/tiff": "tiff",
-  };
-  return map[mime.split(";")[0].trim().toLowerCase()] ?? "png";
 }
 
 /**

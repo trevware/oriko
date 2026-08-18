@@ -1,7 +1,15 @@
 import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
 import { ArchiveDeps, archiveAll } from "./archive";
 import { MediaCache } from "./cache";
+import { readDimensions } from "./dimensions";
+import {
+  absolutePath,
+  conversionAvailable,
+  convertImageToPng,
+  extractVideoFrame,
+} from "./convert";
 import { posterPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
+import { extensionOf, needsPreview } from "./formats";
 import { ClippingIndex } from "./index-store";
 import { dedupeMedia, normalizeUrl } from "./normalize";
 import type { CanonicalMedia } from "./normalize";
@@ -121,6 +129,18 @@ export class ArchiveService {
 
     for (const entry of this.cache.entries()) {
       if (!entry.file || entry.thumb || entry.failed) continue;
+
+      // A format Chromium cannot decode is unusable until it has a preview,
+      // so that takes priority over the ordinary still.
+      if (needsPreview(extensionOf(entry.file))) {
+        const preview = await this.renderPreview(entry.file, entry.kind);
+        if (preview) {
+          this.cache.setThumb(entry.key, preview.path, preview.width, preview.height);
+          derived++;
+        }
+        continue;
+      }
+
       // Tiles paint originals, so a still is only worth generating for the
       // two things that need one: posting a video and freezing a GIF.
       if (entry.kind !== "video" && !/\.gif$/i.test(entry.file)) continue;
@@ -188,6 +208,46 @@ export class ArchiveService {
     await this.deriveAssets();
     await this.saveCache();
     this.emit();
+  }
+
+  /**
+   * Produces a PNG the grid can actually paint for a format Chromium will
+   * not decode. Images go through sips, which reads HEIC, TIFF, EXR and
+   * every major RAW; unplayable video containers give up one frame to
+   * ffmpeg. Missing tools are not an error: the original stays archived and
+   * the clipping simply has no tile.
+   */
+  private async renderPreview(
+    file: string,
+    kind: "image" | "video"
+  ): Promise<{ path: string; width: number; height: number } | null> {
+    if (!conversionAvailable()) return null;
+
+    const target = `${file.replace(/\.[^./]+$/, "")}.preview.png`;
+    const normalizedTarget = normalizePath(target);
+
+    if (!(await this.app.vault.adapter.exists(normalizedTarget))) {
+      const from = absolutePath(this.app.vault, normalizePath(file));
+      const to = absolutePath(this.app.vault, normalizedTarget);
+      if (!from || !to) return null;
+
+      const ok =
+        kind === "video"
+          ? await extractVideoFrame(from, to)
+          : await convertImageToPng(from, to);
+      if (!ok) return null;
+    }
+
+    // Read the dimensions back off the PNG the tool just wrote.
+    const written = this.app.vault.getAbstractFileByPath(normalizedTarget);
+    if (!(written instanceof TFile)) return null;
+    const dimensions = readDimensions(await this.app.vault.readBinary(written));
+
+    return {
+      path: normalizedTarget,
+      width: dimensions?.width ?? 0,
+      height: dimensions?.height ?? 0,
+    };
   }
 
   /**
