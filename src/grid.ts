@@ -20,7 +20,15 @@ import {
 import type { Rect } from "./selection";
 import type { TileModel } from "./tile";
 
-const GAP = 14;
+/** Layout gap. Cards sit inset inside their box, adding SELECT_LIFT a side. */
+const GAP = 6;
+/**
+ * How far a selected card grows on every edge. It lives inside the tile's
+ * own inset, so expansion can never overlap a neighbour, and it is applied
+ * as a per-tile scale rather than an inset change so the compositor can
+ * animate it without laying out.
+ */
+const SELECT_LIFT = 4;
 const TARGET_COLUMN_WIDTH = 300;
 const OVERSCAN = 600;
 const MAX_OVERSCAN = 1500;
@@ -133,12 +141,49 @@ export class GridRenderer {
   zoomBy(factor: number, pointer?: { x: number; y: number }): void {
     const size = this.viewportSize();
     const anchor = pointer ?? { x: size.width / 2, y: size.height / 2 };
-    this.setCamera(zoomAt(this.camera, factor, anchor, MIN_ZOOM, MAX_ZOOM));
+    const target = zoomAt(this.camera, factor, anchor, MIN_ZOOM, MAX_ZOOM);
+    this.animateCamera(target, 180);
+    this.onZoomChanged(target.zoom);
+  }
+
+  private tweenFrame = 0;
+
+  private cancelTween(): void {
+    if (this.tweenFrame) window.cancelAnimationFrame(this.tweenFrame);
+    this.tweenFrame = 0;
+  }
+
+  /**
+   * Eases the camera to a target. Used for keyboard zoom and reset, where a
+   * jump is disorienting. Gestures stay immediate, since easing a trackpad
+   * would feel like lag.
+   */
+  private animateCamera(target: Camera, ms = 240): void {
+    this.cancelTween();
+    const start = { ...this.camera };
+    const t0 = performance.now();
+
+    const step = (now: number): void => {
+      const k = Math.min(1, (now - t0) / ms);
+      const e = 1 - Math.pow(1 - k, 3);
+      this.camera = {
+        x: start.x + (target.x - start.x) * e,
+        y: start.y + (target.y - start.y) * e,
+        zoom: start.zoom + (target.zoom - start.zoom) * e,
+      };
+      this.applyCamera();
+      if (k < 1) this.tweenFrame = window.requestAnimationFrame(step);
+      else this.tweenFrame = 0;
+    };
+
+    this.tweenFrame = window.requestAnimationFrame(step);
   }
 
   resetView(): void {
-    this.placed = false;
-    this.relayout();
+    this.cancelTween();
+    const size = this.viewportSize();
+    this.placed = true;
+    this.animateCamera(initialCamera(size, this.contentSize()));
   }
 
   setTiles(tiles: TileModel[]): void {
@@ -224,6 +269,7 @@ export class GridRenderer {
       "wheel",
       (event: WheelEvent) => {
         event.preventDefault();
+        this.cancelTween();
         const rect = this.viewport.getBoundingClientRect();
         const pointer = { x: event.clientX - rect.left, y: event.clientY - rect.top };
 
@@ -304,6 +350,7 @@ export class GridRenderer {
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
       if (!this.spaceHeld && event.button !== 1) return;
       event.preventDefault();
+      this.cancelTween();
       this.panning = true;
       this.panMoved = false;
       this.panOrigin = {
@@ -484,7 +531,9 @@ export class GridRenderer {
     void preload
       .decode()
       .then(() => {
-        if (image.isConnected) image.src = next;
+        if (!image.isConnected) return;
+        image.src = next;
+        image.addClass("is-loaded");
       })
       .catch(() => undefined);
   }
@@ -498,12 +547,17 @@ export class GridRenderer {
 
   private paint(element: TileElement, model: TileModel, position: Position): void {
     element.root.style.display = "";
-    // Scale comes from a CSS variable so selection can lift the card without
-    // JS having to rewrite the transform on every selection change.
-    element.root.style.transform =
-      `translate3d(${position.x}px, ${position.y}px, 0) scale(var(--cg-tile-scale, 1))`;
+    element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
+
+    // Scale that grows the card by exactly SELECT_LIFT on each edge, whatever
+    // its size. A uniform factor would lift a tall tile far more than a short
+    // one; the anisotropy here is under 2% and invisible.
+    const sx = position.w > SELECT_LIFT * 2 ? position.w / (position.w - SELECT_LIFT * 2) : 1;
+    const sy = position.h > SELECT_LIFT * 2 ? position.h / (position.h - SELECT_LIFT * 2) : 1;
+    element.root.style.setProperty("--cg-sx", sx.toFixed(4));
+    element.root.style.setProperty("--cg-sy", sy.toFixed(4));
 
     if (element.signature === model.signature) return;
 
@@ -558,6 +612,9 @@ export class GridRenderer {
         );
       }
       video.addEventListener("error", () => this.onSourceFailed(model.id), { once: true });
+      // A poster paints immediately; without one, wait for the first frame.
+      if (still && !model.remote) video.addClass("is-loaded");
+      else video.addEventListener("loadeddata", () => video.addClass("is-loaded"), { once: true });
       element.media = video;
     } else {
       const image = frame.createEl("img", { cls: "cg-media" });
@@ -590,10 +647,14 @@ export class GridRenderer {
         { once: true }
       );
 
+      image.addEventListener("load", () => image.addClass("is-loaded"), { once: true });
+      // A cached image can already be complete before the listener attaches.
+      if (image.complete && image.naturalWidth > 0) image.addClass("is-loaded");
+
       element.media = image;
     }
 
-    const meta = element.root.createDiv({ cls: "cg-meta" });
+    const meta = frame.createDiv({ cls: "cg-meta" });
     meta.createDiv({ cls: "cg-title", text: model.record.title });
     const sub = meta.createDiv({ cls: "cg-sub" });
     const domain = domainOf(model.record.source);
@@ -651,6 +712,7 @@ export class GridRenderer {
   }
 
   destroy(): void {
+    this.cancelTween();
     if (this.onKeyDown) document.removeEventListener("keydown", this.onKeyDown);
     if (this.onKeyUp) document.removeEventListener("keyup", this.onKeyUp);
     if (this.onBlur) window.removeEventListener("blur", this.onBlur);
