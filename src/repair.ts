@@ -1,6 +1,6 @@
 import { MarkdownPostProcessorContext, TFile, normalizePath } from "obsidian";
 import { isInFolder } from "./index-store";
-import type ClippingsGridPlugin from "./main";
+import type PowerGridPlugin from "./main";
 import { localReplacement, sourceVideoKeyFor } from "./normalize";
 
 /**
@@ -10,7 +10,7 @@ import { localReplacement, sourceVideoKeyFor } from "./normalize";
  * swap happens at render time: when a remote image or video fails to load,
  * its archived copy takes over.
  */
-function repairDeadMedia(plugin: ClippingsGridPlugin, element: HTMLElement): void {
+function repairDeadMedia(plugin: PowerGridPlugin, element: HTMLElement): void {
   const nodes: Array<HTMLImageElement | HTMLVideoElement> = [
     ...Array.from(element.querySelectorAll("img")),
     ...Array.from(element.querySelectorAll("video")),
@@ -44,7 +44,7 @@ function repairDeadMedia(plugin: ClippingsGridPlugin, element: HTMLElement): voi
  * exactly one image is touched, so an article full of pictures is left alone.
  */
 function playArchivedVideo(
-  plugin: ClippingsGridPlugin,
+  plugin: PowerGridPlugin,
   element: HTMLElement,
   sourcePath: string
 ): void {
@@ -67,11 +67,11 @@ function playArchivedVideo(
   video.muted = true;
   video.autoplay = true;
   video.playsInline = true;
-  video.addClass("cg-note-video");
+  video.addClass("pg-note-video");
   images[0].replaceWith(video);
 }
 
-export function installRepair(plugin: ClippingsGridPlugin): void {
+export function installRepair(plugin: PowerGridPlugin): void {
   plugin.registerMarkdownPostProcessor(
     (element: HTMLElement, context: MarkdownPostProcessorContext) => {
       if (!isInFolder(context.sourcePath, plugin.settings.clippingsFolder)) return;

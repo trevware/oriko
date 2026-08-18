@@ -8,14 +8,14 @@ import { ContextMenu } from "./context-menu";
 import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
 import { GridRenderer } from "./grid";
-import type ClippingsGridPlugin from "./main";
+import type PowerGridPlugin from "./main";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
 import { buildTiles } from "./tile";
 
-export const VIEW_TYPE_GRID = "clippings-grid";
+export const VIEW_TYPE_GRID = "power-grid";
 
-export class ClippingsGridView extends ItemView {
+export class PowerGridView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
@@ -30,7 +30,7 @@ export class ClippingsGridView extends ItemView {
    */
   private unloadable = new Map<string, string>();
 
-  constructor(leaf: WorkspaceLeaf, private plugin: ClippingsGridPlugin) {
+  constructor(leaf: WorkspaceLeaf, private plugin: PowerGridPlugin) {
     super(leaf);
   }
 
@@ -39,7 +39,7 @@ export class ClippingsGridView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Clippings grid";
+    return "Power Grid";
   }
 
   getIcon(): string {
@@ -48,7 +48,7 @@ export class ClippingsGridView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.contentEl.empty();
-    this.contentEl.addClass("clippings-grid-view");
+    this.contentEl.addClass("power-grid-view");
 
     this.progress = new ProgressBar(this.contentEl);
     this.plugin.capture.onProgress = (state) => this.progress?.set(state);
@@ -113,7 +113,7 @@ export class ClippingsGridView extends ItemView {
     // Paste a link anywhere in the grid to clip it, the way you would drop
     // a URL into a board app.
     this.registerDomEvent(document, "paste", (event: ClipboardEvent) => {
-      if (this.app.workspace.getActiveViewOfType(ClippingsGridView) !== this) return;
+      if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
       const data = event.clipboardData;
       if (!data) return;
 
@@ -222,12 +222,12 @@ export class ClippingsGridView extends ItemView {
   private revealFirstFile(id: string): void {
     const file = this.filesFor(id)[0];
     if (!file) {
-      new Notice("Clippings grid: nothing archived for this clipping yet");
+      new Notice("Power Grid: nothing archived for this clipping yet");
       return;
     }
     const absolute = absolutePath(this.app.vault, normalizePath(file));
     if (!absolute || !revealInFinder(absolute)) {
-      new Notice("Clippings grid: could not reveal the file");
+      new Notice("Power Grid: could not reveal the file");
     }
   }
 
@@ -243,8 +243,8 @@ export class ClippingsGridView extends ItemView {
     }
     new Notice(
       copied === 0
-        ? "Clippings grid: nothing archived to export yet"
-        : `Clippings grid: exported ${copied} file${copied === 1 ? "" : "s"} to Downloads`
+        ? "Power Grid: nothing archived to export yet"
+        : `Power Grid: exported ${copied} file${copied === 1 ? "" : "s"} to Downloads`
     );
   }
 
@@ -263,12 +263,12 @@ export class ClippingsGridView extends ItemView {
         await this.app.fileManager.trashFile(file);
         removed++;
       } catch (error) {
-        new Notice(`Clippings grid: could not delete ${file.basename} (${String(error)})`);
+        new Notice(`Power Grid: could not delete ${file.basename} (${String(error)})`);
       }
     }
     this.grid?.clearSelection();
     new Notice(
-      removed === 1 ? "Clippings grid: 1 note moved to trash" : `Clippings grid: ${removed} notes moved to trash`
+      removed === 1 ? "Power Grid: 1 note moved to trash" : `Power Grid: ${removed} notes moved to trash`
     );
   }
 

@@ -129,9 +129,9 @@ export class GridRenderer {
   ) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
-    this.viewport = container.createDiv({ cls: "cg-viewport" });
-    this.canvas = this.viewport.createDiv({ cls: "cg-canvas" });
-    this.marquee = this.viewport.createDiv({ cls: "cg-marquee" });
+    this.viewport = container.createDiv({ cls: "pg-viewport" });
+    this.canvas = this.viewport.createDiv({ cls: "pg-canvas" });
+    this.marquee = this.viewport.createDiv({ cls: "pg-marquee" });
     this.installGestures();
     this.installSelection();
     this.installTilt();
@@ -464,7 +464,7 @@ export class GridRenderer {
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
       // Panning owns space-drag and middle-click; a tile owns its own click.
       if (this.spaceHeld || event.button !== 0) return;
-      if ((event.target as HTMLElement | null)?.closest(".cg-tile")) return;
+      if ((event.target as HTMLElement | null)?.closest(".pg-tile")) return;
 
       this.selecting = true;
       this.marqueeMoved = false;
@@ -578,8 +578,8 @@ export class GridRenderer {
   private clearTilt(): void {
     if (!this.tiltedId) return;
     const element = this.mounted.get(this.tiltedId);
-    element?.root.style.removeProperty("--cg-rx");
-    element?.root.style.removeProperty("--cg-ry");
+    element?.root.style.removeProperty("--pg-rx");
+    element?.root.style.removeProperty("--pg-ry");
     this.tiltedId = null;
   }
 
@@ -607,8 +607,8 @@ export class GridRenderer {
       this.tiltedId = id;
       // Pressing the right edge tips the right side away, so rotateY follows
       // dx and rotateX opposes dy.
-      element.root.style.setProperty("--cg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
-      element.root.style.setProperty("--cg-rx", `${(-pressure.dy * MAX_TILT_DEG).toFixed(2)}deg`);
+      element.root.style.setProperty("--pg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
+      element.root.style.setProperty("--pg-rx", `${(-pressure.dy * MAX_TILT_DEG).toFixed(2)}deg`);
       return;
     }
 
@@ -644,15 +644,15 @@ export class GridRenderer {
   private acquire(): TileElement {
     const recycled = this.pool.pop();
     if (recycled) return recycled;
-    const root = this.canvas.createDiv({ cls: "cg-tile" });
+    const root = this.canvas.createDiv({ cls: "pg-tile" });
     return { root, media: null, id: "", signature: "", kind: "" };
   }
 
   private release(tile: TileElement): void {
     if (this.leaving.has(tile)) return;
     if (this.tiltedId === tile.id) this.tiltedId = null;
-    tile.root.style.removeProperty("--cg-rx");
-    tile.root.style.removeProperty("--cg-ry");
+    tile.root.style.removeProperty("--pg-rx");
+    tile.root.style.removeProperty("--pg-ry");
     tile.root.style.display = "none";
     tile.root.removeClass("is-gliding");
     tile.root.removeClass("is-entering");
@@ -728,8 +728,8 @@ export class GridRenderer {
     // one; the anisotropy here is under 2% and invisible.
     const sx = position.w > SELECT_LIFT * 2 ? position.w / (position.w - SELECT_LIFT * 2) : 1;
     const sy = position.h > SELECT_LIFT * 2 ? position.h / (position.h - SELECT_LIFT * 2) : 1;
-    element.root.style.setProperty("--cg-sx", sx.toFixed(4));
-    element.root.style.setProperty("--cg-sy", sy.toFixed(4));
+    element.root.style.setProperty("--pg-sx", sx.toFixed(4));
+    element.root.style.setProperty("--pg-sy", sy.toFixed(4));
 
     if (element.signature === model.signature) return;
 
@@ -762,7 +762,7 @@ export class GridRenderer {
     if (isNew) {
       this.entering.delete(model.id);
       const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
-      element.root.style.setProperty("--cg-enter-delay", `${delay}ms`);
+      element.root.style.setProperty("--pg-enter-delay", `${delay}ms`);
       element.root.addClass("is-entering");
       window.setTimeout(
         () => element.root.removeClass("is-entering"),
@@ -776,10 +776,10 @@ export class GridRenderer {
     element.root.empty();
     element.media = null;
 
-    const frame = element.root.createDiv({ cls: "cg-frame" });
+    const frame = element.root.createDiv({ cls: "pg-frame" });
 
     if (model.kind === "video") {
-      const video = frame.createEl("video", { cls: "cg-media" });
+      const video = frame.createEl("video", { cls: "pg-media" });
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
@@ -805,7 +805,7 @@ export class GridRenderer {
       else video.addEventListener("loadeddata", () => video.addClass("is-loaded"), { once: true });
       element.media = video;
     } else {
-      const image = frame.createEl("img", { cls: "cg-media" });
+      const image = frame.createEl("img", { cls: "pg-media" });
       image.loading = "lazy";
       image.decoding = "async";
       image.alt = model.record.title;
@@ -842,13 +842,13 @@ export class GridRenderer {
       element.media = image;
     }
 
-    const meta = frame.createDiv({ cls: "cg-meta" });
-    meta.createDiv({ cls: "cg-title", text: model.record.title });
-    const sub = meta.createDiv({ cls: "cg-sub" });
+    const meta = frame.createDiv({ cls: "pg-meta" });
+    meta.createDiv({ cls: "pg-title", text: model.record.title });
+    const sub = meta.createDiv({ cls: "pg-sub" });
     const domain = domainOf(model.record.source);
     if (domain) sub.createSpan({ text: domain });
     if (model.record.categories.length) {
-      if (domain) sub.createSpan({ cls: "cg-dot", text: "·" });
+      if (domain) sub.createSpan({ cls: "pg-dot", text: "·" });
       sub.createSpan({ text: model.record.categories.join(", ") });
     }
 

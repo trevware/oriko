@@ -128,16 +128,16 @@ export class DetailView {
       height: model.height,
     });
 
-    this.root = this.container.createDiv({ cls: "cg-detail" });
-    const backdrop = this.root.createDiv({ cls: "cg-detail-backdrop" });
+    this.root = this.container.createDiv({ cls: "pg-detail" });
+    const backdrop = this.root.createDiv({ cls: "pg-detail-backdrop" });
     backdrop.onclick = () => this.close();
 
-    const back = this.root.createDiv({ cls: "cg-detail-back" });
+    const back = this.root.createDiv({ cls: "pg-detail-back" });
     setIcon(back, "arrow-left");
     back.setAttribute("aria-label", "Back");
     back.onclick = () => this.close();
 
-    this.stage = this.root.createDiv({ cls: "cg-detail-stage" });
+    this.stage = this.root.createDiv({ cls: "pg-detail-stage" });
 
     const bounds = this.container.getBoundingClientRect();
 
@@ -184,7 +184,7 @@ export class DetailView {
     if (!this.stage) return;
 
     if (model.kind === "video") {
-      const video = this.stage.createEl("video", { cls: "cg-detail-media" });
+      const video = this.stage.createEl("video", { cls: "pg-detail-media" });
       video.src = model.remote ? model.filePath : this.resource(model.filePath);
       video.controls = true;
       video.autoplay = true;
@@ -194,22 +194,22 @@ export class DetailView {
       return;
     }
 
-    const image = this.stage.createEl("img", { cls: "cg-detail-media" });
+    const image = this.stage.createEl("img", { cls: "pg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
   }
 
   private paintMeta(model: TileModel, bounds: DOMRect): void {
     if (!this.root) return;
-    const panel = this.root.createDiv({ cls: "cg-detail-meta" });
+    const panel = this.root.createDiv({ cls: "pg-detail-meta" });
     panel.style.width = `${SIDEBAR}px`;
     panel.style.left = `${bounds.width - SIDEBAR}px`;
 
     const field = (label: string, value: string): void => {
       if (!value) return;
-      const block = panel.createDiv({ cls: "cg-detail-field" });
-      block.createDiv({ cls: "cg-detail-label", text: label });
-      block.createDiv({ cls: "cg-detail-value", text: value });
+      const block = panel.createDiv({ cls: "pg-detail-field" });
+      block.createDiv({ cls: "pg-detail-label", text: label });
+      block.createDiv({ cls: "pg-detail-value", text: value });
     };
 
     field("Title", model.record.title);
@@ -225,10 +225,10 @@ export class DetailView {
 
   private paintActions(model: TileModel): void {
     if (!this.root) return;
-    const bar = this.root.createDiv({ cls: "cg-detail-actions" });
+    const bar = this.root.createDiv({ cls: "pg-detail-actions" });
 
     const add = (icon: string, label: string, run: () => void): void => {
-      const button = bar.createEl("button", { cls: "cg-detail-button" });
+      const button = bar.createEl("button", { cls: "pg-detail-button" });
       button.setAttribute("aria-label", label);
       setIcon(button, icon);
       button.onclick = (event: MouseEvent) => {

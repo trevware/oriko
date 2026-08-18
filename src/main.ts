@@ -2,13 +2,13 @@ import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
-import { ClippingsGridSettings, DEFAULT_SETTINGS } from "./settings";
+import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { installRepair } from "./repair";
-import { ClippingsGridSettingTab } from "./settings-tab";
-import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
+import { PowerGridSettingTab } from "./settings-tab";
+import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 
-export default class ClippingsGridPlugin extends Plugin {
-  settings: ClippingsGridSettings = DEFAULT_SETTINGS;
+export default class PowerGridPlugin extends Plugin {
+  settings: PowerGridSettings = DEFAULT_SETTINGS;
   index!: ClippingIndex;
   archiver!: ArchiveService;
   capture!: CaptureService;
@@ -21,7 +21,7 @@ export default class ClippingsGridPlugin extends Plugin {
       this.app,
       this.index,
       () => this.settings,
-      this.manifest.dir ?? ".obsidian/plugins/clippings-grid"
+      this.manifest.dir ?? ".obsidian/plugins/power-grid"
     );
     await this.archiver.loadCache();
     this.capture = new CaptureService(
@@ -33,19 +33,19 @@ export default class ClippingsGridPlugin extends Plugin {
 
     this.registerView(
       VIEW_TYPE_GRID,
-      (leaf: WorkspaceLeaf) => new ClippingsGridView(leaf, this)
+      (leaf: WorkspaceLeaf) => new PowerGridView(leaf, this)
     );
 
-    this.addSettingTab(new ClippingsGridSettingTab(this.app, this));
+    this.addSettingTab(new PowerGridSettingTab(this.app, this));
     installRepair(this);
 
-    this.addRibbonIcon("layout-grid", "Open clippings grid", () => {
+    this.addRibbonIcon("layout-grid", "Open Power Grid", () => {
       void this.activateView();
     });
 
     this.addCommand({
-      id: "open-clippings-grid",
-      name: "Open clippings grid",
+      id: "open-power-grid",
+      name: "Open Power Grid",
       callback: () => void this.activateView(),
     });
 
@@ -68,9 +68,9 @@ export default class ClippingsGridPlugin extends Plugin {
               await this.capture.captureImage(await item.getType(type));
               return;
             }
-            new Notice("Clippings grid: no image on the clipboard");
+            new Notice("Power Grid: no image on the clipboard");
           })
-          .catch(() => new Notice("Clippings grid: could not read the clipboard"));
+          .catch(() => new Notice("Power Grid: could not read the clipboard"));
       },
     });
 
@@ -78,7 +78,7 @@ export default class ClippingsGridPlugin extends Plugin {
       id: "archive-clipping-media",
       name: "Archive all clipping media",
       callback: () => {
-        new Notice("Clippings grid: archiving…");
+        new Notice("Power Grid: archiving…");
         void this.archiver
           .archiveEverything()
           .then((r) => this.archiver.notifyResult(r));

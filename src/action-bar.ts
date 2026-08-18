@@ -14,23 +14,23 @@ export class ActionBar {
   private count: HTMLElement;
 
   constructor(container: HTMLElement, handlers: ActionBarHandlers) {
-    this.root = container.createDiv({ cls: "cg-actionbar" });
+    this.root = container.createDiv({ cls: "pg-actionbar" });
 
-    this.count = this.root.createDiv({ cls: "cg-actionbar-count" });
+    this.count = this.root.createDiv({ cls: "pg-actionbar-count" });
 
-    this.root.createDiv({ cls: "cg-actionbar-divider" });
+    this.root.createDiv({ cls: "pg-actionbar-divider" });
 
     this.button("trash-2", "Delete", "⌫", handlers.onDelete);
   }
 
   private button(icon: string, label: string, shortcut: string, onClick: () => void): void {
-    const button = this.root.createEl("button", { cls: "cg-actionbar-button" });
+    const button = this.root.createEl("button", { cls: "pg-actionbar-button" });
     button.setAttribute("aria-label", `${label} (${shortcut})`);
     setIcon(button, icon);
 
-    const tip = button.createDiv({ cls: "cg-actionbar-tip" });
+    const tip = button.createDiv({ cls: "pg-actionbar-tip" });
     tip.createSpan({ text: label });
-    tip.createSpan({ cls: "cg-actionbar-key", text: shortcut });
+    tip.createSpan({ cls: "pg-actionbar-key", text: shortcut });
 
     button.onclick = (event: MouseEvent) => {
       event.stopPropagation();

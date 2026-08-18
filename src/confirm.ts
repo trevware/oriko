@@ -29,12 +29,12 @@ export class ConfirmDeleteModal extends Modal {
           : `${count} notes will be moved to trash. Their archived media stays in your vault.`,
     });
 
-    const list = contentEl.createEl("ul", { cls: "cg-confirm-list" });
+    const list = contentEl.createEl("ul", { cls: "pg-confirm-list" });
     for (const title of this.titles.slice(0, 8)) {
       list.createEl("li", { text: title });
     }
     if (count > 8) {
-      list.createEl("li", { text: `and ${count - 8} more…`, cls: "cg-confirm-more" });
+      list.createEl("li", { text: `and ${count - 8} more…`, cls: "pg-confirm-more" });
     }
 
     new Setting(contentEl)

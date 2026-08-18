@@ -179,7 +179,7 @@ export async function downloadSourceVideo(
 
   let dir: string | null = null;
   try {
-    dir = fs.mkdtempSync(`${os.tmpdir()}/clippings-grid-`);
+    dir = fs.mkdtempSync(`${os.tmpdir()}/power-grid-`);
     const stdout = await runCapturing(ytdlp, [
       "--no-warnings",
       "--no-playlist",

@@ -29,17 +29,17 @@ export class ContextMenu {
     this.close();
     if (items.length === 0) return;
 
-    this.backdrop = this.container.createDiv({ cls: "cg-menu-backdrop" });
-    this.panel = this.container.createDiv({ cls: "cg-menu" });
+    this.backdrop = this.container.createDiv({ cls: "pg-menu-backdrop" });
+    this.panel = this.container.createDiv({ cls: "pg-menu" });
 
     for (const item of items) {
-      const row = this.panel.createDiv({ cls: "cg-menu-item" });
+      const row = this.panel.createDiv({ cls: "pg-menu-item" });
       if (item.destructive) row.addClass("is-destructive");
 
-      const icon = row.createDiv({ cls: "cg-menu-icon" });
+      const icon = row.createDiv({ cls: "pg-menu-icon" });
       setIcon(icon, item.icon);
-      row.createDiv({ cls: "cg-menu-label", text: item.label });
-      if (item.detail) row.createDiv({ cls: "cg-menu-detail", text: item.detail });
+      row.createDiv({ cls: "pg-menu-label", text: item.label });
+      if (item.detail) row.createDiv({ cls: "pg-menu-detail", text: item.detail });
 
       row.onclick = (event: MouseEvent) => {
         event.stopPropagation();

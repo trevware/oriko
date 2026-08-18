@@ -1,8 +1,8 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import type ClippingsGridPlugin from "./main";
+import type PowerGridPlugin from "./main";
 
-export class ClippingsGridSettingTab extends PluginSettingTab {
-  constructor(app: App, private plugin: ClippingsGridPlugin) {
+export class PowerGridSettingTab extends PluginSettingTab {
+  constructor(app: App, private plugin: PowerGridPlugin) {
     super(app, plugin);
   }
 

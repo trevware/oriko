@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-clippings-grid",
+  "name": "obsidian-power-grid",
   "version": "0.1.0",
   "description": "A fast masonry grid over your Obsidian web clippings, with local media archiving.",
   "main": "main.js",

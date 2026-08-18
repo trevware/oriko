@@ -1,4 +1,4 @@
-.clippings-grid-view {
+.power-grid-view {
   position: relative;
   height: 100%;
   padding: 0;
@@ -8,7 +8,7 @@
   flex-direction: column;
 }
 
-.cg-viewport {
+.pg-viewport {
   flex: 1 1 auto;
   position: relative;
   overflow: hidden;
@@ -17,7 +17,7 @@
   touch-action: none;
 }
 
-.cg-canvas {
+.pg-canvas {
   position: absolute;
   top: 0;
   left: 0;
@@ -28,22 +28,22 @@
 }
 
 /* Space is held: the wall is ready to be grabbed. */
-.cg-viewport.is-pannable,
-.cg-viewport.is-pannable .cg-tile {
+.pg-viewport.is-pannable,
+.pg-viewport.is-pannable .pg-tile {
   cursor: grab;
 }
 
-.cg-viewport.is-panning,
-.cg-viewport.is-panning .cg-tile {
+.pg-viewport.is-panning,
+.pg-viewport.is-panning .pg-tile {
   cursor: grabbing;
 }
 
 /* Dragging must not select text or start a native image drag. */
-.cg-viewport.is-pannable {
+.pg-viewport.is-pannable {
   user-select: none;
 }
 
-.cg-viewport.is-pannable .cg-media {
+.pg-viewport.is-pannable .pg-media {
   pointer-events: none;
 }
 
@@ -51,7 +51,7 @@
    inside it, which is what lets selection expand without overlapping.
    Deliberately not paint-contained, which would clip the selection ring
    and shadow to the tile box. */
-.cg-tile {
+.pg-tile {
   position: absolute;
   top: 0;
   left: 0;
@@ -59,7 +59,7 @@
   cursor: pointer;
 }
 
-.cg-frame {
+.pg-frame {
   position: absolute;
   inset: 4px;
   display: flex;
@@ -70,7 +70,7 @@
   background: var(--background-secondary);
   /* Perspective must lead the transform. The rotation vars are set by the
      renderer from where the cursor sits on the card. */
-  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
+  transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
     scale(1);
   transform-style: preserve-3d;
   /* An outline, not a border or inset shadow: outlines paint above the
@@ -87,7 +87,7 @@
     box-shadow 320ms ease;
 }
 
-.cg-media {
+.pg-media {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -96,12 +96,12 @@
   transition: opacity 260ms ease;
 }
 
-.cg-media.is-loaded {
+.pg-media.is-loaded {
   opacity: 1;
 }
 
 
-.cg-meta {
+.pg-meta {
   position: absolute;
   inset: auto 0 0 0;
   padding: 28px 12px 10px;
@@ -112,11 +112,11 @@
   pointer-events: none;
 }
 
-.cg-tile:hover .cg-meta {
+.pg-tile:hover .pg-meta {
   opacity: 1;
 }
 
-.cg-title {
+.pg-title {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.25;
@@ -126,7 +126,7 @@
   overflow: hidden;
 }
 
-.cg-sub {
+.pg-sub {
   margin-top: 3px;
   font-size: 11px;
   opacity: 0.75;
@@ -136,11 +136,11 @@
   overflow: hidden;
 }
 
-.cg-media {
+.pg-media {
   -webkit-user-drag: none;
 }
 
-.cg-progress {
+.pg-progress {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 20;
@@ -151,11 +151,11 @@
   pointer-events: none;
 }
 
-.cg-progress.is-visible {
+.pg-progress.is-visible {
   opacity: 1;
 }
 
-.cg-progress-fill {
+.pg-progress-fill {
   height: 100%;
   width: 0;
   background: var(--color-accent);
@@ -163,18 +163,18 @@
 }
 
 /* Work of unknown length: a travelling sliver rather than a fake percentage. */
-.cg-progress.is-indeterminate .cg-progress-fill {
+.pg-progress.is-indeterminate .pg-progress-fill {
   width: 30%;
   transition: none;
-  animation: cg-progress-slide 1.1s ease-in-out infinite;
+  animation: pg-progress-slide 1.1s ease-in-out infinite;
 }
 
-@keyframes cg-progress-slide {
+@keyframes pg-progress-slide {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
 }
 
-.cg-progress-label {
+.pg-progress-label {
   position: absolute;
   top: 8px;
   left: 16px;
@@ -186,7 +186,7 @@
   white-space: nowrap;
 }
 
-.cg-marquee {
+.pg-marquee {
   position: absolute;
   top: 0;
   left: 0;
@@ -198,24 +198,24 @@
   border-radius: 2px;
 }
 
-.cg-marquee.is-active {
+.pg-marquee.is-active {
   display: block;
 }
 
 /* Selection expands the card into the inset it already reserves, so it can
    never overlap a neighbour however tall the tile is. */
-.cg-tile.is-selected {
+.pg-tile.is-selected {
   z-index: 5;
 }
 
-.cg-tile.is-selected .cg-frame {
-  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
-    scale(var(--cg-sx, 1), var(--cg-sy, 1));
+.pg-tile.is-selected .pg-frame {
+  transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
+    scale(var(--pg-sx, 1), var(--pg-sy, 1));
   outline-color: var(--color-accent);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
 }
 
-.cg-confirm-list {
+.pg-confirm-list {
   margin: 0 0 8px;
   padding-left: 20px;
   max-height: 180px;
@@ -224,7 +224,7 @@
   font-size: 13px;
 }
 
-.cg-confirm-more {
+.pg-confirm-more {
   list-style: none;
   margin-left: -12px;
   opacity: 0.7;
@@ -233,7 +233,7 @@
 /* The card currently open in the detail view. Hidden outright rather than
    faded, so the returning flight lands on empty space instead of on a
    duplicate of itself. */
-.cg-tile.is-focus-hidden {
+.pg-tile.is-focus-hidden {
   visibility: hidden;
   pointer-events: none;
 }
@@ -241,17 +241,17 @@
 /* Reflow: a tile that keeps its identity glides to its new spot. Applied
    only to continuing tiles, never to a pooled element reused for another
    clipping, which would otherwise fly across the canvas. */
-.cg-tile.is-gliding {
+.pg-tile.is-gliding {
   transition: transform 300ms cubic-bezier(0.22, 0.9, 0.28, 1);
 }
 
 /* Arrival: a short overshoot so a new clipping lands rather than appears. */
-.cg-tile.is-entering .cg-frame {
-  animation: cg-pop 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
-  animation-delay: var(--cg-enter-delay, 0ms);
+.pg-tile.is-entering .pg-frame {
+  animation: pg-pop 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  animation-delay: var(--pg-enter-delay, 0ms);
 }
 
-@keyframes cg-pop {
+@keyframes pg-pop {
   from {
     opacity: 0;
     transform: scale(0.84);
@@ -266,16 +266,16 @@
 }
 
 /* Departure: shrink away in place while the survivors glide up behind it. */
-.cg-tile.is-leaving {
+.pg-tile.is-leaving {
   pointer-events: none;
   z-index: 1;
 }
 
-.cg-tile.is-leaving .cg-frame {
-  animation: cg-vanish 200ms cubic-bezier(0.4, 0, 1, 1) both;
+.pg-tile.is-leaving .pg-frame {
+  animation: pg-vanish 200ms cubic-bezier(0.4, 0, 1, 1) both;
 }
 
-@keyframes cg-vanish {
+@keyframes pg-vanish {
   from {
     opacity: 1;
     transform: scale(1);
@@ -287,10 +287,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cg-tile.is-gliding,
-  .cg-tile.is-entering .cg-frame,
-  .cg-tile.is-leaving .cg-frame,
-  .cg-media {
+  .pg-tile.is-gliding,
+  .pg-tile.is-entering .pg-frame,
+  .pg-tile.is-leaving .pg-frame,
+  .pg-media {
     animation: none;
     transition: none;
   }
@@ -299,13 +299,13 @@
 /* Hover lifts a card the same way selection does, minus the ring. Only one
    element can be hovered, so moving quickly between tiles crossfades: the
    one being left transitions back down as the new one comes up. */
-.cg-tile:hover {
+.pg-tile:hover {
   z-index: 4;
 }
 
-.cg-tile:hover .cg-frame {
-  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
-    scale(var(--cg-sx, 1), var(--cg-sy, 1));
+.pg-tile:hover .pg-frame {
+  transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
+    scale(var(--pg-sx, 1), var(--pg-sy, 1));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
   /* While engaged, short enough to follow the cursor. Leaving hover falls
      back to the resting transition above, which is the gentle one. */
@@ -316,29 +316,29 @@
 }
 
 /* Selection outranks hover, so a selected card keeps its ring and depth. */
-.cg-tile.is-selected:hover .cg-frame {
+.pg-tile.is-selected:hover .pg-frame {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
 }
 
 /* Dragging should not leave a trail of tiles popping under the cursor. */
-.cg-viewport.is-panning .cg-tile:hover .cg-frame,
-.cg-viewport.is-selecting .cg-tile:hover .cg-frame {
+.pg-viewport.is-panning .pg-tile:hover .pg-frame,
+.pg-viewport.is-selecting .pg-tile:hover .pg-frame {
   transform: perspective(760px) scale(1);
   box-shadow: none;
 }
 
-.cg-viewport.is-selecting .cg-tile.is-selected .cg-frame {
-  transform: perspective(760px) scale(var(--cg-sx, 1), var(--cg-sy, 1));
+.pg-viewport.is-selecting .pg-tile.is-selected .pg-frame {
+  transform: perspective(760px) scale(var(--pg-sx, 1), var(--pg-sy, 1));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cg-tile:hover .cg-frame {
+  .pg-tile:hover .pg-frame {
     transform: none;
   }
 }
 
 /* Archived clip standing in for the poster still inside a note. */
-.cg-note-video {
+.pg-note-video {
   max-width: 100%;
   border-radius: 8px;
   display: block;
@@ -346,7 +346,7 @@
 
 /* Floating actions for the current selection. Rides above the canvas and
    rises into view only while something is selected. */
-.cg-actionbar {
+.pg-actionbar {
   position: absolute;
   bottom: 22px;
   left: 50%;
@@ -371,13 +371,13 @@
     opacity 180ms ease;
 }
 
-.cg-actionbar.is-visible {
+.pg-actionbar.is-visible {
   transform: translate(-50%, 0);
   opacity: 1;
   pointer-events: auto;
 }
 
-.cg-actionbar-count {
+.pg-actionbar-count {
   padding: 0 10px 0 4px;
   font-size: 12px;
   font-weight: 500;
@@ -385,7 +385,7 @@
   white-space: nowrap;
 }
 
-.cg-actionbar-divider {
+.pg-actionbar-divider {
   width: 1px;
   align-self: stretch;
   margin: 2px 4px 2px 0;
@@ -394,7 +394,7 @@
 
 /* Selector carries the bar as well, so it outranks Obsidian's own button
    styling, which otherwise paints a filled background at rest. */
-.cg-actionbar button.cg-actionbar-button {
+.pg-actionbar button.pg-actionbar-button {
   position: relative;
   display: flex;
   align-items: center;
@@ -412,21 +412,21 @@
   transition: background-color 120ms ease;
 }
 
-.cg-actionbar button.cg-actionbar-button:focus,
-.cg-actionbar button.cg-actionbar-button:focus-visible {
+.pg-actionbar button.pg-actionbar-button:focus,
+.pg-actionbar button.pg-actionbar-button:focus-visible {
   background-color: transparent;
   box-shadow: none;
 }
 
-.cg-actionbar button.cg-actionbar-button:hover {
+.pg-actionbar button.pg-actionbar-button:hover {
   background-color: rgba(255, 255, 255, 0.14);
 }
 
-.cg-actionbar button.cg-actionbar-button:active {
+.pg-actionbar button.pg-actionbar-button:active {
   background-color: rgba(255, 255, 255, 0.22);
 }
 
-.cg-actionbar-tip {
+.pg-actionbar-tip {
   position: absolute;
   /* Measured from the button, which sits inside the bar's padding, so the
      offset has to clear that padding before any gap is visible. */
@@ -453,26 +453,26 @@
     transform 120ms ease;
 }
 
-.cg-actionbar-button:hover .cg-actionbar-tip {
+.pg-actionbar-button:hover .pg-actionbar-tip {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
 
-.cg-actionbar-key {
+.pg-actionbar-key {
   opacity: 0.55;
   font-weight: 500;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cg-actionbar,
-  .cg-actionbar-tip {
+  .pg-actionbar,
+  .pg-actionbar-tip {
     transition: none;
   }
 }
 
 /* Right-click menu. The backdrop dims the wall so the choice is the only
    thing in focus, and swallows the click that dismisses it. */
-.cg-menu-backdrop {
+.pg-menu-backdrop {
   position: absolute;
   inset: 0;
   z-index: 40;
@@ -481,11 +481,11 @@
   transition: opacity 140ms ease;
 }
 
-.cg-menu-backdrop.is-open {
+.pg-menu-backdrop.is-open {
   opacity: 1;
 }
 
-.cg-menu {
+.pg-menu {
   position: absolute;
   z-index: 41;
   min-width: 250px;
@@ -504,12 +504,12 @@
     transform 160ms cubic-bezier(0.22, 0.9, 0.28, 1);
 }
 
-.cg-menu.is-open {
+.pg-menu.is-open {
   opacity: 1;
   transform: scale(1);
 }
 
-.cg-menu-item {
+.pg-menu-item {
   display: flex;
   align-items: center;
   gap: 14px;
@@ -520,15 +520,15 @@
   user-select: none;
 }
 
-.cg-menu-item:hover {
+.pg-menu-item:hover {
   background: rgba(255, 255, 255, 0.11);
 }
 
-.cg-menu-item.is-destructive:hover {
+.pg-menu-item.is-destructive:hover {
   background: rgba(255, 82, 82, 0.18);
 }
 
-.cg-menu-icon {
+.pg-menu-icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -537,13 +537,13 @@
   opacity: 0.9;
 }
 
-.cg-menu-label {
+.pg-menu-label {
   flex: 1 1 auto;
   font-size: 14px;
   white-space: nowrap;
 }
 
-.cg-menu-detail {
+.pg-menu-detail {
   flex: 0 0 auto;
   font-size: 13px;
   color: rgba(255, 255, 255, 0.45);
@@ -551,20 +551,20 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cg-menu,
-  .cg-menu-backdrop {
+  .pg-menu,
+  .pg-menu-backdrop {
     transition: none;
   }
 }
 
 /* Detail view: a single clipping, flown out of the card that was clicked. */
-.cg-detail {
+.pg-detail {
   position: absolute;
   inset: 0;
   z-index: 50;
 }
 
-.cg-detail-backdrop {
+.pg-detail-backdrop {
   position: absolute;
   inset: 0;
   background: var(--background-primary);
@@ -574,11 +574,11 @@
   opacity: 1;
 }
 
-.cg-detail:not(.is-open) .cg-detail-backdrop {
+.pg-detail:not(.is-open) .pg-detail-backdrop {
   opacity: 0;
 }
 
-.cg-detail-stage {
+.pg-detail-stage {
   position: absolute;
   overflow: hidden;
   border-radius: 6px;
@@ -588,7 +588,7 @@
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 
-.cg-detail-media {
+.pg-detail-media {
   width: 100%;
   height: 100%;
   /* Contain, never cover: the stage is re-fitted to the media's true aspect
@@ -599,7 +599,7 @@
   background: transparent;
 }
 
-.cg-detail-back {
+.pg-detail-back {
   position: absolute;
   top: 20px;
   left: 20px;
@@ -619,15 +619,15 @@
     background 120ms ease;
 }
 
-.cg-detail.is-open .cg-detail-back {
+.pg-detail.is-open .pg-detail-back {
   opacity: 1;
 }
 
-.cg-detail-back:hover {
+.pg-detail-back:hover {
   background: rgba(255, 255, 255, 0.18);
 }
 
-.cg-detail-meta {
+.pg-detail-meta {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -641,16 +641,16 @@
     transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 140ms;
 }
 
-.cg-detail.is-open .cg-detail-meta {
+.pg-detail.is-open .pg-detail-meta {
   opacity: 1;
   transform: translateX(0);
 }
 
-.cg-detail-field {
+.pg-detail-field {
   margin-bottom: 22px;
 }
 
-.cg-detail-label {
+.pg-detail-label {
   margin-bottom: 4px;
   font-family: var(--font-monospace);
   font-size: 10px;
@@ -660,7 +660,7 @@
   color: var(--text-normal);
 }
 
-.cg-detail-value {
+.pg-detail-value {
   font-family: var(--font-monospace);
   font-size: 11px;
   line-height: 1.5;
@@ -668,7 +668,7 @@
   overflow-wrap: anywhere;
 }
 
-.cg-detail-actions {
+.pg-detail-actions {
   position: absolute;
   bottom: 26px;
   left: 50%;
@@ -690,12 +690,12 @@
     transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 160ms;
 }
 
-.cg-detail.is-open .cg-detail-actions {
+.pg-detail.is-open .pg-detail-actions {
   opacity: 1;
   transform: translate(-50%, 0);
 }
 
-.cg-detail button.cg-detail-button {
+.pg-detail button.pg-detail-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -712,15 +712,15 @@
   transition: background-color 120ms ease;
 }
 
-.cg-detail button.cg-detail-button:hover {
+.pg-detail button.pg-detail-button:hover {
   background-color: rgba(255, 255, 255, 0.14);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cg-detail-backdrop,
-  .cg-detail-back,
-  .cg-detail-meta,
-  .cg-detail-actions {
+  .pg-detail-backdrop,
+  .pg-detail-back,
+  .pg-detail-meta,
+  .pg-detail-actions {
     transition: none;
   }
 }

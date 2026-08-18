@@ -19,7 +19,7 @@ import { supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
-import type { ClippingsGridSettings } from "./settings";
+import type { PowerGridSettings } from "./settings";
 
 const CACHE_FILE = "cache.json";
 
@@ -36,7 +36,7 @@ export class ArchiveService {
   constructor(
     private app: App,
     private index: ClippingIndex,
-    private settings: () => ClippingsGridSettings,
+    private settings: () => PowerGridSettings,
     private cacheDir: string
   ) {}
 
@@ -447,7 +447,7 @@ export class ArchiveService {
 
   async archiveEverything(): Promise<ArchiveSummary> {
     if (this.running) {
-      new Notice("Clippings grid: already archiving");
+      new Notice("Power Grid: already archiving");
       return this.summary();
     }
     this.running = true;
@@ -477,7 +477,7 @@ export class ArchiveService {
 
   notifyResult(result: ArchiveSummary): void {
     new Notice(
-      `Clippings grid: ${result.ok} media archived, ${result.failed} failed`
+      `Power Grid: ${result.ok} media archived, ${result.failed} failed`
     );
   }
 }

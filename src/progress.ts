@@ -16,9 +16,9 @@ export class ProgressBar {
   private hideTimer = 0;
 
   constructor(container: HTMLElement) {
-    this.root = container.createDiv({ cls: "cg-progress" });
-    this.fill = this.root.createDiv({ cls: "cg-progress-fill" });
-    this.text = this.root.createDiv({ cls: "cg-progress-label" });
+    this.root = container.createDiv({ cls: "pg-progress" });
+    this.fill = this.root.createDiv({ cls: "pg-progress-fill" });
+    this.text = this.root.createDiv({ cls: "pg-progress-label" });
   }
 
   set(state: ProgressState | null): void {

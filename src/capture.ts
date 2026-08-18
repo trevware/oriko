@@ -18,7 +18,7 @@ import {
   xStatus,
 } from "./resolve";
 import type { ProgressState } from "./progress";
-import type { ClippingsGridSettings } from "./settings";
+import type { PowerGridSettings } from "./settings";
 
 /**
  * Identifies the plugin honestly rather than impersonating a known crawler.
@@ -26,7 +26,7 @@ import type { ClippingsGridSettings } from "./settings";
  * as Threads; X withholds them from everything but named crawlers, which is
  * why X posts go through the resolver instead.
  */
-const USER_AGENT = "Mozilla/5.0 (compatible; ClippingsGrid/0.1; Obsidian link preview)";
+const USER_AGENT = "Mozilla/5.0 (compatible; PowerGrid/0.1; Obsidian link preview)";
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
@@ -52,7 +52,7 @@ export class CaptureService {
 
   constructor(
     private app: App,
-    private settings: () => ClippingsGridSettings,
+    private settings: () => PowerGridSettings,
     private archiver: ArchiveService,
     private index: ClippingIndex
   ) {}
@@ -62,7 +62,7 @@ export class CaptureService {
     try {
       text = await navigator.clipboard.readText();
     } catch {
-      new Notice("Clippings grid: could not read the clipboard");
+      new Notice("Power Grid: could not read the clipboard");
       return;
     }
     await this.capture(text);
@@ -71,7 +71,7 @@ export class CaptureService {
   /** Saves an image pasted straight from the clipboard as its own clipping. */
   async captureImage(blob: Blob): Promise<void> {
     if (!blob.type.startsWith("image/")) {
-      new Notice("Clippings grid: that clipboard item is not an image");
+      new Notice("Power Grid: that clipboard item is not an image");
       return;
     }
 
@@ -95,7 +95,7 @@ export class CaptureService {
       await this.app.vault.createBinary(attachment, await blob.arrayBuffer());
     } catch (error) {
       this.onProgress?.(null);
-      new Notice(`Clippings grid: could not save the image (${String(error)})`);
+      new Notice(`Power Grid: could not save the image (${String(error)})`);
       return;
     }
 
@@ -122,7 +122,7 @@ export class CaptureService {
       await this.index.ingest(file);
     } catch (error) {
       this.onProgress?.(null);
-      new Notice(`Clippings grid: could not create the note (${String(error)})`);
+      new Notice(`Power Grid: could not create the note (${String(error)})`);
       return;
     }
 
@@ -136,14 +136,14 @@ export class CaptureService {
   async capture(raw: string): Promise<void> {
     const url = cleanUrl(raw);
     if (!isHttpUrl(url)) {
-      new Notice("Clippings grid: that is not a link");
+      new Notice("Power Grid: that is not a link");
       return;
     }
 
     const existing = this.index.records().find((r) => cleanUrl(r.source) === url);
     if (existing) {
       this.onProgress?.(null);
-      new Notice("Clippings grid: already clipped");
+      new Notice("Power Grid: already clipped");
       const file = this.app.vault.getAbstractFileByPath(existing.path);
       if (file instanceof TFile) await this.app.workspace.getLeaf(false).openFile(file);
       return;
@@ -154,7 +154,7 @@ export class CaptureService {
 
     if (!link || link.media.length === 0) {
       this.onProgress?.(null);
-      new Notice("Clippings grid: no image or video found, nothing created");
+      new Notice("Power Grid: no image or video found, nothing created");
       return;
     }
 
@@ -296,7 +296,7 @@ export class CaptureService {
     try {
       return await this.app.vault.create(path, buildNote(link));
     } catch (error) {
-      new Notice(`Clippings grid: could not create the note (${String(error)})`);
+      new Notice(`Power Grid: could not create the note (${String(error)})`);
       return null;
     }
   }

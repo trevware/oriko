@@ -1,4 +1,4 @@
-# CLAUDE.md — Clippings Grid
+# CLAUDE.md — Power Grid
 
 An Obsidian plugin: a pannable, zoomable canvas over the vault's `Clippings/` folder, which archives every clipping's remote media locally so it survives the source going dark.
 

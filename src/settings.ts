@@ -1,4 +1,4 @@
-export interface ClippingsGridSettings {
+export interface PowerGridSettings {
   clippingsFolder: string;
   attachmentFolder: string;
   archiveOnCreate: boolean;
@@ -14,7 +14,7 @@ export interface ClippingsGridSettings {
   useResolvers: boolean;
 }
 
-export const DEFAULT_SETTINGS: ClippingsGridSettings = {
+export const DEFAULT_SETTINGS: PowerGridSettings = {
   clippingsFolder: "Clippings",
   attachmentFolder: "Attachments/Clippings",
   archiveOnCreate: true,
