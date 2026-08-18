@@ -69,7 +69,7 @@ Switching writes `activeGrid` to settings, clears the selection, resets the came
 
 ### Creating
 
-`New grid` in the `+` menu prompts for a name and an icon. Validation: non-empty after trimming, not a duplicate of an existing grid or of the home name, case-insensitively. A new grid starts empty and becomes active immediately, so the user sees what they made rather than having to go find it.
+`New grid` in the `+` menu prompts for a name and an icon. The icon is chosen from a fixed palette of about a dozen lucide names rendered as buttons, not typed as a free-text id: a mistyped id renders nothing at all, and the failure would be silent. Validation: non-empty after trimming, not a duplicate of an existing grid or of the home name, case-insensitively. A new grid starts empty and becomes active immediately, so the user sees what they made rather than having to go find it.
 
 ### Moving
 
@@ -133,7 +133,7 @@ Both clip actions already exist as commands. This surfaces them.
 
 ### The grids panel, bottom left
 
-A gear button opens a panel for managing grids: rename, change icon, reorder, delete. Reorder matters because position drives the hotkey. Home appears in the list and can be renamed and re-iconed but not deleted or reordered out of first place.
+A gear button opens a panel for managing grids: rename, change icon, reorder, delete. Reordering is by up and down buttons on each row rather than by dragging, because drag on this canvas already means marquee selection and the panel is not worth a second drag system. Reorder matters because position drives the hotkey. Home appears in the list and can be renamed and re-iconed but not deleted or reordered out of first place.
 
 ### Menus reuse ContextMenu
 
