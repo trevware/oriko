@@ -406,9 +406,11 @@
 
 .cg-actionbar-tip {
   position: absolute;
-  bottom: calc(100% + 10px);
+  /* Measured from the button, which sits inside the bar's padding, so the
+     offset has to clear that padding before any gap is visible. */
+  bottom: calc(100% + 21px);
   left: 50%;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateX(-50%) translateY(6px);
   display: flex;
   align-items: center;
   gap: 8px;
