@@ -48,12 +48,14 @@
 }
 
 /* Layout box only. Transparent and unclipped: the visible card is the frame
-   inside it, which is what lets selection expand without overlapping. */
+   inside it, which is what lets selection expand without overlapping.
+   Deliberately not paint-contained, which would clip the selection ring
+   and shadow to the tile box. */
 .cg-tile {
   position: absolute;
   top: 0;
   left: 0;
-  contain: layout paint;
+  contain: layout;
   cursor: pointer;
 }
 
@@ -67,10 +69,15 @@
   border-radius: 10px;
   background: var(--background-secondary);
   transform: scale(1);
-  /* Transform and box-shadow only: both composite, so this stays smooth
-     while the canvas is panning underneath. */
+  /* An outline, not a border or inset shadow: outlines paint above the
+     element's descendants, so the ring is not hidden by the image filling
+     the card. A negative offset keeps it inside the card edge, so it never
+     spends the gap the selection just expanded into. */
+  outline: 2px solid transparent;
+  outline-offset: -2px;
   transition:
     transform 190ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    outline-color 190ms ease,
     box-shadow 190ms ease;
 }
 
@@ -197,9 +204,8 @@
 
 .cg-tile.is-selected .cg-frame {
   transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
-  box-shadow:
-    0 0 0 2px var(--color-accent),
-    0 10px 26px rgba(0, 0, 0, 0.4);
+  outline-color: var(--color-accent);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
 }
 
 .cg-confirm-list {
