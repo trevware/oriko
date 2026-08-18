@@ -614,13 +614,21 @@
   color: var(--text-normal);
   cursor: pointer;
   opacity: 0;
+  /* Leave transition. A rule that sets no transition of its own inherits
+     this one in both directions, which is why the staged entry delays used
+     to play back in reverse and leave the chrome hanging over the returning
+     card. The entry timing therefore lives on .is-open below, and this
+     declaration governs only the exit: gone well before the flight lands. */
   transition:
-    opacity 260ms ease 120ms,
+    opacity 90ms ease,
     background 120ms ease;
 }
 
 .pg-detail.is-open .pg-detail-back {
   opacity: 1;
+  transition:
+    opacity 260ms ease 120ms,
+    background 120ms ease;
 }
 
 .pg-detail-back:hover {
@@ -636,14 +644,17 @@
   overflow-y: auto;
   opacity: 0;
   transform: translateX(10px);
-  transition:
-    opacity 300ms ease 140ms,
-    transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 140ms;
+  /* Cut, not faded. The panel is text pinned to the right edge, so any
+     lingering makes it read as debris the returning card flies underneath. */
+  transition: none;
 }
 
 .pg-detail.is-open .pg-detail-meta {
   opacity: 1;
   transform: translateX(0);
+  transition:
+    opacity 300ms ease 140ms,
+    transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 140ms;
 }
 
 .pg-detail-field {
@@ -685,14 +696,19 @@
     0 12px 32px rgba(0, 0, 0, 0.45);
   transform: translate(-50%, 14px);
   opacity: 0;
+  /* Exit: a quick drop away with no delay, short enough to be finished
+     while the card is still early in its return rather than trailing it. */
   transition:
-    opacity 260ms ease 160ms,
-    transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 160ms;
+    opacity 110ms ease,
+    transform 110ms ease;
 }
 
 .pg-detail.is-open .pg-detail-actions {
   opacity: 1;
   transform: translate(-50%, 0);
+  transition:
+    opacity 260ms ease 160ms,
+    transform 300ms cubic-bezier(0.19, 1, 0.26, 1) 160ms;
 }
 
 .pg-detail button.pg-detail-button {
@@ -720,7 +736,10 @@
   .pg-detail-backdrop,
   .pg-detail-back,
   .pg-detail-meta,
-  .pg-detail-actions {
+  .pg-detail-actions,
+  .pg-detail.is-open .pg-detail-back,
+  .pg-detail.is-open .pg-detail-meta,
+  .pg-detail.is-open .pg-detail-actions {
     transition: none;
   }
 }
