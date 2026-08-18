@@ -40,9 +40,15 @@ interface OsModule {
 }
 
 function nodeRequire(name: string): unknown {
-  // Bundled as CJS inside Electron, so require exists on desktop only.
-  const fn = (globalThis as { require?: (id: string) => unknown }).require;
-  return typeof fn === "function" ? fn(name) : null;
+  // The bundle is CJS, so `require` is the module-scope one Obsidian
+  // provides on desktop, which resolves node builtins. globalThis.require
+  // is NOT available in Obsidian's renderer, so reaching for it silently
+  // disabled every conversion. On mobile this throws and we fall through.
+  try {
+    return require(name);
+  } catch {
+    return null;
+  }
 }
 
 export function conversionAvailable(): boolean {

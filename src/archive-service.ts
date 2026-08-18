@@ -192,8 +192,16 @@ export class ArchiveService {
       if (entry?.file) return false;
       return retryFailed || !entry?.failed;
     });
+    // Runs regardless of whether anything inline is outstanding: on a
+    // re-archive every ref is already on disk, and the post's own video
+    // would otherwise never be fetched.
+    await this.archiveSourceVideo(record, retryFailed);
+
     if (canonical.length === 0) {
       await this.resolvePageCover(record, retryFailed);
+      await this.deriveAssets();
+      await this.saveCache();
+      this.emit();
       return;
     }
 
@@ -209,7 +217,6 @@ export class ArchiveService {
       await this.resolvePageCover(record, retryFailed);
     }
 
-    await this.archiveSourceVideo(record, retryFailed);
     await this.deriveAssets();
     await this.saveCache();
     this.emit();
@@ -226,12 +233,18 @@ export class ArchiveService {
     retryFailed: boolean
   ): Promise<void> {
     if (!record.source || !supportsSourceDownload(record.source)) return;
-    if (!conversionAvailable() || !ytdlpPath()) return;
 
     const key = sourceVideoKey(normalizeUrl(record.source));
     const existing = this.cache.get(key);
     if (existing?.file) return;
     if (existing?.failed && !retryFailed) return;
+
+    if (!conversionAvailable() || !ytdlpPath()) {
+      // Recorded rather than skipped silently, so a missing tool is
+      // diagnosable from the cache instead of looking like nothing happened.
+      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp not available" });
+      return;
+    }
 
     const result = await downloadSourceVideo(record.source);
     if (!result) {
