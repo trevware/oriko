@@ -4,6 +4,8 @@ import {
   directMediaKind,
   directMediaLink,
   fxApiUrl,
+  instagramMediaUrl,
+  instagramPost,
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
@@ -264,5 +266,41 @@ describe("directMediaLink", () => {
   it("carries exactly one media item of the given kind", () => {
     const out = directMediaLink("https://cdn/a.mp4", "video");
     expect(out.media).toEqual([{ url: "https://cdn/a.mp4", kind: "video" }]);
+  });
+});
+
+describe("instagramPost", () => {
+  it("recognises a reel", () => {
+    expect(instagramPost("https://www.instagram.com/reel/DaX4yElxg7_/")).toEqual({
+      kind: "reel",
+      code: "DaX4yElxg7_",
+    });
+  });
+
+  it("normalises the plural reels path", () => {
+    expect(instagramPost("https://www.instagram.com/reels/DaX4yElxg7_/")?.kind).toBe("reel");
+  });
+
+  it("recognises a post and a tv url", () => {
+    expect(instagramPost("https://instagram.com/p/ABC12345/")?.kind).toBe("p");
+    expect(instagramPost("https://instagram.com/tv/ABC12345/")?.kind).toBe("tv");
+  });
+
+  it("ignores query parameters", () => {
+    expect(instagramPost("https://www.instagram.com/reel/DaX4yElxg7_/?igsh=x")?.code).toBe(
+      "DaX4yElxg7_"
+    );
+  });
+
+  it("returns null for a profile or another host", () => {
+    expect(instagramPost("https://www.instagram.com/someuser/")).toBeNull();
+    expect(instagramPost("https://www.threads.com/@a/post/B")).toBeNull();
+    expect(instagramPost("not a url")).toBeNull();
+  });
+
+  it("builds the mirror url", () => {
+    expect(instagramMediaUrl({ kind: "reel", code: "DaX4yElxg7_" })).toBe(
+      "https://kkinstagram.com/reel/DaX4yElxg7_/"
+    );
   });
 });

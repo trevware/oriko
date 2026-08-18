@@ -109,6 +109,33 @@ export function xStatus(url: string): { user: string; id: string } | null {
   return match ? { user: match[1], id: match[2] } : null;
 }
 
+const INSTAGRAM_HOSTS = new Set(["instagram.com", "m.instagram.com", "instagr.am"]);
+const INSTAGRAM_PATH = /^\/(reels?|p|tv)\/([A-Za-z0-9_-]{5,32})/;
+
+/**
+ * Identifies an Instagram post. Like Threads, Instagram publishes only a
+ * poster image to crawlers and never the video URL, so the media is only
+ * reachable through a mirror.
+ */
+export function instagramPost(url: string): { kind: string; code: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!INSTAGRAM_HOSTS.has(parsed.hostname.replace(/^www\./, "").toLowerCase())) return null;
+  const match = INSTAGRAM_PATH.exec(parsed.pathname);
+  if (!match) return null;
+  // "reels" and "reel" address the same thing; the mirror expects "reel".
+  return { kind: match[1] === "reels" ? "reel" : match[1], code: match[2] };
+}
+
+/** Mirror that redirects to the underlying CDN file for an Instagram post. */
+export function instagramMediaUrl(post: { kind: string; code: string }): string {
+  return `https://kkinstagram.com/${post.kind}/${post.code}/`;
+}
+
 export function fxApiUrl(status: { user: string; id: string }): string {
   return `https://api.fxtwitter.com/${status.user}/status/${status.id}`;
 }

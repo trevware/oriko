@@ -13,6 +13,8 @@ import {
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
+  instagramMediaUrl,
+  instagramPost,
   parsePageMeta,
   xStatus,
 } from "./resolve";
@@ -192,11 +194,43 @@ export class CaptureService {
     if (direct) return directMediaLink(url, direct);
 
     const status = xStatus(url);
-    if (status) {
+    if (status && this.settings().useResolvers) {
       const viaResolver = await this.resolveX(status, url);
       if (viaResolver && viaResolver.media.length > 0) return viaResolver;
     }
+
+    const insta = instagramPost(url);
+    if (insta) return this.resolveInstagram(insta, url);
+
     return this.resolvePage(url);
+  }
+
+  /**
+   * Instagram publishes a poster image to crawlers but never the video URL,
+   * so the mirror is listed first and the poster kept behind it. No extra
+   * request is spent probing: if the mirror fails, the archiver's existing
+   * fallback chain lands on the poster.
+   */
+  private async resolveInstagram(
+    post: { kind: string; code: string },
+    url: string
+  ): Promise<ResolvedLink | null> {
+    const page = await this.resolvePage(url);
+    const base: ResolvedLink = page ?? {
+      url,
+      title: `Instagram ${post.kind}`,
+      description: "",
+      author: "",
+      published: "",
+      media: [],
+    };
+
+    if (!this.settings().useResolvers) return base;
+
+    return {
+      ...base,
+      media: [{ url: instagramMediaUrl(post), kind: "video" }, ...base.media],
+    };
   }
 
   private async resolveX(
