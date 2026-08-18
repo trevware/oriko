@@ -150,6 +150,10 @@ export default class PowerGridPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    // Object.assign copies the reference, not the array. Without this, a vault
+    // with no saved grids yet would push straight into DEFAULT_SETTINGS, and
+    // the module-level default would start carrying real user data.
+    this.settings.grids = [...(this.settings.grids ?? [])];
   }
 
   async saveSettings(): Promise<void> {
