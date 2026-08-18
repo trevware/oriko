@@ -561,27 +561,43 @@
   inset: 0;
   background: var(--background-primary);
   opacity: 0;
-  transition: opacity 260ms ease;
+  /* Fully opaque, and up quickly: the grid should be gone before the card
+     has travelled, not fading out behind it. */
+  transition: opacity 150ms ease;
 }
 
 .cg-detail.is-open .cg-detail-backdrop {
-  opacity: 0.97;
+  opacity: 1;
 }
 
 .cg-detail-stage {
   position: absolute;
   overflow: hidden;
   border-radius: 6px;
-  background: var(--background-secondary);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  /* No fill. The stage is sized to the media's own aspect, so any surface
+     showing through would be letterboxing rather than design. */
+  background: transparent;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+/* Only after the flight, so re-fitting to the true aspect glides. */
+.cg-detail-stage.is-settling {
+  transition:
+    left 280ms cubic-bezier(0.19, 1, 0.26, 1),
+    top 280ms cubic-bezier(0.19, 1, 0.26, 1),
+    width 280ms cubic-bezier(0.19, 1, 0.26, 1),
+    height 280ms cubic-bezier(0.19, 1, 0.26, 1);
 }
 
 .cg-detail-media {
   width: 100%;
   height: 100%;
+  /* Contain, never cover: the stage is re-fitted to the media's true aspect
+     shortly after opening, but until then cover would crop the image. The
+     black bars came from a black fill behind this, not from contain. */
   object-fit: contain;
   display: block;
-  background: #000;
+  background: transparent;
 }
 
 .cg-detail-back {
@@ -705,7 +721,8 @@
   .cg-detail-backdrop,
   .cg-detail-back,
   .cg-detail-meta,
-  .cg-detail-actions {
+  .cg-detail-actions,
+  .cg-detail-stage.is-settling {
     transition: none;
   }
 }

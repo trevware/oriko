@@ -3,6 +3,7 @@ import {
   columnsForWidth,
   computeLayout,
   fitRect,
+  flightMidpoint,
   flipTransform,
   pressureAt,
   visibleRange,
@@ -245,5 +246,77 @@ describe("flipTransform", () => {
     const t = flipTransform(from, { x: 0, y: 0, w: 0, h: 0 }, { x: 0.5, y: 0.5 });
     expect(t.scaleX).toBe(1);
     expect(t.scaleY).toBe(1);
+  });
+});
+
+describe("flightMidpoint", () => {
+  const to = { x: 300, y: 200, w: 600, h: 400 };
+
+  it("sits between the endpoints, not on the straight line", () => {
+    const from = { x: 0, y: 200, w: 100, h: 60 };
+    const mid = flightMidpoint(from, to, { x: 0.5, y: 0.5 });
+    const end = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    // Travelling horizontally, so the bow shows up on the vertical axis.
+    expect(Math.abs(mid.dx)).toBeLessThan(Math.abs(end.dx));
+    expect(Math.abs(mid.dy - end.dy)).toBeGreaterThan(0);
+  });
+
+  it("bows perpendicular to a vertical journey", () => {
+    const from = { x: 300, y: 900, w: 100, h: 60 };
+    const mid = flightMidpoint(from, to, { x: 0.5, y: 0.5 });
+    const end = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    expect(Math.abs(mid.dx - end.dx)).toBeGreaterThan(1);
+  });
+
+  it("stretches along the direction of travel", () => {
+    const across = { x: 0, y: 200, w: 100, h: 60 };
+    const midAcross = flightMidpoint(across, to, { x: 0.5, y: 0.5 });
+    expect(midAcross.scaleX).toBeGreaterThan(midAcross.scaleY);
+
+    const down = { x: 300, y: 1200, w: 100, h: 60 };
+    const midDown = flightMidpoint(down, to, { x: 0.5, y: 0.5 });
+    expect(midDown.scaleY).toBeGreaterThan(midDown.scaleX);
+  });
+
+  it("has grown most of the way by the midpoint", () => {
+    const from = { x: 0, y: 0, w: 60, h: 40 };
+    const mid = flightMidpoint(from, to, { x: 0.5, y: 0.5 });
+    const end = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    expect(mid.scaleX).toBeGreaterThan(end.scaleX);
+    expect(mid.scaleX).toBeLessThan(1.2);
+  });
+
+  it("does not divide by zero when there is nowhere to travel", () => {
+    const same = { x: 300, y: 200, w: 600, h: 400 };
+    const mid = flightMidpoint(same, to, { x: 0.5, y: 0.5 });
+    expect(Number.isFinite(mid.dx)).toBe(true);
+    expect(Number.isFinite(mid.dy)).toBe(true);
+  });
+
+  it("caps the bow so a long journey does not sling wide", () => {
+    const far = { x: -5000, y: 200, w: 100, h: 60 };
+    const progress = 0.58;
+    const mid = flightMidpoint(far, to, { x: 0.5, y: 0.5 }, progress);
+    const end = flipTransform(far, to, { x: 0.5, y: 0.5 });
+
+    // The bow is the deviation from the straight line at the same progress,
+    // not the total offset, which also carries the journey itself.
+    const straightX = end.dx * (1 - progress);
+    const straightY = end.dy * (1 - progress);
+    const bow = Math.hypot(mid.dx - straightX, mid.dy - straightY);
+    expect(bow).toBeLessThanOrEqual(111);
+  });
+
+  it("bows proportionally on a short journey", () => {
+    const near = { x: 260, y: 160, w: 100, h: 60 };
+    const progress = 0.58;
+    const mid = flightMidpoint(near, to, { x: 0.5, y: 0.5 }, progress);
+    const end = flipTransform(near, to, { x: 0.5, y: 0.5 });
+    const bow = Math.hypot(
+      mid.dx - end.dx * (1 - progress),
+      mid.dy - end.dy * (1 - progress)
+    );
+    expect(bow).toBeGreaterThan(0);
+    expect(bow).toBeLessThan(110);
   });
 });

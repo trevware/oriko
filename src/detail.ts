@@ -1,5 +1,5 @@
 import { App, TFile, normalizePath, setIcon } from "obsidian";
-import { fitRect, flipTransform } from "./layout";
+import { fitRect, flightMidpoint, flipTransform } from "./layout";
 import type { Box } from "./layout";
 import type { TileModel } from "./tile";
 
@@ -19,9 +19,10 @@ export interface DetailOrigin {
 
 const PADDING = 56;
 const SIDEBAR = 300;
-const FLIGHT_MS = 420;
-const RETURN_MS = 320;
-const EASE = "cubic-bezier(0.19, 1, 0.26, 1)";
+const FLIGHT_MS = 560;
+const RETURN_MS = 380;
+/* Slow to leave, quick through the middle, long soft settle. */
+const EASE = "cubic-bezier(0.16, 0.84, 0.24, 1)";
 
 function domainOf(url: string): string {
   try {
@@ -134,6 +135,42 @@ export class DetailView {
     const image = this.stage.createEl("img", { cls: "cg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
+
+    // Cached dimensions can be a placeholder ratio, which would leave the
+    // stage a different shape from the image inside it. Re-fit once the
+    // real size is known, after the flight so the transform is not disturbed.
+    image.addEventListener(
+      "load",
+      () => {
+        if (image.naturalWidth > 0) {
+          window.setTimeout(
+            () => this.refit(image.naturalWidth, image.naturalHeight),
+            FLIGHT_MS
+          );
+        }
+      },
+      { once: true }
+    );
+  }
+
+  /** Reshapes the stage to the media's true aspect, once it is known. */
+  private refit(width: number, height: number): void {
+    if (!this.stage || this.closing) return;
+
+    const bounds = this.container.getBoundingClientRect();
+    const target = fitRect(
+      { width, height },
+      { width: bounds.width - SIDEBAR, height: bounds.height },
+      PADDING
+    );
+
+    if (Math.abs(target.w - this.stage.offsetWidth) < 2) return;
+
+    this.stage.addClass("is-settling");
+    this.stage.style.left = `${target.x}px`;
+    this.stage.style.top = `${target.y}px`;
+    this.stage.style.width = `${target.w}px`;
+    this.stage.style.height = `${target.h}px`;
   }
 
   private paintMeta(model: TileModel, bounds: DOMRect): void {
@@ -190,15 +227,34 @@ export class DetailView {
     if (!this.stage || !this.root) return;
 
     const t = flipTransform(origin.rect, target, origin.at);
+    const mid = flightMidpoint(origin.rect, target, origin.at);
     this.stage.style.transformOrigin = `${origin.at.x * 100}% ${origin.at.y * 100}%`;
 
+    // Three keyframes, so the card can arc and stretch on the way rather
+    // than sliding straight down a ruler. The blur resolving as it lands is
+    // what sells the movement as fluid.
     this.stage.animate(
       [
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
-          opacity: 0.6,
+          filter: "blur(10px)",
+          opacity: 0.5,
+          offset: 0,
+          easing: "cubic-bezier(0.4, 0, 0.5, 1)",
         },
-        { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 },
+        {
+          transform: `translate(${mid.dx}px, ${mid.dy}px) scale(${mid.scaleX}, ${mid.scaleY})`,
+          filter: "blur(3px)",
+          opacity: 0.94,
+          offset: 0.58,
+          easing: "cubic-bezier(0.2, 0.6, 0.2, 1)",
+        },
+        {
+          transform: "translate(0px, 0px) scale(1, 1)",
+          filter: "blur(0px)",
+          opacity: 1,
+          offset: 1,
+        },
       ],
       { duration: FLIGHT_MS, easing: EASE, fill: "both" }
     );
@@ -228,17 +284,25 @@ export class DetailView {
       h: this.stage.offsetHeight,
     };
     const t = flipTransform(this.origin.rect, target, this.origin.at);
+    const mid = flightMidpoint(this.origin.rect, target, this.origin.at, 0.42);
 
     this.root.removeClass("is-open");
     const animation = this.stage.animate(
       [
-        { transform: "translate(0px, 0px) scale(1, 1)", opacity: 1 },
+        { transform: "translate(0px, 0px) scale(1, 1)", filter: "blur(0px)", opacity: 1 },
+        {
+          transform: `translate(${mid.dx}px, ${mid.dy}px) scale(${mid.scaleX}, ${mid.scaleY})`,
+          filter: "blur(3px)",
+          opacity: 0.7,
+          offset: 0.5,
+        },
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
+          filter: "blur(8px)",
           opacity: 0,
         },
       ],
-      { duration: RETURN_MS, easing: EASE, fill: "both" }
+      { duration: RETURN_MS, easing: "cubic-bezier(0.4, 0, 0.7, 0.9)", fill: "both" }
     );
     animation.onfinish = () => this.teardown();
     // A cancelled animation must not leave the overlay stranded.

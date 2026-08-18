@@ -171,3 +171,49 @@ export function flipTransform(
 
   return { scaleX, scaleY, dx: sourceX - anchorX, dy: sourceY - anchorY };
 }
+
+export interface FlightStep {
+  dx: number;
+  dy: number;
+  scaleX: number;
+  scaleY: number;
+}
+
+/**
+ * Midpoint of the flight, which is what turns a straight interpolation into
+ * something that reads as fluid.
+ *
+ * Two things happen here that a two-keyframe animation cannot do. The path
+ * bows sideways, perpendicular to the direction of travel, so the card
+ * arcs instead of sliding down a ruler. And the card stretches along the
+ * axis it is travelling and pinches across it, the way a drop of water
+ * elongates as it moves and settles round when it stops.
+ */
+export function flightMidpoint(
+  from: Box,
+  to: Box,
+  origin: { x: number; y: number },
+  progress = 0.58
+): FlightStep {
+  const end = flipTransform(from, to, origin);
+
+  // Travel runs from the start offset back to zero, which is the destination.
+  const travelX = -end.dx;
+  const travelY = -end.dy;
+  const distance = Math.hypot(travelX, travelY);
+
+  const arc = Math.min(distance * 0.13, 110);
+  const normalX = distance > 0 ? -travelY / distance : 0;
+  const normalY = distance > 0 ? travelX / distance : 0;
+
+  const toward = (value: number): number => value + (1 - value) * progress;
+  const horizontal = Math.abs(travelX) >= Math.abs(travelY);
+  const stretch = 0.07;
+
+  return {
+    dx: end.dx + travelX * progress + normalX * arc,
+    dy: end.dy + travelY * progress + normalY * arc,
+    scaleX: toward(end.scaleX) * (horizontal ? 1 + stretch : 1 - stretch * 0.55),
+    scaleY: toward(end.scaleY) * (horizontal ? 1 - stretch * 0.55 : 1 + stretch),
+  };
+}
