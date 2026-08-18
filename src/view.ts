@@ -413,8 +413,9 @@ export class PowerGridView extends ItemView {
 
     // Selection and camera both describe tiles that are about to be replaced.
     this.grid?.clearSelection();
-    // replace, not add: no arrival or departure animations, and the camera is
-    // placed rather than tweened.
+    // replace, not add: departing tiles go straight back to the pool so the
+    // arrivals can recycle them, and the camera is placed rather than tweened.
+    // The arrivals still pop.
     this.refresh({ replace: true });
     this.grid?.resetView(false);
     this.spaceBar?.setActive(this.activeGrid());

@@ -238,22 +238,23 @@ export class GridRenderer {
    * `replace` means the wall is showing a different set of things, not that
    * things were added to the set it was already showing.
    *
-   * The difference is the whole cost of a grid switch. Without it every
-   * departing tile plays a leave animation and every arriving one plays an
-   * arrival, so switching runs two animations per tile plus a timer each,
-   * on top of decoding a screen of images none of which have been seen
-   * before. It is also wrong on its own terms: the pop means "this clipping
-   * is new", and nothing is new when you change which grid you are looking
-   * at.
+   * It suppresses the *departure* only. The arrival pop stays: it is what
+   * makes a switch land rather than cut, and it is cheap, being bounded by
+   * what is actually on screen.
+   *
+   * The departure is not cheap, and the cost is not the animation. playLeave
+   * holds every departing element for LEAVE_MS before returning it to the
+   * pool, so on a switch the pool is empty at exactly the moment the arriving
+   * tiles come looking for elements, and the wall builds a screen of fresh
+   * DOM instead of recycling the subtrees being vacated in front of it.
+   * Releasing at once means the arrivals reuse them.
    */
   setTiles(tiles: TileModel[], options: { replace?: boolean } = {}): void {
     this.tiles = tiles;
     this.byId = new Map(tiles.map((t) => [t.id, t]));
 
     // New to the data, as opposed to merely scrolled into view.
-    this.entering = options.replace
-      ? new Set()
-      : new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
+    this.entering = new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
     this.known = new Set(tiles.map((t) => t.id));
 
     for (const [id, element] of [...this.mounted]) {
