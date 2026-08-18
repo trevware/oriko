@@ -77,8 +77,11 @@
      element's descendants, so the ring is not hidden by the image filling
      the card. A negative offset keeps it inside the card edge, so it never
      spends the gap the selection just expanded into. */
-  outline: 2px solid transparent;
-  outline-offset: -2px;
+  /* Width and offset move together so the ring always occupies exactly the
+     innermost band of the card edge. It has to stay within SELECT_LIFT (4),
+     or a selected card's ring spills into the gap its own lift just opened. */
+  outline: 3px solid transparent;
+  outline-offset: -3px;
   /* Resting state, so this is the transition that runs on the way OUT.
      Long and soft, so a card settles back to flat instead of snapping. */
   transition:
