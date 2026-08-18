@@ -1,4 +1,37 @@
-const MIN_RATIO = 0.5;
+/* A tile a quarter showing is enough to be worth playing: by the time it is
+   half on screen it should already be running, not just starting. */
+const MIN_RATIO = 0.25;
+
+/* How far beyond the viewport the observer reaches, as a share of its own
+   height. This buys preload, not playback: a video half a screen out starts
+   fetching so it is ready by the time it arrives. */
+const PRELOAD_MARGIN = "50% 0px";
+
+export interface Edges {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * The share of an element's area lying inside the root, from 0 to 1.
+ *
+ * IntersectionObserver reports its ratio against the *expanded* root, so once
+ * a rootMargin is in play a tile a screen below the fold reports 1.0. That is
+ * the right answer for preloading and the wrong one for playback, so play
+ * eligibility is measured here against the true viewport instead.
+ */
+export function visibleRatio(rect: Edges, root: Edges): number {
+  const area = (rect.bottom - rect.top) * (rect.right - rect.left);
+  if (!(area > 0)) return 0;
+
+  const height = Math.min(rect.bottom, root.bottom) - Math.max(rect.top, root.top);
+  const width = Math.min(rect.right, root.right) - Math.max(rect.left, root.left);
+  if (height <= 0 || width <= 0) return 0;
+
+  return (height * width) / area;
+}
 
 export interface PlaybackCandidate {
   id: string;
@@ -54,7 +87,7 @@ export class PlaybackController {
         }
         this.schedule();
       },
-      { root, threshold: [0, 0.25, 0.5, 0.75, 1] }
+      { root, rootMargin: PRELOAD_MARGIN, threshold: [0, 0.25, 0.5, 0.75, 1] }
     );
 
     document.addEventListener("visibilitychange", this.onVisibility);
@@ -139,7 +172,7 @@ export class PlaybackController {
       return {
         id: String(index),
         centerDistance: Math.abs(rect.top + rect.height / 2 - rootCenter),
-        ratio: this.ratios.get(element) ?? 0,
+        ratio: visibleRatio(rect, rootRect),
       };
     });
 
