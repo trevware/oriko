@@ -274,6 +274,11 @@ export class DetailView {
     // Clamped so the panel can never run off the right edge.
     panel.style.width = `${SIDEBAR}px`;
     panel.style.left = `${Math.min(stage.x + stage.w + META_GAP, bounds.width - SIDEBAR)}px`;
+    // Top aligned with the image, not with the viewport. The stage is centred
+    // vertically, so a fixed inset left the details floating against nothing
+    // whenever the picture was short. It still runs to the bottom of the
+    // overlay and scrolls, since the details can outrun a landscape image.
+    panel.style.top = `${stage.y}px`;
 
     const field = (label: string, value: string): void => {
       if (!value) return;

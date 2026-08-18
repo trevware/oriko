@@ -691,9 +691,10 @@
   top: 0;
   bottom: 0;
   z-index: 2;
-  /* Left padding stays small: the gap to the image is set by the panel's
-     own left edge in paintMeta, not by padding here. */
-  padding: 64px 40px 40px 4px;
+  /* No top padding: the panel's own top edge is set to the image's in
+     paintMeta, so padding here would push the first field below it. Left
+     padding stays small for the same reason, the gap being positional. */
+  padding: 0 40px 40px 4px;
   overflow-y: auto;
   opacity: 0;
   transform: translateX(10px);
