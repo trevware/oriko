@@ -280,3 +280,37 @@
     transition: none;
   }
 }
+
+/* Hover lifts a card the same way selection does, minus the ring. Only one
+   element can be hovered, so moving quickly between tiles crossfades: the
+   one being left transitions back down as the new one comes up. */
+.cg-tile:hover {
+  z-index: 4;
+}
+
+.cg-tile:hover .cg-frame {
+  transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+/* Selection outranks hover, so a selected card keeps its ring and depth. */
+.cg-tile.is-selected:hover .cg-frame {
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+}
+
+/* Dragging should not leave a trail of tiles popping under the cursor. */
+.cg-viewport.is-panning .cg-tile:hover .cg-frame,
+.cg-viewport.is-selecting .cg-tile:hover .cg-frame {
+  transform: scale(1);
+  box-shadow: none;
+}
+
+.cg-viewport.is-selecting .cg-tile.is-selected .cg-frame {
+  transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-tile:hover .cg-frame {
+    transform: scale(1);
+  }
+}

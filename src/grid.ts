@@ -436,6 +436,7 @@ export class GridRenderer {
 
       this.selecting = true;
       this.marqueeMoved = false;
+      this.viewport.addClass("is-selecting");
       this.selectionBase = new Set(this.selection);
       const point = this.toContentPoint(event.clientX, event.clientY);
       this.marqueeOrigin = point;
@@ -466,6 +467,7 @@ export class GridRenderer {
     const finish = (event: PointerEvent): void => {
       if (!this.selecting) return;
       this.selecting = false;
+      this.viewport.removeClass("is-selecting");
       this.marquee.removeClass("is-active");
       if (this.viewport.hasPointerCapture(event.pointerId)) {
         this.viewport.releasePointerCapture(event.pointerId);
