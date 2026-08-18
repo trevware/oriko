@@ -15,7 +15,9 @@ import {
   MARQUEE_SLOP,
   idsInRect,
   mergeSelection,
+  rangeSelection,
   rectFromCorners,
+  toggleSelection,
 } from "./selection";
 import type { Rect } from "./selection";
 import type { TileModel } from "./tile";
@@ -101,6 +103,8 @@ export class GridRenderer {
   private selectionBase = new Set<string>();
   private marqueeOrigin = { x: 0, y: 0 };
   private marqueeMoved = false;
+  /** Where a shift-click measures its range from. */
+  private selectionAnchor: string | null = null;
 
   onRendered: () => void = () => {};
   onSourceFailed: (id: string, signature: string) => void = () => {};
@@ -459,9 +463,9 @@ export class GridRenderer {
 
       this.drawMarquee(rect);
       const additive = event.shiftKey || event.metaKey || event.ctrlKey;
-      this.applySelection(
-        mergeSelection(this.selectionBase, idsInRect(this.layout.positions, rect), additive)
-      );
+      const hits = idsInRect(this.layout.positions, rect);
+      if (hits.length > 0) this.selectionAnchor = hits[hits.length - 1];
+      this.applySelection(mergeSelection(this.selectionBase, hits, additive));
     });
 
     const finish = (event: PointerEvent): void => {
@@ -510,6 +514,7 @@ export class GridRenderer {
   }
 
   clearSelection(): void {
+    this.selectionAnchor = null;
     this.applySelection(new Set());
   }
 
@@ -569,11 +574,17 @@ export class GridRenderer {
       .catch(() => undefined);
   }
 
-  private openNote(model: TileModel, event: MouseEvent): void {
+  private openNote(model: TileModel): void {
     const file = this.app.vault.getAbstractFileByPath(model.record.path);
     if (!(file instanceof TFile)) return;
-    const newPane = event.metaKey || event.ctrlKey;
-    void this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
+    // No modifier handling: Obsidian's own "open in new tab" preference
+    // already decides where a plain click lands.
+    void this.app.workspace.getLeaf(false).openFile(file);
+  }
+
+  private selectOnly(id: string, next: Set<string>): void {
+    this.selectionAnchor = id;
+    this.applySelection(next);
   }
 
   private paint(element: TileElement, model: TileModel, position: Position, order: number): void {
@@ -719,7 +730,25 @@ export class GridRenderer {
     element.root.onclick = (event: MouseEvent) => {
       // A pan that ends over a tile must not also open it.
       if (this.panMoved) return;
-      this.openNote(model, event);
+
+      if (event.metaKey || event.ctrlKey) {
+        this.selectOnly(model.id, toggleSelection(this.selection, model.id));
+        return;
+      }
+
+      if (event.shiftKey) {
+        this.applySelection(
+          rangeSelection(
+            this.tiles.map((t) => t.id),
+            this.selectionAnchor,
+            model.id,
+            this.selection
+          )
+        );
+        return;
+      }
+
+      this.openNote(model);
     };
   }
 

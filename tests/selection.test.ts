@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { idsInRect, intersects, mergeSelection, rectFromCorners } from "../src/selection";
+import {
+  idsInRect,
+  intersects,
+  mergeSelection,
+  rangeSelection,
+  rectFromCorners,
+  toggleSelection,
+} from "../src/selection";
 import type { Position } from "../src/layout";
 
 const positions: Position[] = [
@@ -86,5 +93,54 @@ describe("mergeSelection", () => {
     const base = new Set(["a"]);
     mergeSelection(base, ["b"], true);
     expect(base.size).toBe(1);
+  });
+});
+
+describe("toggleSelection", () => {
+  it("adds an unselected id", () => {
+    expect([...toggleSelection(new Set(["a"]), "b")].sort()).toEqual(["a", "b"]);
+  });
+
+  it("removes a selected id", () => {
+    expect([...toggleSelection(new Set(["a", "b"]), "b")]).toEqual(["a"]);
+  });
+
+  it("does not mutate the base", () => {
+    const base = new Set(["a"]);
+    toggleSelection(base, "b");
+    expect(base.size).toBe(1);
+  });
+});
+
+describe("rangeSelection", () => {
+  const order = ["a", "b", "c", "d", "e"];
+
+  it("selects everything between anchor and target", () => {
+    expect([...rangeSelection(order, "b", "d", new Set())]).toEqual(["b", "c", "d"]);
+  });
+
+  it("works when dragging the range backwards", () => {
+    expect([...rangeSelection(order, "d", "b", new Set())].sort()).toEqual(["b", "c", "d"]);
+  });
+
+  it("keeps what was already selected", () => {
+    const out = rangeSelection(order, "b", "c", new Set(["e"]));
+    expect([...out].sort()).toEqual(["b", "c", "e"]);
+  });
+
+  it("selects just the target when there is no anchor", () => {
+    expect([...rangeSelection(order, null, "c", new Set())]).toEqual(["c"]);
+  });
+
+  it("handles an anchor that is no longer in the grid", () => {
+    expect([...rangeSelection(order, "zz", "c", new Set())]).toEqual(["c"]);
+  });
+
+  it("ignores a target that is not in the grid", () => {
+    expect([...rangeSelection(order, "a", "zz", new Set(["a"]))]).toEqual(["a"]);
+  });
+
+  it("handles anchor and target being the same tile", () => {
+    expect([...rangeSelection(order, "c", "c", new Set())]).toEqual(["c"]);
   });
 });

@@ -53,3 +53,33 @@ export function mergeSelection(
 
 /** A drag shorter than this is a click, not a marquee. */
 export const MARQUEE_SLOP = 4;
+
+/** Adds or removes one id, the way a modifier-click does. */
+export function toggleSelection(base: ReadonlySet<string>, id: string): Set<string> {
+  const next = new Set(base);
+  if (!next.delete(id)) next.add(id);
+  return next;
+}
+
+/**
+ * Selects everything between the anchor and the target in layout order,
+ * which is how a shift-click behaves in every file manager. With no anchor
+ * yet it degrades to selecting the single target.
+ */
+export function rangeSelection(
+  order: string[],
+  anchorId: string | null,
+  targetId: string,
+  base: ReadonlySet<string>
+): Set<string> {
+  const to = order.indexOf(targetId);
+  if (to < 0) return new Set(base);
+
+  const from = anchorId ? order.indexOf(anchorId) : -1;
+  if (from < 0) return new Set([...base, targetId]);
+
+  const next = new Set(base);
+  const [lo, hi] = from <= to ? [from, to] : [to, from];
+  for (let i = lo; i <= hi; i++) next.add(order[i]);
+  return next;
+}
