@@ -88,13 +88,21 @@ export class PowerGridView extends ItemView {
         if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
       },
     });
-    this.detail.onClosed = () => this.grid?.focusTile(null);
+    this.detail.onClosed = () => {
+      this.grid?.focusTile(null);
+      this.playback?.setEnabled(this.plugin.settings.autoplayVideo);
+    };
     this.grid.onOpenDetail = (model, origin) => {
       // Hidden when the stage appears, not on click: the media's true size
       // is resolved first, and hiding early leaves a hole in the meantime.
       const detail = this.detail;
       if (!detail) return;
-      detail.onStageReady = () => this.grid?.focusTile(model.id);
+      detail.onStageReady = () => {
+        this.grid?.focusTile(model.id);
+        // Nothing behind the backdrop is worth decoding. This mattered less
+        // when only four tiles could play at once.
+        this.playback?.setEnabled(false);
+      };
       void detail.open(model, origin);
     };
 

@@ -584,9 +584,10 @@
   position: absolute;
   inset: 0;
   background: var(--background-primary);
-  /* Solid immediately, with no fade in either direction. The grid is
-     simply not there while inspecting, and is simply back during the
-     return, where the flying card needs somewhere to land. */
+  /* Opaque at rest. The fade in is animated from fly(), not declared here,
+     because the backdrop is created and given is-open inside one task; the
+     return is still a cut, since the card flying home needs the wall to land
+     on rather than a surface dissolving underneath it. */
   opacity: 1;
 }
 
@@ -674,7 +675,7 @@
      last third of the flight and settles as the card lands, rather than
      arriving while it is still travelling. */
   transition:
-    opacity 320ms ease 270ms,
+    opacity 320ms ease 250ms,
     background 120ms ease;
 }
 
@@ -700,8 +701,8 @@
   opacity: 1;
   transform: translateX(0);
   transition:
-    opacity 360ms ease 320ms,
-    transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 320ms;
+    opacity 360ms ease 290ms,
+    transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 290ms;
 }
 
 .pg-detail-field {
@@ -754,8 +755,8 @@
   opacity: 1;
   transform: translate(-50%, 0);
   transition:
-    opacity 320ms ease 360ms,
-    transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 360ms;
+    opacity 320ms ease 320ms,
+    transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 320ms;
 }
 
 .pg-detail button.pg-detail-button {

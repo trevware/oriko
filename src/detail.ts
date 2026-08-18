@@ -23,7 +23,7 @@ export interface DetailOrigin {
 
 const PADDING = 56;
 const SIDEBAR = 300;
-const FLIGHT_MS = 700;
+const FLIGHT_MS = 650;
 const RETURN_MS = 420;
 /** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
 const PINCH_SENSITIVITY = 0.0022;
@@ -108,6 +108,11 @@ function naturalSize(
 export class DetailView {
   private root: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
+  private backdrop: HTMLElement | null = null;
+  /** Held so the return can cancel it; a fill-forwards animation would
+      otherwise pin the backdrop opaque and the card would fly home against
+      it rather than against the wall. */
+  private veil: Animation | null = null;
   /** Carries the zoom transform. Kept off the stage, whose own transform is
       owned by the flight animation and would override anything set inline. */
   private layer: HTMLElement | null = null;
@@ -158,6 +163,7 @@ export class DetailView {
     this.root = this.container.createDiv({ cls: "pg-detail" });
     const backdrop = this.root.createDiv({ cls: "pg-detail-backdrop" });
     backdrop.onclick = () => this.close();
+    this.backdrop = backdrop;
 
     const back = this.root.createDiv({ cls: "pg-detail-back" });
     setIcon(back, "arrow-left");
@@ -505,6 +511,22 @@ export class DetailView {
       { duration: FLIGHT_MS, easing: EASE, fill: "both" }
     );
 
+    // The wall dims away behind the rising card rather than being cut. Driven
+    // here rather than by a CSS transition because the backdrop is created
+    // and given is-open within one task, so whether a transition fires at all
+    // would depend on a style flush happening to land in between.
+    //
+    // Over three quarters of the flight, so the wall is gone by the time the
+    // card settles instead of lingering faintly underneath it.
+    this.veil = this.backdrop?.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      {
+        duration: FLIGHT_MS * 0.75,
+        easing: "cubic-bezier(0.4, 0, 0.6, 1)",
+        fill: "both",
+      }
+    ) ?? null;
+
     this.flying = true;
     flight.onfinish = () => {
       this.flying = false;
@@ -546,6 +568,11 @@ export class DetailView {
     this.view = { ...FIT };
     this.applyView();
 
+    // Hand the backdrop back to CSS, which drops it instantly once is-open
+    // goes. The returning card has to have the wall to land on.
+    this.veil?.cancel();
+    this.veil = null;
+
     this.root.removeClass("is-open");
     const animation = this.stage.animate(
       [
@@ -570,9 +597,12 @@ export class DetailView {
   private teardown(): void {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
+    this.veil?.cancel();
+    this.veil = null;
     this.root?.remove();
     this.root = null;
     this.stage = null;
+    this.backdrop = null;
     this.layer = null;
     this.origin = null;
     this.hotkeys = [];
