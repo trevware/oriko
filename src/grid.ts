@@ -29,6 +29,11 @@ const GAP = 6;
  * animate it without laying out.
  */
 const SELECT_LIFT = 4;
+/** Must match the leave animation in styles.css. */
+const LEAVE_MS = 200;
+/** Per-tile delay when several enter at once, capped so a big batch is not slow. */
+const ENTER_STAGGER_MS = 28;
+const ENTER_STAGGER_CAP = 6;
 const TARGET_COLUMN_WIDTH = 300;
 const OVERSCAN = 600;
 const MAX_OVERSCAN = 1500;
@@ -72,6 +77,11 @@ export class GridRenderer {
   private frame = 0;
   private relayoutFrame = 0;
   private measured = new Map<string, { w: number; h: number }>();
+  /** Ids present in the previous setTiles, to tell new tiles from newly visible ones. */
+  private known = new Set<string>();
+  private entering = new Set<string>();
+  /** Elements playing their leave animation, no longer eligible for reuse. */
+  private leaving = new Set<TileElement>();
 
   private camera: Camera = { x: 0, y: 0, zoom: 1 };
   private contentWidth = 0;
@@ -190,13 +200,29 @@ export class GridRenderer {
     this.tiles = tiles;
     this.byId = new Map(tiles.map((t) => [t.id, t]));
 
+    // New to the data, as opposed to merely scrolled into view.
+    this.entering = new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
+    this.known = new Set(tiles.map((t) => t.id));
+
     for (const [id, element] of [...this.mounted]) {
       if (!this.byId.has(id)) {
         this.mounted.delete(id);
-        this.release(element);
+        this.playLeave(element);
       }
     }
     this.relayout();
+  }
+
+  /** Fades a removed tile out in place, then returns its element to the pool. */
+  private playLeave(element: TileElement): void {
+    element.root.addClass("is-leaving");
+    element.root.removeClass("is-selected");
+    this.leaving.add(element);
+    window.setTimeout(() => {
+      this.leaving.delete(element);
+      element.root.removeClass("is-leaving");
+      this.release(element);
+    }, LEAVE_MS);
   }
 
   /** The tile nearest the viewport centre, used to hold position across a relayout. */
@@ -508,7 +534,10 @@ export class GridRenderer {
   }
 
   private release(tile: TileElement): void {
+    if (this.leaving.has(tile)) return;
     tile.root.style.display = "none";
+    tile.root.removeClass("is-gliding");
+    tile.root.removeClass("is-entering");
     tile.root.empty();
     tile.id = "";
     tile.signature = "";
@@ -545,8 +574,13 @@ export class GridRenderer {
     void this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
   }
 
-  private paint(element: TileElement, model: TileModel, position: Position): void {
+  private paint(element: TileElement, model: TileModel, position: Position, order: number): void {
     element.root.style.display = "";
+
+    // A tile that keeps representing the same clipping glides to its new
+    // position; a pooled element reused for a different clipping snaps,
+    // otherwise it would visibly fly across the canvas.
+    element.root.toggleClass("is-gliding", element.id === model.id);
     element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
@@ -584,6 +618,18 @@ export class GridRenderer {
       }
       element.signature = model.signature;
       return;
+    }
+
+    const isNew = this.entering.has(model.id);
+    if (isNew) {
+      this.entering.delete(model.id);
+      const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
+      element.root.style.setProperty("--cg-enter-delay", `${delay}ms`);
+      element.root.addClass("is-entering");
+      window.setTimeout(
+        () => element.root.removeClass("is-entering"),
+        delay + 420
+      );
     }
 
     element.id = model.id;
@@ -686,6 +732,7 @@ export class GridRenderer {
       }
     }
 
+    let order = 0;
     for (const position of visible) {
       const model = this.byId.get(position.id);
       if (!model) continue;
@@ -694,7 +741,7 @@ export class GridRenderer {
         element = this.acquire();
         this.mounted.set(position.id, element);
       }
-      this.paint(element, model, position);
+      this.paint(element, model, position, order++);
     }
 
     this.paintSelection();

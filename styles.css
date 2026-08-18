@@ -222,3 +222,61 @@
   margin-left: -12px;
   opacity: 0.7;
 }
+
+/* Reflow: a tile that keeps its identity glides to its new spot. Applied
+   only to continuing tiles, never to a pooled element reused for another
+   clipping, which would otherwise fly across the canvas. */
+.cg-tile.is-gliding {
+  transition: transform 300ms cubic-bezier(0.22, 0.9, 0.28, 1);
+}
+
+/* Arrival: a short overshoot so a new clipping lands rather than appears. */
+.cg-tile.is-entering .cg-frame {
+  animation: cg-pop 380ms cubic-bezier(0.22, 1.2, 0.36, 1) both;
+  animation-delay: var(--cg-enter-delay, 0ms);
+}
+
+@keyframes cg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.84);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Departure: shrink away in place while the survivors glide up behind it. */
+.cg-tile.is-leaving {
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cg-tile.is-leaving .cg-frame {
+  animation: cg-vanish 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+@keyframes cg-vanish {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.86);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-tile.is-gliding,
+  .cg-tile.is-entering .cg-frame,
+  .cg-tile.is-leaving .cg-frame,
+  .cg-media {
+    animation: none;
+    transition: none;
+  }
+}

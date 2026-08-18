@@ -51,6 +51,25 @@ export default class ClippingsGridPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "clip-image-from-clipboard",
+      name: "Clip image from clipboard",
+      callback: () => {
+        void navigator.clipboard
+          .read()
+          .then(async (items) => {
+            for (const item of items) {
+              const type = item.types.find((t) => t.startsWith("image/"));
+              if (!type) continue;
+              await this.capture.captureImage(await item.getType(type));
+              return;
+            }
+            new Notice("Clippings grid: no image on the clipboard");
+          })
+          .catch(() => new Notice("Clippings grid: could not read the clipboard"));
+      },
+    });
+
+    this.addCommand({
       id: "archive-clipping-media",
       name: "Archive all clipping media",
       callback: () => {

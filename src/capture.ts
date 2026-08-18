@@ -4,6 +4,7 @@ import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
   buildNote,
+  buildPastedImageNote,
   cleanUrl,
   directMediaKind,
   directMediaLink,
@@ -11,6 +12,7 @@ import {
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
+  extensionForMime,
   parsePageMeta,
   xStatus,
 } from "./resolve";
@@ -24,6 +26,23 @@ import type { ClippingsGridSettings } from "./settings";
  * why X posts go through the resolver instead.
  */
 const USER_AGENT = "Mozilla/5.0 (compatible; ClippingsGrid/0.1; Obsidian link preview)";
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+/** ISO date, matching what the Web Clipper writes to `created`. */
+function today(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+/** Filename-safe stamp, unique to the second so two pastes cannot collide. */
+function todayStamp(): string {
+  const now = new Date();
+  return (
+    `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}` +
+    ` ${pad2(now.getHours())}${pad2(now.getMinutes())}${pad2(now.getSeconds())}`
+  );
+}
 
 export class CaptureService {
   /** Set by the grid view so capture can drive its progress bar. */
@@ -46,6 +65,67 @@ export class CaptureService {
       return;
     }
     await this.capture(text);
+  }
+
+  /** Saves an image pasted straight from the clipboard as its own clipping. */
+  async captureImage(blob: Blob): Promise<void> {
+    if (!blob.type.startsWith("image/")) {
+      new Notice("Clippings grid: that clipboard item is not an image");
+      return;
+    }
+
+    this.report(0.3, "Saving pasted image…");
+
+    const folder = normalizePath(this.settings().attachmentFolder);
+    if (!(await this.app.vault.adapter.exists(folder))) {
+      await this.app.vault.createFolder(folder);
+    }
+
+    const stamp = todayStamp();
+    const ext = extensionForMime(blob.type);
+    let attachment = normalizePath(`${folder}/pasted-${stamp}.${ext}`);
+    let n = 2;
+    while (await this.app.vault.adapter.exists(attachment)) {
+      attachment = normalizePath(`${folder}/pasted-${stamp}-${n}.${ext}`);
+      n++;
+    }
+
+    try {
+      await this.app.vault.createBinary(attachment, await blob.arrayBuffer());
+    } catch (error) {
+      this.onProgress?.(null);
+      new Notice(`Clippings grid: could not save the image (${String(error)})`);
+      return;
+    }
+
+    this.report(0.7, "Creating clipping…");
+
+    const title = `Pasted image ${stamp}`;
+    const clippings = normalizePath(this.settings().clippingsFolder);
+    if (!(await this.app.vault.adapter.exists(clippings))) {
+      await this.app.vault.createFolder(clippings);
+    }
+
+    let notePath = normalizePath(`${clippings}/${title}.md`);
+    let m = 2;
+    while (await this.app.vault.adapter.exists(notePath)) {
+      notePath = normalizePath(`${clippings}/${title} ${m}.md`);
+      m++;
+    }
+
+    try {
+      const file = await this.app.vault.create(
+        notePath,
+        buildPastedImageNote(title, attachment, today())
+      );
+      await this.index.ingest(file);
+    } catch (error) {
+      this.onProgress?.(null);
+      new Notice(`Clippings grid: could not create the note (${String(error)})`);
+      return;
+    }
+
+    this.onFinished?.(title);
   }
 
   private report(fraction: number | null, label: string): void {

@@ -256,3 +256,48 @@ export function buildNote(link: ResolvedLink, created = today()): string {
   lines.push(`[${link.url}](${link.url})`, "");
   return lines.join("\n");
 }
+
+/** Extension for a pasted image, from its clipboard MIME type. */
+export function extensionForMime(mime: string): string {
+  const map: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/avif": "avif",
+    "image/svg+xml": "svg",
+    "image/bmp": "bmp",
+    "image/tiff": "tiff",
+  };
+  return map[mime.split(";")[0].trim().toLowerCase()] ?? "png";
+}
+
+/**
+ * Note body for an image pasted straight from the clipboard, which has no
+ * source page to describe it. `media:` carries the vault path so the
+ * scanner and the grid treat it like any other clipping.
+ */
+export function buildPastedImageNote(
+  title: string,
+  attachmentPath: string,
+  created: string
+): string {
+  return [
+    "---",
+    `title: ${yamlString(title)}`,
+    "source:",
+    "author:",
+    "published:",
+    `created: ${created}`,
+    "description:",
+    "tags:",
+    '  - "clippings"',
+    // A plain string: the scanner reads cover with str(), so a list here
+    // would parse as empty and the clipping would have no tile at all.
+    `cover: ${yamlString(attachmentPath)}`,
+    "---",
+    "",
+    `![[${attachmentPath}]]`,
+    "",
+  ].join("\n");
+}

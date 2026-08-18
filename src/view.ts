@@ -71,7 +71,19 @@ export class ClippingsGridView extends ItemView {
     // a URL into a board app.
     this.registerDomEvent(document, "paste", (event: ClipboardEvent) => {
       if (this.app.workspace.getActiveViewOfType(ClippingsGridView) !== this) return;
-      const text = event.clipboardData?.getData("text/plain")?.trim();
+      const data = event.clipboardData;
+      if (!data) return;
+
+      // Image data first: copying an image from a browser also puts its URL
+      // on the clipboard, and the bytes in hand beat a link to fetch.
+      const file = Array.from(data.files).find((f) => f.type.startsWith("image/"));
+      if (file) {
+        event.preventDefault();
+        void this.plugin.capture.captureImage(file);
+        return;
+      }
+
+      const text = data.getData("text/plain")?.trim();
       if (!text) return;
       event.preventDefault();
       void this.plugin.capture.capture(text);

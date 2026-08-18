@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNote } from "../src/resolve";
+import { buildNote, buildPastedImageNote, extensionForMime } from "../src/resolve";
 import type { ResolvedLink } from "../src/resolve";
 
 function link(overrides: Partial<ResolvedLink> = {}): ResolvedLink {
@@ -89,5 +89,59 @@ describe("buildNote", () => {
 
   it("includes the description as body text", () => {
     expect(buildNote(link())).toContain("Built a small Swift prototype.");
+  });
+});
+
+describe("buildPastedImageNote", () => {
+  const note = buildPastedImageNote(
+    "Pasted image 2026-08-17",
+    "Attachments/Clippings/pasted-1.png",
+    "2026-08-17"
+  );
+
+  it("carries the clipper's frontmatter keys", () => {
+    for (const key of ["title:", "source:", "author:", "published:", "created:", "tags:"]) {
+      expect(note).toContain(key);
+    }
+  });
+
+  it("tags it as a clipping", () => {
+    expect(note).toContain('  - "clippings"');
+  });
+
+  it("points cover at the vault path as a plain string", () => {
+    expect(note).toContain('cover: "Attachments/Clippings/pasted-1.png"');
+    expect(note).not.toContain("cover:\n  -");
+  });
+
+  it("embeds the image so the note renders it too", () => {
+    expect(note).toContain("![[Attachments/Clippings/pasted-1.png]]");
+  });
+
+  it("leaves it unparsed, so it lands in the queue", () => {
+    expect(note).not.toContain("type: clipping");
+    expect(note).not.toContain("categories:");
+  });
+});
+
+describe("extensionForMime", () => {
+  it("maps the common clipboard types", () => {
+    expect(extensionForMime("image/png")).toBe("png");
+    expect(extensionForMime("image/jpeg")).toBe("jpg");
+    expect(extensionForMime("image/gif")).toBe("gif");
+    expect(extensionForMime("image/webp")).toBe("webp");
+  });
+
+  it("ignores parameters on the mime type", () => {
+    expect(extensionForMime("image/png; charset=binary")).toBe("png");
+  });
+
+  it("is case insensitive", () => {
+    expect(extensionForMime("IMAGE/PNG")).toBe("png");
+  });
+
+  it("falls back to png for anything unknown", () => {
+    expect(extensionForMime("image/x-weird")).toBe("png");
+    expect(extensionForMime("")).toBe("png");
   });
 });
