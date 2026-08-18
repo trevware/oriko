@@ -439,7 +439,9 @@
   background-color: rgba(255, 255, 255, 0.22);
 }
 
-.pg-actionbar-tip {
+/* Shared by the grid's selection bar and the detail view's action bar, so
+   the two cannot drift. The host button must be position: relative. */
+.pg-tip {
   position: absolute;
   /* Measured from the button, which sits inside the bar's padding, so the
      offset has to clear that padding before any gap is visible. */
@@ -466,19 +468,20 @@
     transform 120ms ease;
 }
 
-.pg-actionbar-button:hover .pg-actionbar-tip {
+.pg-actionbar-button:hover .pg-tip,
+.pg-detail-button:hover .pg-tip {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
 
-.pg-actionbar-key {
+.pg-tip-key {
   opacity: 0.55;
   font-weight: 500;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pg-actionbar,
-  .pg-actionbar-tip {
+  .pg-tip {
     transition: none;
   }
 }
@@ -601,6 +604,28 @@
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
 }
 
+/* Carries the zoom transform. Kept off the stage on purpose: the stage's own
+   transform belongs to the flight animation, which fills forwards and would
+   override anything written to the stage inline. */
+.pg-detail-zoom {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.pg-detail.is-zoomable .pg-detail-stage {
+  cursor: zoom-in;
+}
+
+.pg-detail.is-zoomed .pg-detail-stage {
+  cursor: grab;
+}
+
+.pg-detail.is-panning .pg-detail-stage {
+  cursor: grabbing;
+}
+
 .pg-detail-media {
   width: 100%;
   height: 100%;
@@ -610,6 +635,9 @@
   object-fit: contain;
   display: block;
   background: transparent;
+  /* Electron starts a native image drag otherwise, which swallows the pan. */
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .pg-detail-back {
@@ -725,6 +753,7 @@
 }
 
 .pg-detail button.pg-detail-button {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

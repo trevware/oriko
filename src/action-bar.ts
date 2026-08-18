@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { attachTip, tipLabel } from "./tip";
 
 export interface ActionBarHandlers {
   onDelete: () => void;
@@ -25,12 +26,9 @@ export class ActionBar {
 
   private button(icon: string, label: string, shortcut: string, onClick: () => void): void {
     const button = this.root.createEl("button", { cls: "pg-actionbar-button" });
-    button.setAttribute("aria-label", `${label} (${shortcut})`);
+    button.setAttribute("aria-label", tipLabel(label, shortcut));
     setIcon(button, icon);
-
-    const tip = button.createDiv({ cls: "pg-actionbar-tip" });
-    tip.createSpan({ text: label });
-    tip.createSpan({ cls: "pg-actionbar-key", text: shortcut });
+    attachTip(button, label, shortcut);
 
     button.onclick = (event: MouseEvent) => {
       event.stopPropagation();

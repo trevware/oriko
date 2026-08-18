@@ -1,7 +1,11 @@
 import { App, TFile, normalizePath, setIcon } from "obsidian";
+import { zoomAt } from "./camera";
+import type { Camera } from "./camera";
 import { fitRect, flightMidpoint, flipTransform } from "./layout";
 import type { Box } from "./layout";
 import type { TileModel } from "./tile";
+import { attachTip, tipLabel } from "./tip";
+import { clampPan, fitZoomRange } from "./viewer";
 
 export interface DetailActions {
   onExport: (id: string) => void;
@@ -21,6 +25,11 @@ const PADDING = 56;
 const SIDEBAR = 300;
 const FLIGHT_MS = 560;
 const RETURN_MS = 420;
+/** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
+const PINCH_SENSITIVITY = 0.0022;
+/** One notch of the keyboard zoom. */
+const KEY_ZOOM_STEP = 1.25;
+const FIT: Camera = { x: 0, y: 0, zoom: 1 };
 /* Slow to leave, quick through the middle, long soft settle. */
 const EASE = "cubic-bezier(0.16, 0.84, 0.24, 1)";
 
@@ -94,9 +103,22 @@ function naturalSize(
 export class DetailView {
   private root: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
+  /** Carries the zoom transform. Kept off the stage, whose own transform is
+      owned by the flight animation and would override anything set inline. */
+  private layer: HTMLElement | null = null;
   private origin: DetailOrigin | null = null;
   private onKey: ((event: KeyboardEvent) => void) | null = null;
   private closing = false;
+
+  private view: Camera = { ...FIT };
+  private range = { min: 1, max: 1 };
+  private frame: { width: number; height: number } = { width: 0, height: 0 };
+  /** Input is ignored until the opening flight lands, since the stage's rect
+      is mid-animation and pointer maths against it would be nonsense. */
+  private flying = false;
+  private dragging = false;
+  private dragFrom = { x: 0, y: 0, viewX: 0, viewY: 0 };
+  private hotkeys: Array<{ match: (event: KeyboardEvent) => boolean; run: () => void }> = [];
 
   constructor(
     private app: App,
@@ -138,6 +160,9 @@ export class DetailView {
     back.onclick = () => this.close();
 
     this.stage = this.root.createDiv({ cls: "pg-detail-stage" });
+    this.layer = this.stage.createDiv({ cls: "pg-detail-zoom" });
+    this.view = { ...FIT };
+    this.dragging = false;
 
     const bounds = this.container.getBoundingClientRect();
 
@@ -164,27 +189,54 @@ export class DetailView {
     this.stage.style.width = `${target.w}px`;
     this.stage.style.height = `${target.h}px`;
 
+    this.frame = { width: target.w, height: target.h };
+    this.range = fitZoomRange(size, { width: target.w, height: target.h });
+    this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
+
     this.paintMedia(model);
     this.paintMeta(model, bounds);
     this.paintActions(model);
 
     this.onStageReady?.();
+    this.applyView();
+    this.installGestures();
     this.fly(target, this.origin);
 
     this.onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      this.close();
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+
+      // Registered in the capture phase, so stopping here also spares the
+      // grid's own document-level handlers, which would otherwise act on a
+      // selection sitting invisible behind this overlay.
+      const take = (run: () => void): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        run();
+      };
+
+      if (event.key === "Escape") return take(() => this.close());
+
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key === "0") return take(() => this.setView({ ...FIT }));
+      if (mod && (event.key === "=" || event.key === "+")) {
+        return take(() => this.zoomStep(KEY_ZOOM_STEP));
+      }
+      if (mod && event.key === "-") return take(() => this.zoomStep(1 / KEY_ZOOM_STEP));
+
+      for (const hotkey of this.hotkeys) {
+        if (hotkey.match(event)) return take(hotkey.run);
+      }
     };
     document.addEventListener("keydown", this.onKey, true);
   }
 
   private paintMedia(model: TileModel): void {
-    if (!this.stage) return;
+    const host = this.layer;
+    if (!host) return;
 
     if (model.kind === "video") {
-      const video = this.stage.createEl("video", { cls: "pg-detail-media" });
+      const video = host.createEl("video", { cls: "pg-detail-media" });
       video.src = model.remote ? model.filePath : this.resource(model.filePath);
       video.controls = true;
       video.autoplay = true;
@@ -194,7 +246,7 @@ export class DetailView {
       return;
     }
 
-    const image = this.stage.createEl("img", { cls: "pg-detail-media" });
+    const image = host.createEl("img", { cls: "pg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
   }
@@ -227,26 +279,190 @@ export class DetailView {
     if (!this.root) return;
     const bar = this.root.createDiv({ cls: "pg-detail-actions" });
 
-    const add = (icon: string, label: string, run: () => void): void => {
+    // Every tip advertises a key, so every key is bound below. A label
+    // promising a shortcut that does nothing is worse than no label.
+    const add = (
+      icon: string,
+      label: string,
+      shortcut: string,
+      match: (event: KeyboardEvent) => boolean,
+      run: () => void
+    ): void => {
       const button = bar.createEl("button", { cls: "pg-detail-button" });
-      button.setAttribute("aria-label", label);
+      button.setAttribute("aria-label", tipLabel(label, shortcut));
       setIcon(button, icon);
+      attachTip(button, label, shortcut);
       button.onclick = (event: MouseEvent) => {
         event.stopPropagation();
         run();
       };
+      this.hotkeys.push({ match, run });
     };
 
-    add("file-text", "Open note", () => {
-      this.actions.onOpenNote(model.id);
-      this.close();
+    const mod = (event: KeyboardEvent): boolean => event.metaKey || event.ctrlKey;
+
+    add(
+      "file-text",
+      "Open note",
+      "\u23ce",
+      (event) => event.key === "Enter" && !mod(event),
+      () => {
+        this.actions.onOpenNote(model.id);
+        this.close();
+      }
+    );
+    add(
+      "download",
+      "Export to Downloads",
+      "\u2318E",
+      (event) => mod(event) && !event.shiftKey && event.key.toLowerCase() === "e",
+      () => this.actions.onExport(model.id)
+    );
+    add(
+      "folder",
+      "Reveal in Finder",
+      "\u2318\u21e7R",
+      (event) => mod(event) && event.shiftKey && event.key.toLowerCase() === "r",
+      () => this.actions.onReveal(model.id)
+    );
+    add(
+      "trash-2",
+      "Delete",
+      "\u232b",
+      (event) => (event.key === "Backspace" || event.key === "Delete") && !mod(event),
+      () => {
+        this.close();
+        this.actions.onDelete(model.id);
+      }
+    );
+  }
+
+  private canZoom(): boolean {
+    return this.range.max > this.range.min;
+  }
+
+  /** Client coordinates to stage-local, which is also the zoom layer's own
+      untransformed space since the layer is inset 0 with a 0 0 origin. */
+  private stagePoint(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = this.stage?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  private setView(next: Camera): void {
+    const zoom = Math.min(this.range.max, Math.max(this.range.min, next.zoom));
+    this.view = clampPan({ ...next, zoom }, this.frame);
+    this.applyView();
+  }
+
+  private applyView(): void {
+    if (!this.layer) return;
+    const { x, y, zoom } = this.view;
+    this.layer.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
+    this.root?.toggleClass("is-zoomed", zoom > this.range.min + 0.001);
+  }
+
+  private zoomStep(factor: number): void {
+    if (!this.canZoom()) return;
+    const centre = { x: this.frame.width / 2, y: this.frame.height / 2 };
+    this.setView(zoomAt(this.view, factor, centre, this.range.min, this.range.max));
+  }
+
+  private installGestures(): void {
+    const root = this.root;
+    const stage = this.stage;
+    if (!root || !stage) return;
+
+    root.addEventListener(
+      "wheel",
+      (event: WheelEvent) => {
+        if (this.flying || !this.canZoom()) return;
+
+        // Trackpad pinch and cmd/ctrl+wheel both arrive with ctrlKey set.
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          this.setView(
+            zoomAt(
+              this.view,
+              Math.exp(-event.deltaY * PINCH_SENSITIVITY),
+              this.stagePoint(event.clientX, event.clientY),
+              this.range.min,
+              this.range.max
+            )
+          );
+          return;
+        }
+
+        // At fit there is nowhere to pan, so a plain scroll is left alone
+        // rather than absorbed into nothing.
+        if (this.view.zoom <= this.range.min) return;
+        event.preventDefault();
+        this.setView({
+          ...this.view,
+          x: this.view.x - event.deltaX,
+          y: this.view.y - event.deltaY,
+        });
+      },
+      { passive: false }
+    );
+
+    stage.addEventListener("dblclick", (event: MouseEvent) => {
+      if (this.flying || !this.canZoom()) return;
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (this.view.zoom > this.range.min) {
+        this.setView({ ...FIT });
+        return;
+      }
+      this.setView(
+        zoomAt(
+          this.view,
+          this.range.max / this.view.zoom,
+          this.stagePoint(event.clientX, event.clientY),
+          this.range.min,
+          this.range.max
+        )
+      );
     });
-    add("download", "Export to Downloads", () => this.actions.onExport(model.id));
-    add("folder", "Reveal in Finder", () => this.actions.onReveal(model.id));
-    add("trash-2", "Delete", () => {
-      this.close();
-      this.actions.onDelete(model.id);
+
+    stage.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (this.flying || this.view.zoom <= this.range.min) return;
+      // A video fills the stage, so a drag here would land on its controls.
+      // Zoom and scroll-panning still work; only drag-panning steps aside.
+      if (event.target instanceof HTMLVideoElement) return;
+      event.preventDefault();
+      this.dragging = true;
+      this.dragFrom = {
+        x: event.clientX,
+        y: event.clientY,
+        viewX: this.view.x,
+        viewY: this.view.y,
+      };
+      stage.setPointerCapture(event.pointerId);
+      root.addClass("is-panning");
     });
+
+    stage.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!this.dragging) return;
+      event.preventDefault();
+      this.setView({
+        ...this.view,
+        x: this.dragFrom.viewX + (event.clientX - this.dragFrom.x),
+        y: this.dragFrom.viewY + (event.clientY - this.dragFrom.y),
+      });
+    });
+
+    const endDrag = (event: PointerEvent): void => {
+      if (!this.dragging) return;
+      this.dragging = false;
+      if (stage.hasPointerCapture(event.pointerId)) {
+        stage.releasePointerCapture(event.pointerId);
+      }
+      root.removeClass("is-panning");
+    };
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
   }
 
   private fly(target: Box, origin: DetailOrigin): void {
@@ -259,7 +475,7 @@ export class DetailView {
     // Three keyframes, so the card can arc and stretch on the way rather
     // than sliding straight down a ruler. The blur resolving as it lands is
     // what sells the movement as fluid.
-    this.stage.animate(
+    const flight = this.stage.animate(
       [
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
@@ -281,6 +497,14 @@ export class DetailView {
       ],
       { duration: FLIGHT_MS, easing: EASE, fill: "both" }
     );
+
+    this.flying = true;
+    flight.onfinish = () => {
+      this.flying = false;
+    };
+    flight.oncancel = () => {
+      this.flying = false;
+    };
 
     this.root.addClass("is-open");
   }
@@ -309,6 +533,12 @@ export class DetailView {
     const t = flipTransform(this.origin.rect, target, this.origin.at);
     const mid = flightMidpoint(this.origin.rect, target, this.origin.at, 0.42);
 
+    // Back to fit before the flight, so the card returns to the wall showing
+    // the picture the tile shows, not whatever corner you were inspecting.
+    this.dragging = false;
+    this.view = { ...FIT };
+    this.applyView();
+
     this.root.removeClass("is-open");
     const animation = this.stage.animate(
       [
@@ -336,7 +566,12 @@ export class DetailView {
     this.root?.remove();
     this.root = null;
     this.stage = null;
+    this.layer = null;
     this.origin = null;
+    this.hotkeys = [];
+    this.flying = false;
+    this.dragging = false;
+    this.view = { ...FIT };
     this.closing = false;
     this.onClosed?.();
   }
