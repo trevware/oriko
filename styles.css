@@ -68,15 +68,21 @@
   overflow: hidden;
   border-radius: 10px;
   background: var(--background-secondary);
-  transform: scale(1);
+  /* Perspective must lead the transform. The rotation vars are set by the
+     renderer from where the cursor sits on the card. */
+  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
+    scale(1);
+  transform-style: preserve-3d;
   /* An outline, not a border or inset shadow: outlines paint above the
      element's descendants, so the ring is not hidden by the image filling
      the card. A negative offset keeps it inside the card edge, so it never
      spends the gap the selection just expanded into. */
   outline: 2px solid transparent;
   outline-offset: -2px;
+  /* Short enough to track the cursor, long enough to feel damped rather
+     than glued to it. */
   transition:
-    transform 190ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    transform 130ms cubic-bezier(0.22, 0.9, 0.28, 1),
     outline-color 190ms ease,
     box-shadow 190ms ease;
 }
@@ -203,7 +209,8 @@
 }
 
 .cg-tile.is-selected .cg-frame {
-  transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
+  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
+    scale(var(--cg-sx, 1), var(--cg-sy, 1));
   outline-color: var(--color-accent);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
 }
@@ -289,7 +296,8 @@
 }
 
 .cg-tile:hover .cg-frame {
-  transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
+  transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
+    scale(var(--cg-sx, 1), var(--cg-sy, 1));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 
@@ -301,17 +309,17 @@
 /* Dragging should not leave a trail of tiles popping under the cursor. */
 .cg-viewport.is-panning .cg-tile:hover .cg-frame,
 .cg-viewport.is-selecting .cg-tile:hover .cg-frame {
-  transform: scale(1);
+  transform: perspective(760px) scale(1);
   box-shadow: none;
 }
 
 .cg-viewport.is-selecting .cg-tile.is-selected .cg-frame {
-  transform: scale(var(--cg-sx, 1), var(--cg-sy, 1));
+  transform: perspective(760px) scale(var(--cg-sx, 1), var(--cg-sy, 1));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cg-tile:hover .cg-frame {
-    transform: scale(1);
+    transform: none;
   }
 }
 

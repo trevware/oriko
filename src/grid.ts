@@ -9,7 +9,7 @@ import {
   zoomAt,
 } from "./camera";
 import type { Camera } from "./camera";
-import { columnsForWidth, computeLayout, visibleRange } from "./layout";
+import { columnsForWidth, computeLayout, pressureAt, visibleRange } from "./layout";
 import type { LayoutResult, Position } from "./layout";
 import {
   MARQUEE_SLOP,
@@ -43,6 +43,8 @@ const MAX_OVERSCAN = 1500;
 const CLICK_SLOP = 3;
 /** Trackpad pinch arrives as ctrl+wheel; this tunes how fast it zooms. */
 const PINCH_SENSITIVITY = 0.01;
+/** Degrees a card tips at its edges. Small: it should read as give, not spin. */
+const MAX_TILT_DEG = 5.5;
 
 interface TileElement {
   root: HTMLElement;
@@ -106,6 +108,11 @@ export class GridRenderer {
   /** Where a shift-click measures its range from. */
   private selectionAnchor: string | null = null;
 
+  private positionById = new Map<string, Position>();
+  private tiltedId: string | null = null;
+  private pointer: { x: number; y: number } | null = null;
+  private tiltFrame = 0;
+
   onRendered: () => void = () => {};
   onSourceFailed: (id: string, signature: string) => void = () => {};
   onZoomChanged: (zoom: number) => void = () => {};
@@ -120,6 +127,7 @@ export class GridRenderer {
     this.marquee = this.viewport.createDiv({ cls: "cg-marquee" });
     this.installGestures();
     this.installSelection();
+    this.installTilt();
   }
 
   get viewportEl(): HTMLElement {
@@ -257,6 +265,7 @@ export class GridRenderer {
     this.contentWidth = size.width;
     const columns = columnsForWidth(size.width, TARGET_COLUMN_WIDTH, GAP);
 
+    this.positionById.clear();
     this.layout = computeLayout(
       this.tiles.map((t) => {
         const learned = t.provisional ? this.measured.get(t.id) : undefined;
@@ -266,6 +275,10 @@ export class GridRenderer {
       columns,
       GAP
     );
+
+    for (const position of this.layout.positions) {
+      this.positionById.set(position.id, position);
+    }
 
     if (!this.placed && this.tiles.length > 0) {
       this.placed = true;
@@ -526,6 +539,75 @@ export class GridRenderer {
     this.applySelection(new Set());
   }
 
+  /**
+   * Tips the card under the cursor away from it, as though the edge being
+   * pointed at were pressed in. Worked out in content space from the camera,
+   * so no element is measured and nothing is read from layout per frame.
+   */
+  private installTilt(): void {
+    this.viewport.addEventListener(
+      "pointermove",
+      (event: PointerEvent) => {
+        this.pointer = { x: event.clientX, y: event.clientY };
+        this.scheduleTilt();
+      },
+      { passive: true }
+    );
+
+    this.viewport.addEventListener("pointerleave", () => {
+      this.pointer = null;
+      this.clearTilt();
+    });
+  }
+
+  private scheduleTilt(): void {
+    if (this.tiltFrame) return;
+    this.tiltFrame = window.requestAnimationFrame(() => {
+      this.tiltFrame = 0;
+      this.applyTilt();
+    });
+  }
+
+  private clearTilt(): void {
+    if (!this.tiltedId) return;
+    const element = this.mounted.get(this.tiltedId);
+    element?.root.style.removeProperty("--cg-rx");
+    element?.root.style.removeProperty("--cg-ry");
+    this.tiltedId = null;
+  }
+
+  private applyTilt(): void {
+    // A drag is already saying something with the cursor; tilting during one
+    // would fight it.
+    if (!this.pointer || this.panning || this.selecting || this.spaceHeld) {
+      this.clearTilt();
+      return;
+    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      this.clearTilt();
+      return;
+    }
+
+    const point = this.toContentPoint(this.pointer.x, this.pointer.y);
+
+    for (const [id, element] of this.mounted) {
+      const box = this.positionById.get(id);
+      if (!box) continue;
+      const pressure = pressureAt(point, box);
+      if (!pressure) continue;
+
+      if (this.tiltedId !== id) this.clearTilt();
+      this.tiltedId = id;
+      // Pressing the right edge tips the right side away, so rotateY follows
+      // dx and rotateX opposes dy.
+      element.root.style.setProperty("--cg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
+      element.root.style.setProperty("--cg-rx", `${(-pressure.dy * MAX_TILT_DEG).toFixed(2)}deg`);
+      return;
+    }
+
+    this.clearTilt();
+  }
+
   private endPan(): void {
     this.spaceHeld = false;
     this.panning = false;
@@ -550,6 +632,9 @@ export class GridRenderer {
 
   private release(tile: TileElement): void {
     if (this.leaving.has(tile)) return;
+    if (this.tiltedId === tile.id) this.tiltedId = null;
+    tile.root.style.removeProperty("--cg-rx");
+    tile.root.style.removeProperty("--cg-ry");
     tile.root.style.display = "none";
     tile.root.removeClass("is-gliding");
     tile.root.removeClass("is-entering");
@@ -814,6 +899,7 @@ export class GridRenderer {
 
   destroy(): void {
     this.cancelTween();
+    if (this.tiltFrame) window.cancelAnimationFrame(this.tiltFrame);
     if (this.onKeyDown) document.removeEventListener("keydown", this.onKeyDown);
     if (this.onKeyUp) document.removeEventListener("keyup", this.onKeyUp);
     if (this.onBlur) window.removeEventListener("blur", this.onBlur);

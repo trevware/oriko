@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnsForWidth, computeLayout, visibleRange } from "../src/layout";
+import { columnsForWidth, computeLayout, pressureAt, visibleRange } from "../src/layout";
 import type { LayoutItem } from "../src/layout";
 
 const square = (id: string): LayoutItem => ({ id, width: 100, height: 100 });
@@ -138,5 +138,37 @@ describe("visibleRange", () => {
   it("renders a small fraction of a large layout", () => {
     const visible = visibleRange(positions, 5000, 800, 600);
     expect(visible.length).toBeLessThan(25);
+  });
+});
+
+describe("pressureAt", () => {
+  const box = { x: 100, y: 100, w: 200, h: 100 };
+
+  it("is neutral at the centre", () => {
+    expect(pressureAt({ x: 200, y: 150 }, box)).toEqual({ dx: 0, dy: 0 });
+  });
+
+  it("reaches the extremes at the corners", () => {
+    expect(pressureAt({ x: 100, y: 100 }, box)).toEqual({ dx: -1, dy: -1 });
+    expect(pressureAt({ x: 300, y: 200 }, box)).toEqual({ dx: 1, dy: 1 });
+  });
+
+  it("separates the two axes", () => {
+    expect(pressureAt({ x: 300, y: 150 }, box)).toEqual({ dx: 1, dy: 0 });
+    expect(pressureAt({ x: 200, y: 100 }, box)).toEqual({ dx: 0, dy: -1 });
+  });
+
+  it("returns null outside the card", () => {
+    expect(pressureAt({ x: 99, y: 150 }, box)).toBeNull();
+    expect(pressureAt({ x: 200, y: 201 }, box)).toBeNull();
+  });
+
+  it("returns null for a degenerate box", () => {
+    expect(pressureAt({ x: 0, y: 0 }, { x: 0, y: 0, w: 0, h: 0 })).toBeNull();
+  });
+
+  it("scales with the card, not with pixels", () => {
+    const wide = { x: 0, y: 0, w: 1000, h: 100 };
+    expect(pressureAt({ x: 750, y: 50 }, wide)?.dx).toBeCloseTo(0.5, 6);
   });
 });

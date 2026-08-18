@@ -92,3 +92,23 @@ export function placeMenu(
     y: Math.max(margin, Math.min(y, viewport.height - menu.height - margin)),
   };
 }
+
+/**
+ * How hard the cursor is "pressing" a card, as offsets from its centre in
+ * the range -1..1. Feeding these into a rotation makes a card tip away
+ * from the pointer, as though the corner under it were being pushed in.
+ */
+export function pressureAt(
+  point: { x: number; y: number },
+  box: { x: number; y: number; w: number; h: number }
+): { dx: number; dy: number } | null {
+  if (box.w <= 0 || box.h <= 0) return null;
+  if (point.x < box.x || point.x > box.x + box.w) return null;
+  if (point.y < box.y || point.y > box.y + box.h) return null;
+
+  const clamp = (v: number): number => Math.max(-1, Math.min(1, v));
+  return {
+    dx: clamp(((point.x - box.x) / box.w) * 2 - 1),
+    dy: clamp(((point.y - box.y) / box.h) * 2 - 1),
+  };
+}
