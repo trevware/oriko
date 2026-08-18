@@ -84,9 +84,23 @@ describe("buildTiles", () => {
     expect(buildTiles([empty], new MediaCache())).toEqual([]);
   });
 
-  it("omits explicitly excluded records", () => {
-    const tiles = buildTiles([combolands], new MediaCache(), new Set(["Clippings/C.md"]));
-    expect(tiles).toEqual([]);
+  it("omits a record whose current cover is known to fail", () => {
+    const signature = buildTiles([combolands], new MediaCache())[0].signature;
+    const failed = new Map([["Clippings/C.md", signature]]);
+    expect(buildTiles([combolands], new MediaCache(), failed)).toEqual([]);
+  });
+
+  it("brings a clipping back once its cover changes", () => {
+    const staleSignature = buildTiles([combolands], new MediaCache())[0].signature;
+    const failed = new Map([["Clippings/C.md", staleSignature]]);
+    // Archiving replaces the dead remote cover with a local file, so the
+    // signature changes and the old failure no longer applies.
+    const cache = cacheWith([
+      [COMBO_7, { file: "F7.jpg", thumb: "", width: 1920, height: 1080 }],
+    ]);
+    const tiles = buildTiles([combolands], cache, failed);
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].filePath).toBe("F7.jpg");
   });
 
   it("honors an explicit cover in frontmatter", () => {

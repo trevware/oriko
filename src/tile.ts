@@ -186,18 +186,25 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
   return known ? remoteCover(known.url, "image") : null;
 }
 
+/**
+ * @param failedSignatures covers that could not be loaded, keyed by note
+ * path. Matched on signature rather than path, so a clipping whose cover
+ * later changes (archiving replaces a dead remote URL with a local file)
+ * comes back instead of staying hidden for the rest of the session.
+ */
 export function buildTiles(
   records: ClippingRecord[],
   cache: MediaCache,
-  excluded?: ReadonlySet<string>
+  failedSignatures?: ReadonlyMap<string, string>
 ): TileModel[] {
   const tiles: TileModel[] = [];
 
   for (const record of records) {
-    if (excluded?.has(record.path)) continue;
     const cover = pickCover(record, cache);
     if (!cover) continue;
-    tiles.push({ id: record.path, record, signature: signatureOf(cover), ...cover });
+    const signature = signatureOf(cover);
+    if (failedSignatures?.get(record.path) === signature) continue;
+    tiles.push({ id: record.path, record, signature, ...cover });
   }
 
   return tiles;

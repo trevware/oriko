@@ -86,3 +86,31 @@ describe("dedupeMedia", () => {
     expect(dedupeMedia([])).toEqual([]);
   });
 });
+
+describe("signed CDN urls", () => {
+  it("collapses two signed instagram urls for the same asset", () => {
+    const a =
+      "https://scontent.cdninstagram.com/v/t51/731823694_n.jpg?stp=cmp1_dst-jpg&_nc_cat=110&_nc_gid=AAA&oh=00_X&oe=6A897B02";
+    const b =
+      "https://scontent.cdninstagram.com/v/t51/731823694_n.jpg?stp=c0.594.1&_nc_cat=107&_nc_gid=BBB&oh=00_Y&oe=6A899999";
+    expect(normalizeUrl(a)).toBe(normalizeUrl(b));
+  });
+
+  it("collapses a twitter video url across tag values", () => {
+    expect(normalizeUrl("https://video.twimg.com/a/b.mp4?tag=29")).toBe(
+      normalizeUrl("https://video.twimg.com/a/b.mp4?tag=31")
+    );
+  });
+
+  it("still separates genuinely different assets on the same host", () => {
+    expect(normalizeUrl("https://scontent.cdninstagram.com/v/t51/aaa.jpg?oh=1")).not.toBe(
+      normalizeUrl("https://scontent.cdninstagram.com/v/t51/bbb.jpg?oh=1")
+    );
+  });
+
+  it("leaves a meaningful parameter alone", () => {
+    expect(normalizeUrl("https://youtube.com/watch?v=abc&oh=1")).toBe(
+      "https://youtube.com/watch?v=abc"
+    );
+  });
+});

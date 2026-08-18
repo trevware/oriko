@@ -13,8 +13,12 @@ export class ClippingsGridView extends ItemView {
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
   private progress: ProgressBar | null = null;
-  /** Tiles whose cover failed to load, so they leave the grid. */
-  private unloadable = new Set<string>();
+  /**
+   * Covers that failed to load, keyed by note path and remembered by
+   * signature. Recording the signature is what lets a clipping return once
+   * archiving gives it a different, working cover.
+   */
+  private unloadable = new Map<string, string>();
 
   constructor(leaf: WorkspaceLeaf, private plugin: ClippingsGridPlugin) {
     super(leaf);
@@ -55,9 +59,9 @@ export class ClippingsGridView extends ItemView {
 
     this.grid.onDeleteRequested = (ids: string[]) => this.confirmDelete(ids);
 
-    this.grid.onSourceFailed = (id: string) => {
-      if (this.unloadable.has(id)) return;
-      this.unloadable.add(id);
+    this.grid.onSourceFailed = (id: string, signature: string) => {
+      if (this.unloadable.get(id) === signature) return;
+      this.unloadable.set(id, signature);
       this.refresh();
     };
 

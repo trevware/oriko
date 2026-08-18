@@ -31,6 +31,36 @@ const SIZING_PARAMS = new Set([
   "fm",
 ]);
 
+/**
+ * Per-request signature and session noise on Meta and Twitter CDNs. The same
+ * asset comes back with a fresh `oh`, `oe` and `_nc_gid` on every page load,
+ * so without stripping these one image archives again on every attempt and
+ * the copy named in a note never matches the copy on disk.
+ *
+ * Only the cache key is stripped. The URL actually fetched keeps its
+ * signature, which those CDNs require.
+ */
+const SIGNATURE_PARAMS = new Set([
+  "oh",
+  "oe",
+  "ccb",
+  "efg",
+  "stp",
+  "vs",
+  "_nc_cat",
+  "_nc_gid",
+  "_nc_ht",
+  "_nc_oc",
+  "_nc_ohc",
+  "_nc_sid",
+  "_nc_ss",
+  "_nc_vs",
+  "_nc_zt",
+  "_nc_rid",
+  "ig_cache_key",
+  "tag",
+]);
+
 export function normalizeUrl(url: string): string {
   let parsed: URL;
   try {
@@ -41,7 +71,10 @@ export function normalizeUrl(url: string): string {
   parsed.hash = "";
   parsed.hostname = parsed.hostname.toLowerCase();
   for (const name of [...parsed.searchParams.keys()]) {
-    if (SIZING_PARAMS.has(name.toLowerCase())) parsed.searchParams.delete(name);
+    const lower = name.toLowerCase();
+    if (SIZING_PARAMS.has(lower) || SIGNATURE_PARAMS.has(lower)) {
+      parsed.searchParams.delete(name);
+    }
   }
   let out = parsed.toString();
   if (out.endsWith("?")) out = out.slice(0, -1);

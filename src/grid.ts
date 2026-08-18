@@ -103,7 +103,7 @@ export class GridRenderer {
   private marqueeMoved = false;
 
   onRendered: () => void = () => {};
-  onSourceFailed: (id: string) => void = () => {};
+  onSourceFailed: (id: string, signature: string) => void = () => {};
   onZoomChanged: (zoom: number) => void = () => {};
   onSelectionChanged: (ids: string[]) => void = () => {};
   onDeleteRequested: (ids: string[]) => void = () => {};
@@ -659,7 +659,11 @@ export class GridRenderer {
           { once: true }
         );
       }
-      video.addEventListener("error", () => this.onSourceFailed(model.id), { once: true });
+      video.addEventListener(
+        "error",
+        () => this.onSourceFailed(model.id, model.signature),
+        { once: true }
+      );
       // A poster paints immediately; without one, wait for the first frame.
       if (still && !model.remote) video.addClass("is-loaded");
       else video.addEventListener("loadeddata", () => video.addClass("is-loaded"), { once: true });
@@ -690,7 +694,7 @@ export class GridRenderer {
       image.addEventListener(
         "error",
         () => {
-          if (image.isConnected) this.onSourceFailed(model.id);
+          if (image.isConnected) this.onSourceFailed(model.id, model.signature);
         },
         { once: true }
       );
