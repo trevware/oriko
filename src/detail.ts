@@ -125,10 +125,20 @@ export class DetailView {
   private view: Camera = { ...FIT };
   private range = { min: 1, max: 1 };
   private frame: { width: number; height: number } = { width: 0, height: 0 };
+  /**
+   * The stage's top left in client coordinates, worked out once from the
+   * layout rather than measured per event. Measuring meant a
+   * getBoundingClientRect on every wheel tick, immediately after the previous
+   * tick had written a transform, which forces a synchronous style flush each
+   * time. That read-after-write is what made zooming hitch.
+   */
+  private stageClient = { x: 0, y: 0 };
+  private applyFrame = 0;
   /** Input is ignored until the opening flight lands, since the stage's rect
       is mid-animation and pointer maths against it would be nonsense. */
   private flying = false;
   private dragging = false;
+  private zoomedNow = false;
   private dragFrom = { x: 0, y: 0, viewX: 0, viewY: 0 };
   private hotkeys: Array<{ match: (event: KeyboardEvent) => boolean; run: () => void }> = [];
 
@@ -203,6 +213,7 @@ export class DetailView {
     this.stage.style.height = `${target.h}px`;
 
     this.frame = { width: target.w, height: target.h };
+    this.stageClient = { x: bounds.left + target.x, y: bounds.top + target.y };
     this.range = fitZoomRange(size, { width: target.w, height: target.h });
     this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
 
@@ -211,6 +222,7 @@ export class DetailView {
     this.paintActions(model);
 
     this.onStageReady?.();
+    this.zoomedNow = false;
     this.applyView();
     this.installGestures();
     this.fly(target, this.origin);
@@ -367,22 +379,45 @@ export class DetailView {
   /** Client coordinates to stage-local, which is also the zoom layer's own
       untransformed space since the layer is inset 0 with a 0 0 origin. */
   private stagePoint(clientX: number, clientY: number): { x: number; y: number } {
-    const rect = this.stage?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return { x: clientX - this.stageClient.x, y: clientY - this.stageClient.y };
   }
 
+  /**
+   * Records where the view should be. The write is deferred to the next
+   * frame: a trackpad delivers wheel and pointer events faster than the
+   * display refreshes, and every extra transform written between two frames
+   * is work whose result is thrown away before anything sees it.
+   */
   private setView(next: Camera): void {
     const zoom = Math.min(this.range.max, Math.max(this.range.min, next.zoom));
     this.view = clampPan({ ...next, zoom }, this.frame);
-    this.applyView();
+
+    if (this.applyFrame) return;
+    this.applyFrame = window.requestAnimationFrame(() => {
+      this.applyFrame = 0;
+      this.applyView();
+    });
   }
 
   private applyView(): void {
     if (!this.layer) return;
     const { x, y, zoom } = this.view;
-    this.layer.style.transform = `translate(${x}px, ${y}px) scale(${zoom})`;
-    this.root?.toggleClass("is-zoomed", zoom > this.range.min + 0.001);
+    // translate3d rather than translate: it keeps the layer on the compositor
+    // for certain, instead of relying on will-change alone.
+    this.layer.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${zoom})`;
+
+    // Guarded, so a gesture is not invalidating styles on the whole overlay
+    // on every frame to set a class that has not changed.
+    const zoomed = zoom > this.range.min + 0.001;
+    if (zoomed !== this.zoomedNow) {
+      this.zoomedNow = zoomed;
+      this.root?.toggleClass("is-zoomed", zoomed);
+    }
+  }
+
+  private cancelApply(): void {
+    if (this.applyFrame) window.cancelAnimationFrame(this.applyFrame);
+    this.applyFrame = 0;
   }
 
   private zoomStep(factor: number): void {
@@ -578,6 +613,7 @@ export class DetailView {
     // the picture the tile shows, not whatever corner you were inspecting.
     this.dragging = false;
     this.view = { ...FIT };
+    this.cancelApply();
     this.applyView();
 
     // Hand the backdrop back to CSS, which drops it instantly once is-open
@@ -607,6 +643,7 @@ export class DetailView {
   }
 
   private teardown(): void {
+    this.cancelApply();
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
     this.veil?.cancel();
