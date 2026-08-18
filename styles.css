@@ -569,13 +569,20 @@
   inset: 0;
   background: var(--background-primary);
   opacity: 0;
-  /* Fully opaque, and up quickly: the grid should be gone before the card
-     has travelled, not fading out behind it. */
-  transition: opacity 150ms ease;
+  /* Ends fully opaque, so the settled view never shows the wall. Takes its
+     time getting there, though: covering the grid in 150ms hid the
+     neighbours giving way before they had moved. */
+  transition: opacity 430ms cubic-bezier(0.4, 0, 0.6, 1);
 }
 
 .cg-detail.is-open .cg-detail-backdrop {
   opacity: 1;
+}
+
+/* Clearing on the way out is quicker than arriving, so the wall is back
+   under the card before it lands rather than after. */
+.cg-detail:not(.is-open) .cg-detail-backdrop {
+  transition: opacity 240ms ease;
 }
 
 .cg-detail-stage {

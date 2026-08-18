@@ -20,7 +20,7 @@ export interface DetailOrigin {
 const PADDING = 56;
 const SIDEBAR = 300;
 const FLIGHT_MS = 560;
-const RETURN_MS = 380;
+const RETURN_MS = 420;
 /* Slow to leave, quick through the middle, long soft settle. */
 const EASE = "cubic-bezier(0.16, 0.84, 0.24, 1)";
 
@@ -260,22 +260,19 @@ export class DetailView {
       [
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
-          filter: "blur(10px)",
-          opacity: 0.5,
+          filter: "blur(0px)",
           offset: 0,
           easing: "cubic-bezier(0.4, 0, 0.5, 1)",
         },
         {
           transform: `translate(${mid.dx}px, ${mid.dy}px) scale(${mid.scaleX}, ${mid.scaleY})`,
-          filter: "blur(3px)",
-          opacity: 0.94,
+          filter: "blur(2.5px)",
           offset: 0.58,
           easing: "cubic-bezier(0.2, 0.6, 0.2, 1)",
         },
         {
           transform: "translate(0px, 0px) scale(1, 1)",
           filter: "blur(0px)",
-          opacity: 1,
           offset: 1,
         },
       ],
@@ -312,20 +309,18 @@ export class DetailView {
     this.root.removeClass("is-open");
     const animation = this.stage.animate(
       [
-        { transform: "translate(0px, 0px) scale(1, 1)", filter: "blur(0px)", opacity: 1 },
+        { transform: "translate(0px, 0px) scale(1, 1)", filter: "blur(0px)" },
         {
           transform: `translate(${mid.dx}px, ${mid.dy}px) scale(${mid.scaleX}, ${mid.scaleY})`,
-          filter: "blur(3px)",
-          opacity: 0.7,
+          filter: "blur(2px)",
           offset: 0.5,
         },
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
-          filter: "blur(8px)",
-          opacity: 0,
+          filter: "blur(0px)",
         },
       ],
-      { duration: RETURN_MS, easing: "cubic-bezier(0.4, 0, 0.7, 0.9)", fill: "both" }
+      { duration: RETURN_MS, easing: "cubic-bezier(0.32, 0.72, 0.2, 1)", fill: "both" }
     );
     animation.onfinish = () => this.teardown();
     // A cancelled animation must not leave the overlay stranded.
