@@ -40,6 +40,7 @@ export class PowerGridView extends ItemView {
   private detail: DetailView | null = null;
   private spaceBar: SpaceBar | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
+  private refreshFrame = 0;
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -118,7 +119,7 @@ export class PowerGridView extends ItemView {
       // wall has focus, the same bargain the zoom keys already make.
       event.preventDefault();
       event.stopPropagation();
-      void this.activate(grid.name);
+      this.activate(grid.name);
     };
     document.addEventListener("keydown", this.onGridKey, true);
     this.grid.onExportRequested = (ids) => void this.exportToDownloads(ids);
@@ -188,6 +189,7 @@ export class PowerGridView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    this.cancelRefresh();
     if (this.onGridKey) document.removeEventListener("keydown", this.onGridKey, true);
     this.onGridKey = null;
     this.spaceBar?.destroy();
@@ -340,7 +342,34 @@ export class PowerGridView extends ItemView {
     );
   }
 
-  refresh(): void {
+  /**
+   * Coalesced to one repaint a frame.
+   *
+   * The archiver emits once per clipping it finishes, so a pass over a few
+   * hundred used to run a few hundred full sorts, filters, tile builds and
+   * relayouts, most of them landing in the same frame and all but the last
+   * discarded. A switch is exempt: it is a direct answer to a click and has
+   * to land now.
+   */
+  refresh(options: { replace?: boolean } = {}): void {
+    if (options.replace) {
+      this.cancelRefresh();
+      this.paint(options);
+      return;
+    }
+    if (this.refreshFrame) return;
+    this.refreshFrame = window.requestAnimationFrame(() => {
+      this.refreshFrame = 0;
+      this.paint({});
+    });
+  }
+
+  private cancelRefresh(): void {
+    if (this.refreshFrame) window.cancelAnimationFrame(this.refreshFrame);
+    this.refreshFrame = 0;
+  }
+
+  private paint(options: { replace?: boolean }): void {
     if (!this.grid) return;
     const tiles = buildTiles(
       filterByGrid(
@@ -352,7 +381,7 @@ export class PowerGridView extends ItemView {
       this.plugin.archiver.cache,
       this.unloadable
     );
-    this.grid.setTiles(tiles);
+    this.grid.setTiles(tiles, options);
   }
 
   // ---- Grids -------------------------------------------------------------
@@ -378,16 +407,22 @@ export class PowerGridView extends ItemView {
     return this.allGrids().find((grid) => grid.name === name) ?? this.homeGrid();
   }
 
-  private async activate(name: string): Promise<void> {
+  private activate(name: string): void {
     if (this.plugin.settings.activeGrid === name) return;
     this.plugin.settings.activeGrid = name;
-    await this.plugin.saveSettings();
 
     // Selection and camera both describe tiles that are about to be replaced.
     this.grid?.clearSelection();
-    this.refresh();
-    this.grid?.resetView();
+    // replace, not add: no arrival or departure animations, and the camera is
+    // placed rather than tweened.
+    this.refresh({ replace: true });
+    this.grid?.resetView(false);
     this.spaceBar?.setActive(this.activeGrid());
+
+    // Persisting which grid you are in is a disk write. Awaiting it before
+    // repainting put a file system round trip in front of every switch, which
+    // is most of what the first switch felt like.
+    void this.plugin.saveSettings();
   }
 
   /**
@@ -425,7 +460,7 @@ export class PowerGridView extends ItemView {
       detail: index < 9 ? `\u2318${index + 1}` : undefined,
       // Shown but inert: the set reads whole, and selecting it would do nothing.
       disabled: grid.name === active,
-      onSelect: () => void this.activate(grid.name),
+      onSelect: () => this.activate(grid.name),
     }));
     this.menu?.open(items, x, y);
   }
@@ -532,7 +567,7 @@ export class PowerGridView extends ItemView {
         settings.grids.push(space);
         await this.plugin.saveSettings();
         // Land in what you just made rather than leaving it to be found.
-        await this.activate(space.name);
+        this.activate(space.name);
       },
 
       rename: async (from, next) => {

@@ -23,6 +23,9 @@ export function sortRecords(records: ClippingRecord[]): ClippingRecord[] {
 export class ClippingIndex {
   private byPath = new Map<string, ClippingRecord>();
   private listeners: Array<() => void> = [];
+  /** sortRecords copies and sorts the whole map, and records() has several
+      callers per repaint. Dropped on every mutation below. */
+  private sorted: ClippingRecord[] | null = null;
 
   /**
    * parseYaml is injected rather than imported. A value import from obsidian
@@ -37,7 +40,8 @@ export class ClippingIndex {
   ) {}
 
   records(): ClippingRecord[] {
-    return sortRecords([...this.byPath.values()]);
+    if (!this.sorted) this.sorted = sortRecords([...this.byPath.values()]);
+    return this.sorted;
   }
 
   get(path: string): ClippingRecord | undefined {
@@ -54,6 +58,7 @@ export class ClippingIndex {
 
   async rebuild(): Promise<void> {
     this.byPath.clear();
+    this.sorted = null;
     const files = this.app.vault
       .getMarkdownFiles()
       .filter((f) => isInFolder(f.path, this.folder()));
@@ -65,6 +70,7 @@ export class ClippingIndex {
     if (!isInFolder(file.path, this.folder())) return;
     const body = await this.app.vault.cachedRead(file);
     this.byPath.set(file.path, scanClipping(file.path, this.frontmatterOf(file, body), body));
+    this.sorted = null;
   }
 
   /**
@@ -104,11 +110,14 @@ export class ClippingIndex {
   }
 
   handleDelete(path: string): void {
-    if (this.byPath.delete(path)) this.emit();
+    if (!this.byPath.delete(path)) return;
+    this.sorted = null;
+    this.emit();
   }
 
   async handleRename(file: TFile, oldPath: string): Promise<void> {
     const had = this.byPath.delete(oldPath);
+    this.sorted = null;
     await this.ingest(file);
     if (had || this.byPath.has(file.path)) this.emit();
   }

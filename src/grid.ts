@@ -214,25 +214,53 @@ export class GridRenderer {
     this.tweenFrame = window.requestAnimationFrame(step);
   }
 
-  resetView(): void {
+  /**
+   * `animate: false` places the camera outright. There is no spatial
+   * continuity between two different sets of contents, so tweening from a
+   * position in the old wall to one in the new is motion that means nothing,
+   * and it costs a render per frame while the new images are still decoding.
+   */
+  resetView(animate = true): void {
     this.cancelTween();
     const size = this.viewportSize();
     this.placed = true;
-    this.animateCamera(initialCamera(size, this.contentSize()));
+    const target = initialCamera(size, this.contentSize());
+    if (!animate) {
+      this.camera = target;
+      this.applyCamera();
+      this.schedule();
+      return;
+    }
+    this.animateCamera(target);
   }
 
-  setTiles(tiles: TileModel[]): void {
+  /**
+   * `replace` means the wall is showing a different set of things, not that
+   * things were added to the set it was already showing.
+   *
+   * The difference is the whole cost of a grid switch. Without it every
+   * departing tile plays a leave animation and every arriving one plays an
+   * arrival, so switching runs two animations per tile plus a timer each,
+   * on top of decoding a screen of images none of which have been seen
+   * before. It is also wrong on its own terms: the pop means "this clipping
+   * is new", and nothing is new when you change which grid you are looking
+   * at.
+   */
+  setTiles(tiles: TileModel[], options: { replace?: boolean } = {}): void {
     this.tiles = tiles;
     this.byId = new Map(tiles.map((t) => [t.id, t]));
 
     // New to the data, as opposed to merely scrolled into view.
-    this.entering = new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
+    this.entering = options.replace
+      ? new Set()
+      : new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
     this.known = new Set(tiles.map((t) => t.id));
 
     for (const [id, element] of [...this.mounted]) {
       if (!this.byId.has(id)) {
         this.mounted.delete(id);
-        this.playLeave(element);
+        if (options.replace) this.release(element);
+        else this.playLeave(element);
       }
     }
     this.relayout();
