@@ -2,7 +2,7 @@ import { App, TFile, normalizePath, setIcon } from "obsidian";
 import { zoomAt } from "./camera";
 import type { Camera } from "./camera";
 import { fitRect, flightMidpoint, flipTransform } from "./layout";
-import type { Box } from "./layout";
+import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { attachTip, tipLabel } from "./tip";
 import { clampPan, fitZoomRange } from "./viewer";
@@ -23,15 +23,20 @@ export interface DetailOrigin {
 
 const PADDING = 56;
 const SIDEBAR = 300;
-const FLIGHT_MS = 560;
+const FLIGHT_MS = 780;
 const RETURN_MS = 420;
 /** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
 const PINCH_SENSITIVITY = 0.0022;
 /** One notch of the keyboard zoom. */
 const KEY_ZOOM_STEP = 1.25;
 const FIT: Camera = { x: 0, y: 0, zoom: 1 };
-/* Slow to leave, quick through the middle, long soft settle. */
-const EASE = "cubic-bezier(0.16, 0.84, 0.24, 1)";
+/* One curve for the whole opening flight: a soft push off the card, then a
+   long decelerating glide into place. Deliberately the only easing in play,
+   see fly(). */
+const EASE = "cubic-bezier(0.4, 0, 0.12, 1)";
+/* Calmer than the default arc. Over a flight this long a pronounced bow and
+   squash stop reading as weight and start reading as a wobble. */
+const OPEN_SHAPE: FlightShape = { arc: 0.09, arcCap: 74, stretch: 0.035 };
 
 function domainOf(url: string): string {
   try {
@@ -469,29 +474,31 @@ export class DetailView {
     if (!this.stage || !this.root) return;
 
     const t = flipTransform(origin.rect, target, origin.at);
-    const mid = flightMidpoint(origin.rect, target, origin.at);
+    const mid = flightMidpoint(origin.rect, target, origin.at, 0.58, OPEN_SHAPE);
     this.stage.style.transformOrigin = `${origin.at.x * 100}% ${origin.at.y * 100}%`;
 
-    // Three keyframes, so the card can arc and stretch on the way rather
-    // than sliding straight down a ruler. The blur resolving as it lands is
-    // what sells the movement as fluid.
+    // Three keyframes so the card arcs rather than sliding down a ruler, but
+    // only the middle one shapes the path: the segments carry no easing of
+    // their own, so EASE alone governs velocity across the whole flight. The
+    // per-keyframe curves that used to be here composed with it, making the
+    // card accelerate, slow into the midpoint, then accelerate again. That
+    // uneven velocity read as unsmooth far more than the duration did.
+    //
+    // Transform only, no filter. An animated blur forces the stage to
+    // re-rasterize every frame, and the stage holds a full size image;
+    // dropping it is what lets the flight run on the compositor.
     const flight = this.stage.animate(
       [
         {
           transform: `translate(${t.dx}px, ${t.dy}px) scale(${t.scaleX}, ${t.scaleY})`,
-          filter: "blur(0px)",
           offset: 0,
-          easing: "cubic-bezier(0.4, 0, 0.5, 1)",
         },
         {
           transform: `translate(${mid.dx}px, ${mid.dy}px) scale(${mid.scaleX}, ${mid.scaleY})`,
-          filter: "blur(2.5px)",
           offset: 0.58,
-          easing: "cubic-bezier(0.2, 0.6, 0.2, 1)",
         },
         {
           transform: "translate(0px, 0px) scale(1, 1)",
-          filter: "blur(0px)",
           offset: 1,
         },
       ],

@@ -40,9 +40,10 @@ export interface PlaybackCandidate {
 }
 
 /**
- * Of everything sufficiently visible, play only the few nearest the centre
- * of the viewport. Keeps decode work bounded no matter how many media tiles
- * a screen happens to hold.
+ * Everything sufficiently visible plays, nearest the centre of the viewport
+ * first. If a video is in frame it should be moving, so max is unbounded by
+ * default; it stays a parameter because the ordering is what decides who
+ * survives should a cap ever be wanted back.
  */
 export function choosePlaying(candidates: PlaybackCandidate[], max: number): string[] {
   return [...candidates]
@@ -70,7 +71,10 @@ export class PlaybackController {
   constructor(
     private root: HTMLElement,
     enabled: boolean,
-    private maxConcurrent = 4
+    /* No cap: a video in frame plays. The rootMargin means offscreen tiles
+       are only ever preloaded, never played, so this bounds itself to what
+       is actually on screen. */
+    private maxConcurrent = Number.POSITIVE_INFINITY
   ) {
     this.enabled = enabled && !PlaybackController.prefersReducedMotion();
 

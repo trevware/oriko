@@ -101,3 +101,25 @@ describe("choosePlaying at the widened threshold", () => {
     expect(choosePlaying([{ id: "a", centerDistance: 10, ratio: 0.1 }], 4)).toEqual([]);
   });
 });
+
+describe("choosePlaying without a cap", () => {
+  it("plays everything visible when max is unbounded", () => {
+    const candidates = Array.from({ length: 30 }, (_, i) => ({
+      id: `i${i}`,
+      centerDistance: i,
+      ratio: 0.9,
+    }));
+    expect(choosePlaying(candidates, Number.POSITIVE_INFINITY)).toHaveLength(30);
+  });
+
+  it("still leaves out what is not visible enough", () => {
+    const chosen = choosePlaying(
+      [
+        { id: "seen", centerDistance: 5, ratio: 0.9 },
+        { id: "edge", centerDistance: 5, ratio: 0.05 },
+      ],
+      Number.POSITIVE_INFINITY
+    );
+    expect(chosen).toEqual(["seen"]);
+  });
+});

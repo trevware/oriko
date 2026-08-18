@@ -189,11 +189,24 @@ export interface FlightStep {
  * axis it is travelling and pinches across it, the way a drop of water
  * elongates as it moves and settles round when it stops.
  */
+/** How far the flight bows off a straight line, and how much it squashes. */
+export interface FlightShape {
+  /** Sideways bow, as a fraction of the distance travelled. */
+  arc: number;
+  /** Cap on that bow, in pixels, so a long throw does not swing wildly. */
+  arcCap: number;
+  /** Squash along the direction of travel. */
+  stretch: number;
+}
+
+export const DEFAULT_FLIGHT_SHAPE: FlightShape = { arc: 0.13, arcCap: 110, stretch: 0.07 };
+
 export function flightMidpoint(
   from: Box,
   to: Box,
   origin: { x: number; y: number },
-  progress = 0.58
+  progress = 0.58,
+  shape: FlightShape = DEFAULT_FLIGHT_SHAPE
 ): FlightStep {
   const end = flipTransform(from, to, origin);
 
@@ -202,13 +215,13 @@ export function flightMidpoint(
   const travelY = -end.dy;
   const distance = Math.hypot(travelX, travelY);
 
-  const arc = Math.min(distance * 0.13, 110);
+  const arc = Math.min(distance * shape.arc, shape.arcCap);
   const normalX = distance > 0 ? -travelY / distance : 0;
   const normalY = distance > 0 ? travelX / distance : 0;
 
   const toward = (value: number): number => value + (1 - value) * progress;
   const horizontal = Math.abs(travelX) >= Math.abs(travelY);
-  const stretch = 0.07;
+  const stretch = shape.stretch;
 
   return {
     dx: end.dx + travelX * progress + normalX * arc,
