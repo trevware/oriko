@@ -23,6 +23,8 @@ export interface DetailOrigin {
 
 const PADDING = 56;
 const SIDEBAR = 300;
+/* Space between the image's right edge and the start of the panel. */
+const META_GAP = 24;
 const FLIGHT_MS = 650;
 const RETURN_MS = 420;
 /** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
@@ -205,7 +207,7 @@ export class DetailView {
     this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
 
     this.paintMedia(model);
-    this.paintMeta(model, bounds);
+    this.paintMeta(model, bounds, target);
     this.paintActions(model);
 
     this.onStageReady?.();
@@ -262,11 +264,16 @@ export class DetailView {
     image.decoding = "async";
   }
 
-  private paintMeta(model: TileModel, bounds: DOMRect): void {
+  private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): void {
     if (!this.root) return;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
+
+    // Sit against the image rather than in a fixed right-hand column. The
+    // stage is centred in the space left of the sidebar, so a portrait used
+    // to leave a wide empty channel between the picture and its own details.
+    // Clamped so the panel can never run off the right edge.
     panel.style.width = `${SIDEBAR}px`;
-    panel.style.left = `${bounds.width - SIDEBAR}px`;
+    panel.style.left = `${Math.min(stage.x + stage.w + META_GAP, bounds.width - SIDEBAR)}px`;
 
     const field = (label: string, value: string): void => {
       if (!value) return;
@@ -521,7 +528,7 @@ export class DetailView {
     this.veil = this.backdrop?.animate(
       [{ opacity: 0 }, { opacity: 1 }],
       {
-        duration: FLIGHT_MS * 0.75,
+        duration: FLIGHT_MS * 0.55,
         easing: "cubic-bezier(0.4, 0, 0.6, 1)",
         fill: "both",
       }
