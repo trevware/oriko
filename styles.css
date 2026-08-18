@@ -3,50 +3,29 @@
      reference: every bar, menu and popup over the wall is the same material,
      so they read as one system rather than four things that happen to be
      dark. Change it here, not in the rules below. */
-  --pg-surface: rgba(26, 26, 29, 0.62);
+  /* A panel sitting slightly above the wall, and not much more than that.
+     The specular rim and top sheen this replaced were the glossy part: they
+     read as varnish rather than as glass, and there is no version of that
+     which is subtle. Flat fill, one hairline, one soft shadow. */
+  --pg-surface: rgba(32, 32, 35, 0.88);
   --pg-surface-radius: 22px;
   --pg-surface-pad: 10px;
 
-  /* Brightness is the part a plain frost misses. Real glass carries light
-     through rather than only scattering it, so the backdrop comes back
-     lifted and more saturated, not just softened. */
-  --pg-surface-blur: blur(30px) saturate(190%) brightness(1.08);
+  /* Enough to separate the panel from a busy cover, no brightness pump. */
+  --pg-surface-blur: blur(24px) saturate(130%);
 
-  /* The rim, and the closest CSS gets to lensing. A convex edge catches
-     light hard at the top and again, weaker, on the underside, and goes
-     nearly invisible across the middle. A uniform 1px ring reads as a
-     border drawn on a panel; this reads as an edge with a thickness. */
-  --pg-surface-rim: linear-gradient(
-    150deg,
-    rgba(255, 255, 255, 0.5),
-    rgba(255, 255, 255, 0.14) 26%,
-    rgba(255, 255, 255, 0.03) 52%,
-    rgba(255, 255, 255, 0.07) 74%,
-    rgba(255, 255, 255, 0.3)
-  );
+  /* Even all the way round on purpose. A gradient here is what made it look
+     lit from somewhere, which is the whole Vista problem. */
+  --pg-surface-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.075);
 
-  /* Light pooling just inside the top edge, thinning fast. Gives the pane a
-     thickness that a flat fill cannot. */
-  --pg-surface-sheen: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0.11),
-    rgba(255, 255, 255, 0.025) 38%,
-    rgba(255, 255, 255, 0) 68%
-  );
+  --pg-surface-lift: 0 2px 10px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.24);
 
-  /* Three layers: contact, body, and the wide soft one that says the thing
-     is floating well above the wall rather than stuck to it. */
-  --pg-surface-lift:
-    0 1px 2px rgba(0, 0, 0, 0.3),
-    0 10px 28px rgba(0, 0, 0, 0.4),
-    0 30px 60px rgba(0, 0, 0, 0.22);
-
-  --pg-surface-text: rgba(255, 255, 255, 0.94);
+  --pg-surface-text: rgba(255, 255, 255, 0.88);
 
   /* Concentric: an inner corner should be the outer corner less the padding
      between them, or the two curves fight each other at the corner. */
   --pg-inner-radius: calc(var(--pg-surface-radius) - var(--pg-surface-pad));
-  --pg-inner-hover: rgba(255, 255, 255, 0.15);
+  --pg-inner-hover: rgba(255, 255, 255, 0.09);
 
   position: relative;
   height: 100%;
@@ -422,10 +401,10 @@
   padding: 7px 14px;
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-surface);
-  background-image: var(--pg-surface-sheen);
+  background-image: none;
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-lift);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   /* Parked below the edge and non-interactive until a selection exists. */
   transform: translate(-50%, calc(100% + 30px));
   opacity: 0;
@@ -493,31 +472,6 @@
   transform: scale(0.93);
 }
 
-/* The lensed rim, drawn as a masked gradient hairline rather than a border
-   so it can vary around the shape. inset 0 with border-radius: inherit means
-   it fits whatever it is applied to without being told the shape. */
-.pg-actionbar::before,
-.pg-menu::before,
-.pg-detail-actions::before,
-.pg-tip::before,
-.pg-spacebar button::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  /* No negative z-index: that would put the rim behind the surface's own
-     fill and hide it entirely. Masked to a hairline, so painting above the
-     fill is exactly right. */
-  background: var(--pg-surface-rim);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
 /* Shared by the grid's selection bar and the detail view's action bar, so
    the two cannot drift. The host button must be position: relative. */
 .pg-tip {
@@ -535,10 +489,10 @@
      the same shape anyway, and a label should read as a pill. */
   border-radius: 999px;
   background-color: var(--pg-surface);
-  background-image: var(--pg-surface-sheen);
+  background-image: none;
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-lift);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -592,10 +546,10 @@
   padding: var(--pg-surface-pad);
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-surface);
-  background-image: var(--pg-surface-sheen);
+  background-image: none;
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-lift);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   opacity: 0;
   transform: scale(0.94);
   transition:
@@ -849,10 +803,10 @@
   padding: 7px 12px;
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-surface);
-  background-image: var(--pg-surface-sheen);
+  background-image: none;
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-lift);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   transform: translate(-50%, 14px);
   opacity: 0;
   /* Exit: a quick drop away with no delay, short enough to be finished
@@ -944,10 +898,10 @@
   border: 0;
   position: relative;
   background-color: var(--pg-surface);
-  background-image: var(--pg-surface-sheen);
+  background-image: none;
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-lift);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   color: var(--pg-surface-text);
   cursor: pointer;
   /* Glass flexes under a finger rather than only changing colour. */
@@ -959,20 +913,23 @@
 
 .pg-spacebar button:hover {
   background-color: var(--pg-surface);
-  box-shadow: var(--pg-surface-lift), inset 0 0 0 999px var(--pg-inner-hover);
+  box-shadow:
+    var(--pg-surface-ring),
+    var(--pg-surface-lift),
+    inset 0 0 0 999px var(--pg-inner-hover);
 }
 
 .pg-spacebar button:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
 /* Sits apart from the two controls on the other side, but at full strength:
    a permanent control that fades out at rest reads as one that has been
    dismissed, and you cannot tell it is clickable without finding it first. */
 .pg-space-manage {
-  width: 38px;
+  width: 48px;
   height: 38px;
-  border-radius: 50%;
+  border-radius: 19px;
 }
 
 .pg-space-switch {
@@ -1009,14 +966,14 @@
 }
 
 .pg-space-create {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 56px;
+  height: 38px;
+  border-radius: 19px;
 }
 
 .pg-space-create .svg-icon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 
 /* Menu additions: a rule for grouping, and a row that is shown but inert. */
