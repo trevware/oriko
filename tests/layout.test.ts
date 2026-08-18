@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { columnsForWidth, computeLayout, pressureAt, visibleRange } from "../src/layout";
+import {
+  columnsForWidth,
+  computeLayout,
+  fitRect,
+  flipTransform,
+  pressureAt,
+  visibleRange,
+} from "../src/layout";
 import type { LayoutItem } from "../src/layout";
 
 const square = (id: string): LayoutItem => ({ id, width: 100, height: 100 });
@@ -170,5 +177,73 @@ describe("pressureAt", () => {
   it("scales with the card, not with pixels", () => {
     const wide = { x: 0, y: 0, w: 1000, h: 100 };
     expect(pressureAt({ x: 750, y: 50 }, wide)?.dx).toBeCloseTo(0.5, 6);
+  });
+});
+
+describe("fitRect", () => {
+  const bounds = { width: 1000, height: 800 };
+
+  it("fits a landscape image by width", () => {
+    const box = fitRect({ width: 2000, height: 1000 }, bounds);
+    expect(box.w).toBe(1000);
+    expect(box.h).toBe(500);
+  });
+
+  it("fits a portrait image by height", () => {
+    const box = fitRect({ width: 1000, height: 2000 }, bounds);
+    expect(box.h).toBe(800);
+    expect(box.w).toBe(400);
+  });
+
+  it("centres what it fits", () => {
+    const box = fitRect({ width: 1000, height: 2000 }, bounds);
+    expect(box.x).toBe((1000 - box.w) / 2);
+    expect(box.y).toBe(0);
+  });
+
+  it("honours padding", () => {
+    expect(fitRect({ width: 1000, height: 1000 }, bounds, 50).h).toBe(700);
+  });
+
+  it("falls back to a sane ratio for unknown dimensions", () => {
+    const box = fitRect({ width: 0, height: 0 }, bounds);
+    expect(box.w).toBeGreaterThan(0);
+    expect(box.h).toBeGreaterThan(0);
+  });
+});
+
+describe("flipTransform", () => {
+  const from = { x: 100, y: 100, w: 200, h: 100 };
+  const to = { x: 0, y: 0, w: 800, h: 400 };
+
+  it("scales by the ratio between the boxes", () => {
+    const t = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    expect(t.scaleX).toBeCloseTo(0.25, 6);
+    expect(t.scaleY).toBeCloseTo(0.25, 6);
+  });
+
+  it("places the source centre over the destination centre", () => {
+    const t = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    expect(t.dx).toBeCloseTo(200 - 400, 6);
+    expect(t.dy).toBeCloseTo(150 - 200, 6);
+  });
+
+  it("changes trajectory with the click position", () => {
+    const centre = flipTransform(from, to, { x: 0.5, y: 0.5 });
+    const corner = flipTransform(from, to, { x: 0, y: 0 });
+    expect(corner.dx).not.toBeCloseTo(centre.dx, 3);
+    expect(corner.dy).not.toBeCloseTo(centre.dy, 3);
+  });
+
+  it("pins a top-left click to the top-left corners", () => {
+    const t = flipTransform(from, to, { x: 0, y: 0 });
+    expect(t.dx).toBeCloseTo(from.x - to.x, 6);
+    expect(t.dy).toBeCloseTo(from.y - to.y, 6);
+  });
+
+  it("survives a zero-sized destination", () => {
+    const t = flipTransform(from, { x: 0, y: 0, w: 0, h: 0 }, { x: 0.5, y: 0.5 });
+    expect(t.scaleX).toBe(1);
+    expect(t.scaleY).toBe(1);
   });
 });

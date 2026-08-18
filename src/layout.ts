@@ -112,3 +112,62 @@ export function pressureAt(
     dy: clamp(((point.y - box.y) / box.h) * 2 - 1),
   };
 }
+
+export interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Largest box with the given aspect that fits inside bounds, centred. */
+export function fitRect(
+  natural: { width: number; height: number },
+  bounds: { width: number; height: number },
+  padding = 0
+): Box {
+  const availableW = Math.max(1, bounds.width - padding * 2);
+  const availableH = Math.max(1, bounds.height - padding * 2);
+  const ratio =
+    natural.width > 0 && natural.height > 0 ? natural.height / natural.width : 3 / 4;
+
+  let w = availableW;
+  let h = w * ratio;
+  if (h > availableH) {
+    h = availableH;
+    w = h / ratio;
+  }
+
+  return {
+    x: (bounds.width - w) / 2,
+    y: (bounds.height - h) / 2,
+    w,
+    h,
+  };
+}
+
+/**
+ * Transform that makes an element already laid out at `to` appear exactly at
+ * `from`. Animating this back to identity is the FLIP technique: the browser
+ * only ever interpolates a transform, so the whole move composites.
+ *
+ * `origin` is where the click landed inside the source card, in 0..1. Using
+ * it as the transform origin is what gives the flight its trajectory: a
+ * corner click swings, a centre click grows straight out.
+ */
+export function flipTransform(
+  from: Box,
+  to: Box,
+  origin: { x: number; y: number }
+): { scaleX: number; scaleY: number; dx: number; dy: number } {
+  const scaleX = to.w > 0 ? from.w / to.w : 1;
+  const scaleY = to.h > 0 ? from.h / to.h : 1;
+
+  // The anchor point inside the destination, which the origin pins in place.
+  const anchorX = to.x + to.w * origin.x;
+  const anchorY = to.y + to.h * origin.y;
+  const sourceX = from.x + from.w * origin.x;
+  const sourceY = from.y + from.h * origin.y;
+
+  return { scaleX, scaleY, dx: sourceX - anchorX, dy: sourceY - anchorY };
+}

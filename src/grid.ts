@@ -120,6 +120,10 @@ export class GridRenderer {
   onDeleteRequested: (ids: string[]) => void = () => {};
   onContextRequested: (ids: string[], x: number, y: number) => void = () => {};
   onExportRequested: (ids: string[]) => void = () => {};
+  onOpenDetail: (
+    model: TileModel,
+    origin: { rect: { x: number; y: number; w: number; h: number }; at: { x: number; y: number } }
+  ) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "cg-viewport" });
@@ -667,12 +671,25 @@ export class GridRenderer {
       .catch(() => undefined);
   }
 
-  private openNote(model: TileModel): void {
-    const file = this.app.vault.getAbstractFileByPath(model.record.path);
-    if (!(file instanceof TFile)) return;
-    // No modifier handling: Obsidian's own "open in new tab" preference
-    // already decides where a plain click lands.
-    void this.app.workspace.getLeaf(false).openFile(file);
+  /** Reports the card's rect on screen so the detail view can fly from it. */
+  private openDetail(model: TileModel, event: MouseEvent): void {
+    const position = this.positionById.get(model.id);
+    if (!position) return;
+
+    const bounds = this.viewport.getBoundingClientRect();
+    const rect = {
+      x: bounds.left + position.x * this.camera.zoom + this.camera.x,
+      y: bounds.top + position.y * this.camera.zoom + this.camera.y,
+      w: position.w * this.camera.zoom,
+      h: position.h * this.camera.zoom,
+    };
+
+    const at = {
+      x: rect.w > 0 ? Math.max(0, Math.min(1, (event.clientX - rect.x) / rect.w)) : 0.5,
+      y: rect.h > 0 ? Math.max(0, Math.min(1, (event.clientY - rect.y) / rect.h)) : 0.5,
+    };
+
+    this.onOpenDetail(model, { rect, at });
   }
 
   private selectOnly(id: string, next: Set<string>): void {
@@ -852,7 +869,7 @@ export class GridRenderer {
         return;
       }
 
-      this.openNote(model);
+      this.openDetail(model, event);
     };
   }
 

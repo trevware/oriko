@@ -5,6 +5,7 @@ import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
 import { ActionBar } from "./action-bar";
 import { ConfirmDeleteModal } from "./confirm";
 import { ContextMenu } from "./context-menu";
+import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
 import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
@@ -21,6 +22,7 @@ export class ClippingsGridView extends ItemView {
   private progress: ProgressBar | null = null;
   private actionBar: ActionBar | null = null;
   private menu: ContextMenu | null = null;
+  private detail: DetailView | null = null;
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -77,6 +79,17 @@ export class ClippingsGridView extends ItemView {
       this.menu?.open(this.menuItems(ids), x, y);
     this.grid.onExportRequested = (ids) => void this.exportToDownloads(ids);
 
+    this.detail = new DetailView(this.app, this.contentEl, {
+      onExport: (id) => void this.exportToDownloads([id]),
+      onReveal: (id) => this.revealFirstFile(id),
+      onDelete: (id) => this.confirmDelete([id]),
+      onOpenNote: (id) => {
+        const file = this.app.vault.getAbstractFileByPath(id);
+        if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
+      },
+    });
+    this.grid.onOpenDetail = (model, origin) => this.detail?.open(model, origin);
+
     this.grid.onSourceFailed = (id: string, signature: string) => {
       if (this.unloadable.get(id) === signature) return;
       this.unloadable.set(id, signature);
@@ -127,6 +140,8 @@ export class ClippingsGridView extends ItemView {
     this.actionBar = null;
     this.menu?.close();
     this.menu = null;
+    this.detail?.close(true);
+    this.detail = null;
     this.grid?.destroy();
     this.grid = null;
   }
