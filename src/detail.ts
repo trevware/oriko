@@ -113,6 +113,8 @@ export class DetailView {
     return file instanceof TFile ? this.app.vault.getResourcePath(file) : path;
   }
 
+  /** Fires once the stage exists, so the source card can be hidden then. */
+  onStageReady: (() => void) | null = null;
   /** Fires once the closing flight has finished and the overlay is gone. */
   onClosed: (() => void) | null = null;
 
@@ -166,6 +168,7 @@ export class DetailView {
     this.paintMeta(model, bounds);
     this.paintActions(model);
 
+    this.onStageReady?.();
     this.fly(target, this.origin);
 
     this.onKey = (event: KeyboardEvent) => {

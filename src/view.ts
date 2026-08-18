@@ -90,8 +90,12 @@ export class ClippingsGridView extends ItemView {
     });
     this.detail.onClosed = () => this.grid?.focusTile(null);
     this.grid.onOpenDetail = (model, origin) => {
-      this.grid?.focusTile(model.id);
-      void this.detail?.open(model, origin);
+      // Hidden when the stage appears, not on click: the media's true size
+      // is resolved first, and hiding early leaves a hole in the meantime.
+      const detail = this.detail;
+      if (!detail) return;
+      detail.onStageReady = () => this.grid?.focusTile(model.id);
+      void detail.open(model, origin);
     };
 
     this.grid.onSourceFailed = (id: string, signature: string) => {

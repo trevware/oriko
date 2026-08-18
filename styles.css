@@ -234,7 +234,7 @@
    faded, so the returning flight lands on empty space instead of on a
    duplicate of itself. */
 .cg-tile.is-focus-hidden {
-  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -568,21 +568,14 @@
   position: absolute;
   inset: 0;
   background: var(--background-primary);
-  opacity: 0;
-  /* Ends fully opaque, so the settled view never shows the wall. Takes its
-     time getting there, though: covering the grid in 150ms hid the
-     neighbours giving way before they had moved. */
-  transition: opacity 430ms cubic-bezier(0.4, 0, 0.6, 1);
-}
-
-.cg-detail.is-open .cg-detail-backdrop {
+  /* Solid immediately, with no fade in either direction. The grid is
+     simply not there while inspecting, and is simply back during the
+     return, where the flying card needs somewhere to land. */
   opacity: 1;
 }
 
-/* Clearing on the way out is quicker than arriving, so the wall is back
-   under the card before it lands rather than after. */
 .cg-detail:not(.is-open) .cg-detail-backdrop {
-  transition: opacity 240ms ease;
+  opacity: 0;
 }
 
 .cg-detail-stage {
