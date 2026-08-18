@@ -23,7 +23,7 @@ export interface DetailOrigin {
 
 const PADDING = 56;
 const SIDEBAR = 300;
-const FLIGHT_MS = 780;
+const FLIGHT_MS = 700;
 const RETURN_MS = 420;
 /** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
 const PINCH_SENSITIVITY = 0.0022;
