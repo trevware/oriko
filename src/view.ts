@@ -53,11 +53,16 @@ export class PowerGridView extends ItemView {
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
   /**
-   * Not persisted, and cleared on a grid switch. A filter hides things, so
-   * one that outlives the moment you set it turns into a wall that looks
-   * emptier than it is for a reason you no longer remember.
+   * One filter per grid, kept for the session.
+   *
+   * Keyed by grid name, so it follows a rename and goes with a deletion. Not
+   * written to disk: a filter hides things, and one that survives a restart
+   * becomes a wall that looks emptier than it is for a reason nobody
+   * remembers. Within a session the count on the filter button is the
+   * reminder, which is why retaining it across switches is safe and
+   * retaining it across launches is not.
    */
-  private filter: FilterState = emptyFilter();
+  private filters = new Map<string, FilterState>();
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -404,10 +409,11 @@ export class PowerGridView extends ItemView {
     // filter: counting the result would make options disappear the moment
     // you used one, leaving no way back.
     this.facets = tiles;
-    this.spaceBar?.setFilterCount(activeCount(this.filter));
+    const filter = this.activeFilter();
+    this.spaceBar?.setFilterCount(activeCount(filter));
 
     this.grid.setTiles(
-      isFilterEmpty(this.filter) ? tiles : tiles.filter((t) => matchesFilter(t, this.filter)),
+      isFilterEmpty(filter) ? tiles : tiles.filter((t) => matchesFilter(t, filter)),
       options
     );
   }
@@ -415,9 +421,20 @@ export class PowerGridView extends ItemView {
   /** The grid's tiles before filtering, which is what the facets count. */
   private facets: TileModel[] = [];
 
+  private activeFilter(): FilterState {
+    return this.filters.get(this.activeGrid().name) ?? emptyFilter();
+  }
+
+  private setFilter(next: FilterState): void {
+    if (isFilterEmpty(next)) this.filters.delete(this.activeGrid().name);
+    else this.filters.set(this.activeGrid().name, next);
+    this.refresh({ replace: true });
+  }
+
   private openFilter(x: number, y: number): void {
     const build = (): MenuItem[] => {
       const available = facetsOf(this.facets);
+      const filter = this.activeFilter();
       const labels: Record<Facet, string> = {
         categories: "Categories",
         statuses: "Status",
@@ -433,7 +450,7 @@ export class PowerGridView extends ItemView {
 
       const items: MenuItem[] = FACETS.map((facet) => {
         const values = available[facet];
-        const chosen = this.filter[facet];
+        const chosen = filter[facet];
         return {
           icon: icons[facet],
           label: labels[facet],
@@ -446,15 +463,12 @@ export class PowerGridView extends ItemView {
             label: entry.value,
             detail: String(entry.count),
             keepOpen: true,
-            onSelect: () => {
-              this.filter = toggleFacet(this.filter, facet, entry.value);
-              this.refresh({ replace: true });
-            },
+            onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), facet, entry.value)),
           })),
         };
       });
 
-      const active = activeCount(this.filter);
+      const active = activeCount(filter);
       items.push({
         icon: "circle-slash",
         label: "Clear filters",
@@ -462,10 +476,7 @@ export class PowerGridView extends ItemView {
         disabled: active === 0,
         detail: active > 0 ? `${active} active` : undefined,
         keepOpen: true,
-        onSelect: () => {
-          this.filter = emptyFilter();
-          this.refresh({ replace: true });
-        },
+        onSelect: () => this.setFilter(emptyFilter()),
       });
 
       return items;
@@ -501,10 +512,9 @@ export class PowerGridView extends ItemView {
     if (this.plugin.settings.activeGrid === name) return;
     this.plugin.settings.activeGrid = name;
 
-    // Selection, camera and filter all describe tiles that are about to be
-    // replaced. The filter especially: it was chosen from facets that only
-    // existed in the grid being left.
-    this.filter = emptyFilter();
+    // Selection and camera describe tiles that are about to be replaced. The
+    // filter does not: each grid keeps its own, so switching restores
+    // whatever this one was last narrowed to.
     this.grid?.clearSelection();
     // replace, not add: departing tiles go straight back to the pool so the
     // arrivals can recycle them, and the camera is placed rather than tweened.
@@ -677,6 +687,11 @@ export class PowerGridView extends ItemView {
           entry.icon = next.icon;
         }
         if (settings.activeGrid === from) settings.activeGrid = next.name;
+        const carried = this.filters.get(from);
+        if (carried) {
+          this.filters.delete(from);
+          this.filters.set(next.name, carried);
+        }
         await this.plugin.saveSettings();
 
         // Renaming home rewrites only the notes that spell it out; the rest
@@ -701,6 +716,7 @@ export class PowerGridView extends ItemView {
       remove: async (index) => {
         const [removed] = settings.grids.splice(index, 1);
         if (!removed) return;
+        this.filters.delete(removed.name);
         // Members keep a key that no longer resolves, which spaces.ts reads as
         // home. Nothing is rewritten, so recreating the grid undoes this.
         if (settings.activeGrid === removed.name) {
