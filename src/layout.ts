@@ -75,3 +75,20 @@ export function visibleRange(
   const bottom = scrollTop + viewportHeight + overscan;
   return positions.filter((p) => p.y + p.h >= top && p.y <= bottom);
 }
+
+/** Keeps the panel fully on screen, flipping rather than clipping. */
+export function placeMenu(
+  point: { x: number; y: number },
+  menu: { width: number; height: number },
+  viewport: { width: number; height: number },
+  margin = 8
+): { x: number; y: number } {
+  let x = point.x;
+  let y = point.y;
+  if (x + menu.width + margin > viewport.width) x = point.x - menu.width;
+  if (y + menu.height + margin > viewport.height) y = point.y - menu.height;
+  return {
+    x: Math.max(margin, Math.min(x, viewport.width - menu.width - margin)),
+    y: Math.max(margin, Math.min(y, viewport.height - menu.height - margin)),
+  };
+}

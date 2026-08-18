@@ -111,6 +111,8 @@ export class GridRenderer {
   onZoomChanged: (zoom: number) => void = () => {};
   onSelectionChanged: (ids: string[]) => void = () => {};
   onDeleteRequested: (ids: string[]) => void = () => {};
+  onContextRequested: (ids: string[], x: number, y: number) => void = () => {};
+  onExportRequested: (ids: string[]) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "cg-viewport" });
@@ -352,6 +354,12 @@ export class GridRenderer {
       if (event.key === "a") {
         event.preventDefault();
         this.applySelection(new Set(this.tiles.map((t) => t.id)));
+        return;
+      }
+
+      if (event.key === "e" && this.selection.size > 0) {
+        event.preventDefault();
+        this.onExportRequested([...this.selection]);
         return;
       }
       if (event.key === "0") {
@@ -726,6 +734,17 @@ export class GridRenderer {
       if (domain) sub.createSpan({ cls: "cg-dot", text: "·" });
       sub.createSpan({ text: model.record.categories.join(", ") });
     }
+
+    element.root.oncontextmenu = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      // Right-clicking outside the selection acts on that card alone, which
+      // is what every file manager does.
+      if (!this.selection.has(model.id)) {
+        this.selectOnly(model.id, new Set([model.id]));
+      }
+      this.onContextRequested([...this.selection], event.clientX, event.clientY);
+    };
 
     element.root.onclick = (event: MouseEvent) => {
       // A pan that ends over a tile must not also open it.

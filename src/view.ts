@@ -1,6 +1,11 @@
-import { ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { absolutePath } from "./convert";
+import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
+import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
 import { ActionBar } from "./action-bar";
 import { ConfirmDeleteModal } from "./confirm";
+import { ContextMenu } from "./context-menu";
+import type { MenuItem } from "./context-menu";
 import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
 import { PlaybackController } from "./playback";
@@ -15,6 +20,7 @@ export class ClippingsGridView extends ItemView {
   private playback: PlaybackController | null = null;
   private progress: ProgressBar | null = null;
   private actionBar: ActionBar | null = null;
+  private menu: ContextMenu | null = null;
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -66,6 +72,11 @@ export class ClippingsGridView extends ItemView {
     });
     this.grid.onSelectionChanged = (ids: string[]) => this.actionBar?.setSelection(ids);
 
+    this.menu = new ContextMenu(this.contentEl);
+    this.grid.onContextRequested = (ids, x, y) =>
+      this.menu?.open(this.menuItems(ids), x, y);
+    this.grid.onExportRequested = (ids) => void this.exportToDownloads(ids);
+
     this.grid.onSourceFailed = (id: string, signature: string) => {
       if (this.unloadable.get(id) === signature) return;
       this.unloadable.set(id, signature);
@@ -114,8 +125,104 @@ export class ClippingsGridView extends ItemView {
     this.progress = null;
     this.actionBar?.destroy();
     this.actionBar = null;
+    this.menu?.close();
+    this.menu = null;
     this.grid?.destroy();
     this.grid = null;
+  }
+
+  /** Every archived file belonging to a clipping, originals only. */
+  private filesFor(id: string): string[] {
+    const record = this.plugin.index.get(id);
+    if (!record) return [];
+
+    const cache = this.plugin.archiver.cache;
+    const paths: string[] = [];
+
+    if (record.source) {
+      const video = cache.get(sourceVideoKeyFor(record.source));
+      if (video?.file) paths.push(video.file);
+    }
+    // Looked up through the same dedupe the archiver used, so the keys
+    // match; comparing a raw URL against a normalized key would not.
+    for (const media of dedupeMedia(record.media)) {
+      const entry = cache.get(media.key);
+      if (entry?.file) paths.push(entry.file);
+    }
+    return [...new Set(paths)];
+  }
+
+  private menuItems(ids: string[]): MenuItem[] {
+    const n = ids.length;
+    const count = n === 1 ? "1 selected" : `${n} selected`;
+    const items: MenuItem[] = [];
+
+    if (n === 1) {
+      items.push({
+        icon: "file-text",
+        label: "Open note",
+        onSelect: () => {
+          const file = this.app.vault.getAbstractFileByPath(ids[0]);
+          if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
+        },
+      });
+    }
+
+    if (systemAvailable()) {
+      items.push({
+        icon: "download",
+        label: "Export to Downloads",
+        detail: "⌘E",
+        onSelect: () => void this.exportToDownloads(ids),
+      });
+
+      if (n === 1) {
+        items.push({
+          icon: "folder",
+          label: "Reveal in Finder",
+          onSelect: () => this.revealFirstFile(ids[0]),
+        });
+      }
+    }
+
+    items.push({
+      icon: "trash-2",
+      label: "Delete",
+      detail: count,
+      destructive: true,
+      onSelect: () => this.confirmDelete(ids),
+    });
+
+    return items;
+  }
+
+  private revealFirstFile(id: string): void {
+    const file = this.filesFor(id)[0];
+    if (!file) {
+      new Notice("Clippings grid: nothing archived for this clipping yet");
+      return;
+    }
+    const absolute = absolutePath(this.app.vault, normalizePath(file));
+    if (!absolute || !revealInFinder(absolute)) {
+      new Notice("Clippings grid: could not reveal the file");
+    }
+  }
+
+  async exportToDownloads(ids: string[]): Promise<void> {
+    let copied = 0;
+    for (const id of ids) {
+      for (const file of this.filesFor(id)) {
+        const absolute = absolutePath(this.app.vault, normalizePath(file));
+        if (!absolute) continue;
+        const name = file.slice(file.lastIndexOf("/") + 1);
+        if (copyToDownloads(absolute, name)) copied++;
+      }
+    }
+    new Notice(
+      copied === 0
+        ? "Clippings grid: nothing archived to export yet"
+        : `Clippings grid: exported ${copied} file${copied === 1 ? "" : "s"} to Downloads`
+    );
   }
 
   private confirmDelete(ids: string[]): void {
