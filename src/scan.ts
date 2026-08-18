@@ -107,6 +107,33 @@ function basename(path: string): string {
   return file.replace(/\.md$/i, "");
 }
 
+/**
+ * Splits a note's own frontmatter block off the front of its body.
+ *
+ * Obsidian's metadata cache is the normal source of frontmatter, but it
+ * resolves after the file write, so a note the plugin just authored has none
+ * yet. This is the fallback for that window, working line by line rather than
+ * by regex so that a value containing --- cannot close the block early and a
+ * horizontal rule further down the body cannot be mistaken for the closer.
+ */
+export function splitFrontmatter(body: string): { yaml: string; rest: string } {
+  const none = { yaml: "", rest: body };
+  const lines = body.split("\n");
+  const bare = (line: string): string => line.replace(/\r$/, "");
+  if (bare(lines[0] ?? "") !== "---") return none;
+
+  for (let i = 1; i < lines.length; i++) {
+    if (bare(lines[i]) !== "---") continue;
+    return {
+      yaml: lines.slice(1, i).map(bare).join("\n"),
+      rest: lines.slice(i + 1).join("\n"),
+    };
+  }
+
+  // Unterminated: it is not frontmatter, it is a body that starts with a rule.
+  return none;
+}
+
 export function scanClipping(
   path: string,
   frontmatter: Record<string, unknown>,

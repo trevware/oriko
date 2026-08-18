@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scanClipping } from "../src/scan";
+import { scanClipping, splitFrontmatter } from "../src/scan";
 import {
   COMBOLANDS_BODY,
   COMBOLANDS_FM,
@@ -160,5 +160,49 @@ describe("scanClipping", () => {
     expect(r.categories).toEqual([]);
     expect(r.status).toBe("unread");
     expect(r.media).toEqual([]);
+  });
+});
+
+describe("splitFrontmatter", () => {
+  it("returns the yaml block and the body after it", () => {
+    const { yaml, rest } = splitFrontmatter("---\ntitle: Hi\nsource: x\n---\n\nBody here\n");
+    expect(yaml).toBe("title: Hi\nsource: x");
+    expect(rest).toBe("\nBody here\n");
+  });
+
+  it("returns no yaml when the note has no frontmatter", () => {
+    const { yaml, rest } = splitFrontmatter("Just a body\n");
+    expect(yaml).toBe("");
+    expect(rest).toBe("Just a body\n");
+  });
+
+  it("ignores a rule that is not on the first line", () => {
+    const body = "Intro\n\n---\ntitle: Hi\n---\n";
+    expect(splitFrontmatter(body)).toEqual({ yaml: "", rest: body });
+  });
+
+  it("treats an unterminated block as body, not frontmatter", () => {
+    const body = "---\ntitle: Hi\nstill going\n";
+    expect(splitFrontmatter(body)).toEqual({ yaml: "", rest: body });
+  });
+
+  it("handles an empty frontmatter block", () => {
+    expect(splitFrontmatter("---\n---\nBody\n")).toEqual({ yaml: "", rest: "Body\n" });
+  });
+
+  it("survives crlf line endings", () => {
+    const { yaml } = splitFrontmatter("---\r\ntitle: Hi\r\n---\r\nBody\r\n");
+    expect(yaml).toBe("title: Hi");
+  });
+
+  it("does not mistake a horizontal rule inside the body for a closer", () => {
+    const { yaml, rest } = splitFrontmatter("---\ntitle: Hi\n---\n\nA\n\n---\n\nB\n");
+    expect(yaml).toBe("title: Hi");
+    expect(rest).toBe("\nA\n\n---\n\nB\n");
+  });
+
+  it("keeps a value containing three dashes", () => {
+    const { yaml } = splitFrontmatter('---\ntitle: "a --- b"\n---\nBody\n');
+    expect(yaml).toBe('title: "a --- b"');
   });
 });

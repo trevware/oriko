@@ -1,4 +1,4 @@
-import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf } from "obsidian";
+import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf, parseYaml } from "obsidian";
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
@@ -16,7 +16,11 @@ export default class PowerGridPlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
 
-    this.index = new ClippingIndex(this.app, () => this.settings.clippingsFolder);
+    this.index = new ClippingIndex(
+      this.app,
+      () => this.settings.clippingsFolder,
+      parseYaml
+    );
     this.archiver = new ArchiveService(
       this.app,
       this.index,

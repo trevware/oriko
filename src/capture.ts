@@ -119,7 +119,8 @@ export class CaptureService {
         notePath,
         buildPastedImageNote(title, attachment, today())
       );
-      await this.index.ingest(file);
+      // Same as the link path: ingest alone leaves the grid unaware.
+      await this.index.handleModify(file);
     } catch (error) {
       this.onProgress?.(null);
       new Notice(`Power Grid: could not create the note (${String(error)})`);
@@ -191,7 +192,9 @@ export class CaptureService {
       return;
     }
 
-    await this.index.ingest(file);
+    // handleModify, not ingest: ingest updates the index silently, so the
+    // grid was never told the clipping had landed.
+    await this.index.handleModify(file);
     this.onFinished?.(link.title.slice(0, 40));
   }
 

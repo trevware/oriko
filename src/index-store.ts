@@ -1,5 +1,5 @@
-import { App, TFile } from "obsidian";
-import { ClippingRecord, scanClipping } from "./scan";
+import type { App, TFile } from "obsidian";
+import { ClippingRecord, scanClipping, splitFrontmatter } from "./scan";
 
 export function isInFolder(path: string, folder: string): boolean {
   if (!path.toLowerCase().endsWith(".md")) return false;
@@ -24,7 +24,17 @@ export class ClippingIndex {
   private byPath = new Map<string, ClippingRecord>();
   private listeners: Array<() => void> = [];
 
-  constructor(private app: App, private folder: () => string) {}
+  /**
+   * parseYaml is injected rather than imported. A value import from obsidian
+   * would stop vitest resolving this file at all, taking isInFolder and
+   * sortRecords down with it; the type-only imports above are erased at build
+   * time and cost nothing.
+   */
+  constructor(
+    private app: App,
+    private folder: () => string,
+    private parseYaml: (yaml: string) => unknown
+  ) {}
 
   records(): ClippingRecord[] {
     return sortRecords([...this.byPath.values()]);
@@ -53,9 +63,38 @@ export class ClippingIndex {
 
   async ingest(file: TFile): Promise<void> {
     if (!isInFolder(file.path, this.folder())) return;
-    const frontmatter = this.app.metadataCache.getFileCache(file)?.frontmatter ?? {};
     const body = await this.app.vault.cachedRead(file);
-    this.byPath.set(file.path, scanClipping(file.path, frontmatter, body));
+    this.byPath.set(file.path, scanClipping(file.path, this.frontmatterOf(file, body), body));
+  }
+
+  /**
+   * Frontmatter for a file, without waiting on the metadata cache.
+   *
+   * The cache resolves after the write, so a note just created by capture or
+   * by the Web Clipper has none. That is not cosmetic here: every route
+   * pickCover has to a cover runs through frontmatter, and a captured note
+   * embeds its media as local wikilinks that the body scan does not collect,
+   * so with no frontmatter there is no cover and the clipping cannot render
+   * at all. Waiting for Obsidian to parse a note we just wrote ourselves is
+   * what put the several second gap between the progress bar finishing and
+   * the tile appearing. The body is already in hand, so read it from there.
+   */
+  private frontmatterOf(file: TFile, body: string): Record<string, unknown> {
+    const cached = this.app.metadataCache.getFileCache(file)?.frontmatter;
+    if (cached && Object.keys(cached).length > 0) return cached;
+
+    const { yaml } = splitFrontmatter(body);
+    if (!yaml) return cached ?? {};
+
+    try {
+      const parsed: unknown = this.parseYaml(yaml);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : cached ?? {};
+    } catch {
+      // Half-written yaml is normal mid-clip; the cache will catch up.
+      return cached ?? {};
+    }
   }
 
   async handleModify(file: TFile): Promise<void> {
