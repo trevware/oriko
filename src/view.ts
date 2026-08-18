@@ -1,4 +1,5 @@
-import { ItemView, WorkspaceLeaf } from "obsidian";
+import { ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ConfirmDeleteModal } from "./confirm";
 import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
 import { PlaybackController } from "./playback";
@@ -52,6 +53,8 @@ export class ClippingsGridView extends ItemView {
       }
     };
 
+    this.grid.onDeleteRequested = (ids: string[]) => this.confirmDelete(ids);
+
     this.grid.onSourceFailed = (id: string) => {
       if (this.unloadable.has(id)) return;
       this.unloadable.add(id);
@@ -88,6 +91,30 @@ export class ClippingsGridView extends ItemView {
     this.progress = null;
     this.grid?.destroy();
     this.grid = null;
+  }
+
+  private confirmDelete(ids: string[]): void {
+    const titles = ids.map((id) => this.plugin.index.get(id)?.title ?? id);
+    new ConfirmDeleteModal(this.app, titles, () => void this.deleteClippings(ids)).open();
+  }
+
+  private async deleteClippings(ids: string[]): Promise<void> {
+    let removed = 0;
+    for (const id of ids) {
+      const file = this.app.vault.getAbstractFileByPath(id);
+      if (!(file instanceof TFile)) continue;
+      try {
+        // Obsidian's trash, so this stays recoverable.
+        await this.app.fileManager.trashFile(file);
+        removed++;
+      } catch (error) {
+        new Notice(`Clippings grid: could not delete ${file.basename} (${String(error)})`);
+      }
+    }
+    this.grid?.clearSelection();
+    new Notice(
+      removed === 1 ? "Clippings grid: 1 note moved to trash" : `Clippings grid: ${removed} notes moved to trash`
+    );
   }
 
   refresh(): void {

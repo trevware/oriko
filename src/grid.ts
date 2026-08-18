@@ -11,6 +11,13 @@ import {
 import type { Camera } from "./camera";
 import { columnsForWidth, computeLayout, visibleRange } from "./layout";
 import type { LayoutResult, Position } from "./layout";
+import {
+  MARQUEE_SLOP,
+  idsInRect,
+  mergeSelection,
+  rectFromCorners,
+} from "./selection";
+import type { Rect } from "./selection";
 import type { TileModel } from "./tile";
 
 const GAP = 14;
@@ -70,14 +77,25 @@ export class GridRenderer {
   private onKeyUp: ((event: KeyboardEvent) => void) | null = null;
   private onBlur: (() => void) | null = null;
 
+  private marquee: HTMLElement;
+  private selection = new Set<string>();
+  private selecting = false;
+  private selectionBase = new Set<string>();
+  private marqueeOrigin = { x: 0, y: 0 };
+  private marqueeMoved = false;
+
   onRendered: () => void = () => {};
   onSourceFailed: (id: string) => void = () => {};
   onZoomChanged: (zoom: number) => void = () => {};
+  onSelectionChanged: (ids: string[]) => void = () => {};
+  onDeleteRequested: (ids: string[]) => void = () => {};
 
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "cg-viewport" });
     this.canvas = this.viewport.createDiv({ cls: "cg-canvas" });
+    this.marquee = this.viewport.createDiv({ cls: "cg-marquee" });
     this.installGestures();
+    this.installSelection();
   }
 
   get viewportEl(): HTMLElement {
@@ -238,7 +256,28 @@ export class GridRenderer {
         return;
       }
 
+      if (
+        (event.key === "Backspace" || event.key === "Delete") &&
+        this.selection.size > 0
+      ) {
+        event.preventDefault();
+        this.onDeleteRequested([...this.selection]);
+        return;
+      }
+
+      if (event.key === "Escape" && this.selection.size > 0) {
+        event.preventDefault();
+        this.clearSelection();
+        return;
+      }
+
       if (!(event.metaKey || event.ctrlKey)) return;
+
+      if (event.key === "a") {
+        event.preventDefault();
+        this.applySelection(new Set(this.tiles.map((t) => t.id)));
+        return;
+      }
       if (event.key === "0") {
         this.resetView();
         event.preventDefault();
@@ -307,6 +346,98 @@ export class GridRenderer {
     this.viewport.addEventListener("pointercancel", stop);
   }
 
+  /** Screen point to content point under the current camera. */
+  private toContentPoint(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = this.viewport.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - this.camera.x) / this.camera.zoom,
+      y: (clientY - rect.top - this.camera.y) / this.camera.zoom,
+    };
+  }
+
+  private installSelection(): void {
+    this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
+      // Panning owns space-drag and middle-click; a tile owns its own click.
+      if (this.spaceHeld || event.button !== 0) return;
+      if ((event.target as HTMLElement | null)?.closest(".cg-tile")) return;
+
+      this.selecting = true;
+      this.marqueeMoved = false;
+      this.selectionBase = new Set(this.selection);
+      const point = this.toContentPoint(event.clientX, event.clientY);
+      this.marqueeOrigin = point;
+      this.viewport.setPointerCapture(event.pointerId);
+    });
+
+    this.viewport.addEventListener("pointermove", (event: PointerEvent) => {
+      if (!this.selecting) return;
+      const point = this.toContentPoint(event.clientX, event.clientY);
+      const rect = rectFromCorners(
+        this.marqueeOrigin.x,
+        this.marqueeOrigin.y,
+        point.x,
+        point.y
+      );
+
+      const travelled = Math.max(rect.w, rect.h) * this.camera.zoom;
+      if (!this.marqueeMoved && travelled < MARQUEE_SLOP) return;
+      this.marqueeMoved = true;
+
+      this.drawMarquee(rect);
+      const additive = event.shiftKey || event.metaKey || event.ctrlKey;
+      this.applySelection(
+        mergeSelection(this.selectionBase, idsInRect(this.layout.positions, rect), additive)
+      );
+    });
+
+    const finish = (event: PointerEvent): void => {
+      if (!this.selecting) return;
+      this.selecting = false;
+      this.marquee.removeClass("is-active");
+      if (this.viewport.hasPointerCapture(event.pointerId)) {
+        this.viewport.releasePointerCapture(event.pointerId);
+      }
+      // A click on empty space with no drag clears the selection.
+      if (!this.marqueeMoved) this.applySelection(new Set());
+      this.marqueeMoved = false;
+    };
+
+    this.viewport.addEventListener("pointerup", finish);
+    this.viewport.addEventListener("pointercancel", finish);
+  }
+
+  private drawMarquee(rect: Rect): void {
+    this.marquee.addClass("is-active");
+    // Drawn in screen space so its border stays 1px at any zoom.
+    this.marquee.style.transform = `translate3d(${
+      rect.x * this.camera.zoom + this.camera.x
+    }px, ${rect.y * this.camera.zoom + this.camera.y}px, 0)`;
+    this.marquee.style.width = `${rect.w * this.camera.zoom}px`;
+    this.marquee.style.height = `${rect.h * this.camera.zoom}px`;
+  }
+
+  private applySelection(next: Set<string>): void {
+    const changed =
+      next.size !== this.selection.size || [...next].some((id) => !this.selection.has(id));
+    this.selection = next;
+    this.paintSelection();
+    if (changed) this.onSelectionChanged([...next]);
+  }
+
+  private paintSelection(): void {
+    for (const [id, element] of this.mounted) {
+      element.root.toggleClass("is-selected", this.selection.has(id));
+    }
+  }
+
+  selectedIds(): string[] {
+    return [...this.selection];
+  }
+
+  clearSelection(): void {
+    this.applySelection(new Set());
+  }
+
   private endPan(): void {
     this.spaceHeld = false;
     this.panning = false;
@@ -367,7 +498,10 @@ export class GridRenderer {
 
   private paint(element: TileElement, model: TileModel, position: Position): void {
     element.root.style.display = "";
-    element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+    // Scale comes from a CSS variable so selection can lift the card without
+    // JS having to rewrite the transform on every selection change.
+    element.root.style.transform =
+      `translate3d(${position.x}px, ${position.y}px, 0) scale(var(--cg-tile-scale, 1))`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
 
@@ -502,6 +636,7 @@ export class GridRenderer {
       this.paint(element, model, position);
     }
 
+    this.paintSelection();
     this.onRendered();
   }
 
