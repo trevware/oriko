@@ -14,8 +14,8 @@ import { posterPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
 import { extensionOf, needsPreview } from "./formats";
 import { ClippingIndex } from "./index-store";
 import { hashUrl } from "./hash";
-import { dedupeMedia, normalizeUrl } from "./normalize";
-import { sourceVideoKey, supportsSourceDownload } from "./resolve";
+import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
+import { supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
@@ -234,7 +234,7 @@ export class ArchiveService {
   ): Promise<void> {
     if (!record.source || !supportsSourceDownload(record.source)) return;
 
-    const key = sourceVideoKey(normalizeUrl(record.source));
+    const key = sourceVideoKeyFor(record.source);
     const existing = this.cache.get(key);
     if (existing?.file) return;
     if (existing?.failed && !retryFailed) return;

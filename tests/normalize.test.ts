@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dedupeMedia, normalizeUrl } from "../src/normalize";
+import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "../src/normalize";
 import { scanClipping } from "../src/scan";
 import { COMBOLANDS_BODY, COMBOLANDS_FM } from "./fixtures/clippings";
 import type { MediaRef } from "../src/scan";
@@ -111,6 +111,18 @@ describe("signed CDN urls", () => {
   it("leaves a meaningful parameter alone", () => {
     expect(normalizeUrl("https://youtube.com/watch?v=abc&oh=1")).toBe(
       "https://youtube.com/watch?v=abc"
+    );
+  });
+});
+
+describe("sourceVideoKeyFor", () => {
+  it("keys a page-sourced video apart from the page itself", () => {
+    expect(sourceVideoKeyFor("https://x.com/a/status/1")).not.toBe("https://x.com/a/status/1");
+  });
+
+  it("normalises the source, so a tracking parameter cannot split the key", () => {
+    expect(sourceVideoKeyFor("https://x.com/a/status/1?oh=1")).toBe(
+      sourceVideoKeyFor("https://x.com/a/status/1")
     );
   });
 });

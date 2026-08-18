@@ -1,3 +1,4 @@
+import type { CacheEntry } from "./cache";
 import type { MediaRef } from "./scan";
 
 export interface CanonicalMedia {
@@ -111,4 +112,24 @@ export function dedupeMedia(refs: MediaRef[]): CanonicalMedia[] {
       heightHint: entry.ref.heightHint,
     };
   });
+}
+
+/** Cache key for a video pulled from a page rather than from a media URL. */
+export function sourceVideoKeyFor(source: string): string {
+  return `ytdlp:${normalizeUrl(source)}`;
+}
+
+/**
+ * Local file that stands in for a remote URL, or null when there is none.
+ * Kept here beside the key logic so it stays free of Obsidian imports and
+ * can be tested directly.
+ */
+export function localReplacement(
+  src: string,
+  cache: { get(key: string): CacheEntry | undefined }
+): string | null {
+  if (!src || !/^https?:\/\//i.test(src)) return null;
+  const entry = cache.get(normalizeUrl(src));
+  if (!entry || entry.failed || !entry.file) return null;
+  return entry.file;
 }

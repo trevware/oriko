@@ -1,9 +1,8 @@
 import type { MediaCache } from "./cache";
 import { extensionOf, isRenderable } from "./formats";
-import { dedupeMedia, normalizeUrl } from "./normalize";
+import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
 import type { CanonicalMedia } from "./normalize";
 import { knownHostThumbnail } from "./page-cover";
-import { sourceVideoKey } from "./resolve";
 import type { ClippingRecord } from "./scan";
 
 export interface TileModel {
@@ -158,7 +157,7 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
   // A video pulled from the post itself outranks the poster image that page
   // published, which is only a still of the same thing.
   if (record.source) {
-    const fromSource = cache.get(sourceVideoKey(normalizeUrl(record.source)));
+    const fromSource = cache.get(sourceVideoKeyFor(record.source));
     if (fromSource?.file) {
       const cover = localCover(fromSource);
       if (cover) return cover;

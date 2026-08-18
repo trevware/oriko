@@ -9,7 +9,6 @@ import {
   noteNameFor,
   parseFxTweet,
   parsePageMeta,
-  sourceVideoKey,
   supportsSourceDownload,
   xStatus,
 } from "../src/resolve";
@@ -309,7 +308,5 @@ describe("instagramPost", () => {
     expect(supportsSourceDownload("not a url")).toBe(false);
   });
 
-  it("keys a page-sourced video apart from the page's own preview image", () => {
-    expect(sourceVideoKey("https://x.com/a/status/1")).not.toBe("https://x.com/a/status/1");
-  });
+
 });

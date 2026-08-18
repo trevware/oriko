@@ -161,11 +161,6 @@ export function supportsSourceDownload(url: string): boolean {
   }
 }
 
-/** Cache key for a video pulled from a page rather than from a media URL. */
-export function sourceVideoKey(source: string): string {
-  return `ytdlp:${source}`;
-}
-
 export function fxApiUrl(status: { user: string; id: string }): string {
   return `https://api.fxtwitter.com/${status.user}/status/${status.id}`;
 }

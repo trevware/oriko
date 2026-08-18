@@ -3,6 +3,7 @@ import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { ClippingsGridSettings, DEFAULT_SETTINGS } from "./settings";
+import { installRepair } from "./repair";
 import { ClippingsGridSettingTab } from "./settings-tab";
 import { ClippingsGridView, VIEW_TYPE_GRID } from "./view";
 
@@ -36,6 +37,7 @@ export default class ClippingsGridPlugin extends Plugin {
     );
 
     this.addSettingTab(new ClippingsGridSettingTab(this.app, this));
+    installRepair(this);
 
     this.addRibbonIcon("layout-grid", "Open clippings grid", () => {
       void this.activateView();
