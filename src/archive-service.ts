@@ -232,24 +232,36 @@ export class ArchiveService {
     record: ClippingRecord,
     retryFailed: boolean
   ): Promise<void> {
-    if (!record.source || !supportsSourceDownload(record.source)) return;
+    await this.downloadSourceVideoFor(record.source, retryFailed);
+  }
 
-    const key = sourceVideoKeyFor(record.source);
+  /**
+   * Fetches a post's own video and returns its vault path. Takes a bare URL
+   * rather than a record, so capture can archive before writing the note and
+   * embed the local file instead of pointing at a URL that will expire.
+   */
+  async downloadSourceVideoFor(
+    source: string,
+    retryFailed: boolean
+  ): Promise<string | null> {
+    if (!source || !supportsSourceDownload(source)) return null;
+
+    const key = sourceVideoKeyFor(source);
     const existing = this.cache.get(key);
-    if (existing?.file) return;
-    if (existing?.failed && !retryFailed) return;
+    if (existing?.file) return existing.file;
+    if (existing?.failed && !retryFailed) return null;
 
     if (!conversionAvailable() || !ytdlpPath()) {
       // Recorded rather than skipped silently, so a missing tool is
       // diagnosable from the cache instead of looking like nothing happened.
       this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp not available" });
-      return;
+      return null;
     }
 
-    const result = await downloadSourceVideo(record.source);
+    const result = await downloadSourceVideo(source);
     if (!result) {
       this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp found no video" });
-      return;
+      return null;
     }
 
     if (result.data.byteLength > this.settings().maxBytes) {
@@ -258,7 +270,7 @@ export class ArchiveService {
         kind: "video",
         failed: `too large (${result.data.byteLength} bytes)`,
       });
-      return;
+      return null;
     }
 
     await this.ensureFolder();
@@ -275,6 +287,49 @@ export class ArchiveService {
       file: path,
       bytes: result.data.byteLength,
     });
+    return path;
+  }
+
+  /**
+   * Archives a resolved link's media before any note exists, so the note can
+   * be written with local embeds rather than URLs. Returns the vault path for
+   * each URL that landed; anything missing simply stays remote in the note.
+   */
+  async archiveResolved(
+    source: string,
+    media: Array<{ url: string; kind: "image" | "video" }>,
+    onProgress?: (done: number, total: number) => void
+  ): Promise<{ byUrl: Map<string, string>; sourceVideo: string | null }> {
+    const byUrl = new Map<string, string>();
+    const canonical: CanonicalMedia[] = media.map((m) => ({
+      key: normalizeUrl(m.url),
+      url: m.url,
+      kind: m.kind,
+      alt: "",
+    }));
+
+    let haveVideo = false;
+
+    if (canonical.length > 0) {
+      await this.ensureFolder();
+      const outcomes = await archiveAll(canonical, source, this.deps(), 4, onProgress);
+      outcomes.forEach((outcome, index) => {
+        this.cache.mergeOutcome(outcome);
+        if (!outcome.file) return;
+        byUrl.set(media[index].url, outcome.file);
+        if (outcome.kind === "video") haveVideo = true;
+      });
+    }
+
+    // Only reach for yt-dlp when the resolver did not already produce the
+    // video. fxtwitter hands back X's mp4 directly, and fetching it twice
+    // would archive the same clip under two names.
+    const sourceVideo = haveVideo ? null : await this.downloadSourceVideoFor(source, true);
+    await this.deriveAssets();
+    await this.saveCache();
+    this.emit();
+
+    return { byUrl, sourceVideo };
   }
 
   /**

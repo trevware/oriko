@@ -158,30 +158,40 @@ export class CaptureService {
       return;
     }
 
-    this.report(0.3, "Creating clipping…");
-    const file = await this.createNote(link);
+    // Archive before writing the note, so the note can embed the files
+    // themselves. These CDN urls are signed and expire within days; a note
+    // that points at one is a note that stops working.
+    this.report(0.3, "Downloading media…");
+    const archived = await this.archiver.archiveResolved(
+      link.url,
+      link.media,
+      (done, total) =>
+        this.report(0.3 + (done / Math.max(1, total)) * 0.5, `Downloading ${done}/${total}…`)
+    );
+
+    const media = link.media.map((item) => ({
+      ...item,
+      localPath: archived.byUrl.get(item.url),
+    }));
+
+    // A video pulled from the post itself leads, so it becomes the cover and
+    // the first thing the note shows.
+    if (archived.sourceVideo) {
+      media.unshift({
+        url: link.url,
+        kind: "video" as const,
+        localPath: archived.sourceVideo,
+      });
+    }
+
+    this.report(0.85, "Creating clipping…");
+    const file = await this.createNote({ ...link, media });
     if (!file) {
       this.onProgress?.(null);
       return;
     }
 
-    // Archive straight away: resolved CDN urls are often signed and short-lived.
-    this.report(0.4, `Downloading media…`);
     await this.index.ingest(file);
-    const record = this.index.get(file.path);
-
-    if (record) {
-      this.archiver.onRecordProgress = (done, total) => {
-        // Downloading owns the back 60% of the bar.
-        this.report(0.4 + (done / Math.max(1, total)) * 0.6, `Downloading ${done}/${total}…`);
-      };
-      try {
-        await this.archiver.archiveRecord(record, true);
-      } finally {
-        this.archiver.onRecordProgress = null;
-      }
-    }
-
     this.onFinished?.(link.title.slice(0, 40));
   }
 

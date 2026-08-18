@@ -123,3 +123,50 @@ describe("buildPastedImageNote", () => {
     expect(note).not.toContain("categories:");
   });
 });
+
+describe("buildNote with archived media", () => {
+  it("embeds the local file rather than the expiring url", () => {
+    const note = buildNote(
+      link({
+        media: [
+          {
+            url: "https://scontent.cdninstagram.com/v/a.mp4?oe=6A85",
+            kind: "video",
+            localPath: "Attachments/Clippings/abc-video.mp4",
+          },
+        ],
+      })
+    );
+    expect(note).toContain("![[Attachments/Clippings/abc-video.mp4]]");
+    expect(note).not.toContain("<video src=");
+  });
+
+  it("embeds a local image the same way", () => {
+    const note = buildNote(
+      link({
+        media: [{ url: "https://cdn/a.jpg", kind: "image", localPath: "Attachments/a.jpg" }],
+      })
+    );
+    expect(note).toContain("![[Attachments/a.jpg]]");
+  });
+
+  it("keeps the remote url when archiving did not land", () => {
+    const note = buildNote(
+      link({ media: [{ url: "https://cdn/a.mp4", kind: "video" }] })
+    );
+    expect(note).toContain('<video src="https://cdn/a.mp4"');
+  });
+
+  it("mixes archived and unarchived media in one note", () => {
+    const note = buildNote(
+      link({
+        media: [
+          { url: "https://cdn/a.mp4", kind: "video", localPath: "Attachments/a.mp4" },
+          { url: "https://cdn/b.jpg", kind: "image" },
+        ],
+      })
+    );
+    expect(note).toContain("![[Attachments/a.mp4]]");
+    expect(note).toContain("![](https://cdn/b.jpg)");
+  });
+});

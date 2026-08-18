@@ -4,6 +4,8 @@ import { readMetaTags } from "./page-cover";
 export interface ResolvedMedia {
   url: string;
   kind: "image" | "video";
+  /** Vault path once archived, so the note can embed the file itself. */
+  localPath?: string;
 }
 
 export interface ResolvedLink {
@@ -292,7 +294,11 @@ export function buildNote(link: ResolvedLink, created = today()): string {
   if (link.description) lines.push(link.description, "");
 
   for (const item of link.media) {
-    if (item.kind === "video") {
+    // Prefer the archived file: an embed of a local path keeps playing after
+    // the signed CDN url in the original post has expired.
+    if (item.localPath) {
+      lines.push(`![[${item.localPath}]]`, "");
+    } else if (item.kind === "video") {
       lines.push(`<video src="${item.url}" controls=""></video>`, "");
     } else {
       lines.push(`![](${item.url})`, "");
