@@ -6,12 +6,16 @@ import {
   absolutePath,
   conversionAvailable,
   convertImageToPng,
+  downloadSourceVideo,
   extractVideoFrame,
+  ytdlpPath,
 } from "./convert";
 import { posterPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
 import { extensionOf, needsPreview } from "./formats";
 import { ClippingIndex } from "./index-store";
+import { hashUrl } from "./hash";
 import { dedupeMedia, normalizeUrl } from "./normalize";
+import { sourceVideoKey, supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
@@ -205,9 +209,59 @@ export class ArchiveService {
       await this.resolvePageCover(record, retryFailed);
     }
 
+    await this.archiveSourceVideo(record, retryFailed);
     await this.deriveAssets();
     await this.saveCache();
     this.emit();
+  }
+
+  /**
+   * Pulls the video out of a post whose page never publishes it, using a
+   * local yt-dlp. Instagram and X hide their media behind client-side
+   * requests, so this is the only route that does not involve a third-party
+   * mirror. Without yt-dlp installed the clipping simply keeps its poster.
+   */
+  private async archiveSourceVideo(
+    record: ClippingRecord,
+    retryFailed: boolean
+  ): Promise<void> {
+    if (!record.source || !supportsSourceDownload(record.source)) return;
+    if (!conversionAvailable() || !ytdlpPath()) return;
+
+    const key = sourceVideoKey(normalizeUrl(record.source));
+    const existing = this.cache.get(key);
+    if (existing?.file) return;
+    if (existing?.failed && !retryFailed) return;
+
+    const result = await downloadSourceVideo(record.source);
+    if (!result) {
+      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp found no video" });
+      return;
+    }
+
+    if (result.data.byteLength > this.settings().maxBytes) {
+      this.cache.mergeOutcome({
+        key,
+        kind: "video",
+        failed: `too large (${result.data.byteLength} bytes)`,
+      });
+      return;
+    }
+
+    await this.ensureFolder();
+    const folder = normalizePath(this.settings().attachmentFolder);
+    const path = normalizePath(`${folder}/${hashUrl(key)}-video.${result.extension}`);
+
+    if (!(await this.app.vault.adapter.exists(path))) {
+      await this.app.vault.createBinary(path, result.data);
+    }
+
+    this.cache.mergeOutcome({
+      key,
+      kind: "video",
+      file: path,
+      bytes: result.data.byteLength,
+    });
   }
 
   /**

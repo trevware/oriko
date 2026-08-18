@@ -4,12 +4,13 @@ import {
   directMediaKind,
   directMediaLink,
   fxApiUrl,
-  instagramMediaUrl,
   instagramPost,
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
   parsePageMeta,
+  sourceVideoKey,
+  supportsSourceDownload,
   xStatus,
 } from "../src/resolve";
 
@@ -298,9 +299,17 @@ describe("instagramPost", () => {
     expect(instagramPost("not a url")).toBeNull();
   });
 
-  it("builds the mirror url", () => {
-    expect(instagramMediaUrl({ kind: "reel", code: "DaX4yElxg7_" })).toBe(
-      "https://kkinstagram.com/reel/DaX4yElxg7_/"
-    );
+  it("marks instagram and x as downloadable by a local yt-dlp", () => {
+    expect(supportsSourceDownload("https://www.instagram.com/reel/ABC/")).toBe(true);
+    expect(supportsSourceDownload("https://x.com/a/status/1")).toBe(true);
+  });
+
+  it("does not spend a subprocess on an ordinary article", () => {
+    expect(supportsSourceDownload("https://www.polygon.com/article")).toBe(false);
+    expect(supportsSourceDownload("not a url")).toBe(false);
+  });
+
+  it("keys a page-sourced video apart from the page's own preview image", () => {
+    expect(sourceVideoKey("https://x.com/a/status/1")).not.toBe("https://x.com/a/status/1");
   });
 });

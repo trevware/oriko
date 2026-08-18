@@ -131,9 +131,39 @@ export function instagramPost(url: string): { kind: string; code: string } | nul
   return { kind: match[1] === "reels" ? "reel" : match[1], code: match[2] };
 }
 
-/** Mirror that redirects to the underlying CDN file for an Instagram post. */
-export function instagramMediaUrl(post: { kind: string; code: string }): string {
-  return `https://kkinstagram.com/${post.kind}/${post.code}/`;
+/**
+ * Hosts whose media a local yt-dlp can fetch directly. Checked before
+ * spending a subprocess, so ordinary article clippings never pay for it.
+ */
+const DOWNLOADABLE_HOSTS = new Set([
+  "instagram.com",
+  "m.instagram.com",
+  "instagr.am",
+  "x.com",
+  "twitter.com",
+  "mobile.x.com",
+  "mobile.twitter.com",
+  "tiktok.com",
+  "vm.tiktok.com",
+  "youtube.com",
+  "youtu.be",
+  "vimeo.com",
+  "reddit.com",
+  "bsky.app",
+]);
+
+export function supportsSourceDownload(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    return DOWNLOADABLE_HOSTS.has(host);
+  } catch {
+    return false;
+  }
+}
+
+/** Cache key for a video pulled from a page rather than from a media URL. */
+export function sourceVideoKey(source: string): string {
+  return `ytdlp:${source}`;
 }
 
 export function fxApiUrl(status: { user: string; id: string }): string {

@@ -13,7 +13,6 @@ import {
   isHttpUrl,
   noteNameFor,
   parseFxTweet,
-  instagramMediaUrl,
   instagramPost,
   parsePageMeta,
   xStatus,
@@ -225,12 +224,10 @@ export class CaptureService {
       media: [],
     };
 
-    if (!this.settings().useResolvers) return base;
-
-    return {
-      ...base,
-      media: [{ url: instagramMediaUrl(post), kind: "video" }, ...base.media],
-    };
+    // The video is not in the page at all. It is fetched during archiving
+    // by a local yt-dlp, keyed off the source URL, so nothing here needs a
+    // third-party mirror.
+    return base;
   }
 
   private async resolveX(
