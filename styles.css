@@ -590,7 +590,7 @@
 .pg-menu-arrow {
   display: flex;
   align-items: center;
-  margin-left: auto;
+  margin-left: 2px;
   color: var(--pg-surface-text);
   opacity: 0.5;
 }
@@ -635,6 +635,12 @@
   font-size: 13px;
   color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
+}
+
+/* Always present so a row can be patched in place, and out of the way until
+   it has something to say. */
+.pg-menu-detail:empty {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

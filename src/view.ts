@@ -409,11 +409,25 @@ export class PowerGridView extends ItemView {
     // filter: counting the result would make options disappear the moment
     // you used one, leaving no way back.
     this.facets = tiles;
+    this.applyFilter(options);
+  }
+
+  /**
+   * The cheap half of a repaint: the grid's tiles are already built, so
+   * narrowing them is a single pass.
+   *
+   * Toggling a filter changes nothing about the records, so re-sorting them,
+   * re-filtering by grid and rebuilding every tile was three passes and a
+   * heap of per-record allocation to answer a question that only concerned
+   * which of the existing tiles to show.
+   */
+  private applyFilter(options: { replace?: boolean }): void {
     const filter = this.activeFilter();
     this.spaceBar?.setFilterCount(activeCount(filter));
-
-    this.grid.setTiles(
-      isFilterEmpty(filter) ? tiles : tiles.filter((t) => matchesFilter(t, filter)),
+    this.grid?.setTiles(
+      isFilterEmpty(filter)
+        ? this.facets
+        : this.facets.filter((tile) => matchesFilter(tile, filter)),
       options
     );
   }
@@ -428,7 +442,8 @@ export class PowerGridView extends ItemView {
   private setFilter(next: FilterState): void {
     if (isFilterEmpty(next)) this.filters.delete(this.activeGrid().name);
     else this.filters.set(this.activeGrid().name, next);
-    this.refresh({ replace: true });
+    // Straight to the narrowing pass; the tiles behind it have not changed.
+    this.applyFilter({ replace: true });
   }
 
   private openFilter(x: number, y: number): void {

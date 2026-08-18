@@ -25,6 +25,13 @@ export interface MenuItem {
   onSelect?: () => void;
 }
 
+interface RowRecord {
+  item: MenuItem;
+  root: HTMLElement;
+  icon: HTMLElement;
+  detail: HTMLElement;
+}
+
 /** Space between a panel and the submenu it opens. */
 const SUBMENU_GAP = 6;
 /** Panel padding, so a submenu's first row lines up with its parent row. */
@@ -42,6 +49,9 @@ export class ContextMenu {
   private sub: HTMLElement | null = null;
   private onKey: ((event: KeyboardEvent) => void) | null = null;
   private rebuild: (() => MenuItem[]) | null = null;
+  /** Rendered rows, so a keepOpen selection can patch rather than rebuild. */
+  private rows: RowRecord[] = [];
+  private subRows: RowRecord[] = [];
   /** Which submenu is showing, so a rebuild can put it back. */
   private openLabel: string | null = null;
 
@@ -63,7 +73,7 @@ export class ContextMenu {
 
     this.backdrop = this.container.createDiv({ cls: "pg-menu-backdrop" });
     this.panel = this.container.createDiv({ cls: "pg-menu" });
-    this.fill(this.panel, items);
+    this.rows = this.fill(this.panel, items);
 
     const bounds = this.container.getBoundingClientRect();
     const at = placeMenu(
@@ -113,7 +123,9 @@ export class ContextMenu {
     return { width: element.offsetWidth, height: element.offsetHeight };
   }
 
-  private fill(panel: HTMLElement, items: MenuItem[]): void {
+  private fill(panel: HTMLElement, items: MenuItem[]): RowRecord[] {
+    const records: RowRecord[] = [];
+
     for (const item of items) {
       if (item.divider) panel.createDiv({ cls: "pg-menu-divider" });
 
@@ -127,13 +139,19 @@ export class ContextMenu {
       if (item.icon) setIcon(icon, item.icon);
       row.createDiv({ cls: "pg-menu-label", text: item.label });
 
+      // Always made, even when empty: patching a row in place needs somewhere
+      // to write, and :empty hides it until there is something to say.
+      const detail = row.createDiv({ cls: "pg-menu-detail", text: item.detail ?? "" });
+
+      // A parent row can carry both. A facet showing how many of its values
+      // are picked still needs the arrow saying there is more inside.
       if (item.submenu) {
         row.addClass("is-parent");
         const arrow = row.createDiv({ cls: "pg-menu-arrow" });
         setIcon(arrow, "arrow-right");
-      } else if (item.detail) {
-        row.createDiv({ cls: "pg-menu-detail", text: item.detail });
       }
+
+      records.push({ item, root: row, icon, detail });
 
       // Only the top panel spawns submenus, so only its rows manage one.
       if (panel === this.panel) {
@@ -160,6 +178,40 @@ export class ContextMenu {
         item.onSelect?.();
       };
     }
+
+    return records;
+  }
+
+  /**
+   * Writes new state onto rows that are already there.
+   *
+   * Returns false if the structure moved, in which case the caller has to
+   * rebuild. A toggle never moves it: the same facets with the same values,
+   * differing only in which are ticked and what the counts say.
+   */
+  private patch(records: RowRecord[], items: MenuItem[]): boolean {
+    if (records.length !== items.length) return false;
+    if (records.some((record, i) => record.item.label !== items[i].label)) return false;
+
+    records.forEach((record, i) => {
+      const item = items[i];
+
+      // Only touched when it actually changed. setIcon builds an SVG, and
+      // rebuilding one per row per click is most of what a toggle used to
+      // cost.
+      if (record.item.icon !== item.icon) {
+        record.icon.empty();
+        if (item.icon) setIcon(record.icon, item.icon);
+      }
+
+      const detail = item.detail ?? "";
+      if (record.detail.textContent !== detail) record.detail.setText(detail);
+
+      record.root.toggleClass("is-disabled", item.disabled === true);
+      record.item = item;
+    });
+
+    return true;
   }
 
   /**
@@ -172,17 +224,22 @@ export class ContextMenu {
     const reopen = this.openLabel;
     const items = this.rebuild();
 
+    // Patch first. Tearing both panels down and building them again made the
+    // submenu vanish and replay its entry animation on every single click,
+    // which is what the blink was.
+    const parent = reopen ? items.find((item) => item.label === reopen) : undefined;
+    const patched =
+      this.patch(this.rows, items) &&
+      (!parent?.submenu || this.patch(this.subRows, parent.submenu));
+    if (patched) return;
+
     this.closeSub();
     this.panel.empty();
-    this.fill(this.panel, items);
+    this.rows = this.fill(this.panel, items);
 
-    if (!reopen) return;
-    const parent = items.find((item) => item.label === reopen);
     if (!parent?.submenu) return;
-    const row = this.panel
-      .findAll(".pg-menu-label")
-      .find((label) => label.textContent === reopen)?.parentElement;
-    if (row) this.openSub(row, parent.submenu, reopen);
+    const row = this.rows.find((record) => record.item.label === reopen)?.root;
+    if (row) this.openSub(row, parent.submenu, reopen ?? undefined);
   }
 
   /** Beside the parent, top aligned with the row that opened it. */
@@ -194,7 +251,7 @@ export class ContextMenu {
     this.openLabel = label ?? row.find(".pg-menu-label")?.textContent ?? null;
     row.addClass("is-open-parent");
     this.sub = this.container.createDiv({ cls: "pg-menu pg-menu-sub" });
-    this.fill(this.sub, items);
+    this.subRows = this.fill(this.sub, items);
 
     const bounds = this.container.getBoundingClientRect();
     const parent = this.panel.getBoundingClientRect();
@@ -225,6 +282,7 @@ export class ContextMenu {
   private closeSub(): void {
     this.sub?.remove();
     this.sub = null;
+    this.subRows = [];
     this.openLabel = null;
     this.panel?.findAll(".is-open-parent").forEach((row) => row.removeClass("is-open-parent"));
   }
@@ -233,6 +291,7 @@ export class ContextMenu {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
     this.closeSub();
+    this.rows = [];
     this.rebuild = null;
     this.backdrop?.remove();
     this.panel?.remove();

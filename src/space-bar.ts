@@ -28,6 +28,7 @@ export class SpaceBar {
   private manage: HTMLElement;
   private filter: HTMLElement;
   private filterCount: HTMLElement;
+  private shownCount = -1;
   private switcher: HTMLElement;
   private icon: HTMLElement;
   private label: HTMLElement;
@@ -101,6 +102,10 @@ export class SpaceBar {
    * grid, and the only clue is a menu you have to open to read.
    */
   setFilterCount(count: number): void {
+    // Guarded: this runs on every repaint, including each one the archiver
+    // triggers, and almost none of them change the number.
+    if (count === this.shownCount) return;
+    this.shownCount = count;
     this.filterCount.setText(count > 0 ? String(count) : "");
     this.filter.toggleClass("is-active", count > 0);
   }
