@@ -321,3 +321,118 @@
   border-radius: 8px;
   display: block;
 }
+
+/* Floating actions for the current selection. Rides above the canvas and
+   rises into view only while something is selected. */
+.cg-actionbar {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 16px;
+  background: rgba(28, 28, 30, 0.82);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+  /* Parked below the edge and non-interactive until a selection exists. */
+  transform: translate(-50%, calc(100% + 30px));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 260ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 180ms ease;
+}
+
+.cg-actionbar.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cg-actionbar-count {
+  padding: 0 10px 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+
+.cg-actionbar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px 2px 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cg-actionbar-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.cg-actionbar-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cg-actionbar-button:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.cg-actionbar-tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(28, 28, 30, 0.94);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.cg-actionbar-button:hover .cg-actionbar-tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.cg-actionbar-key {
+  opacity: 0.55;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cg-actionbar,
+  .cg-actionbar-tip {
+    transition: none;
+  }
+}

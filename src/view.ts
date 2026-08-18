@@ -1,4 +1,5 @@
 import { ItemView, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { ActionBar } from "./action-bar";
 import { ConfirmDeleteModal } from "./confirm";
 import { GridRenderer } from "./grid";
 import type ClippingsGridPlugin from "./main";
@@ -13,6 +14,7 @@ export class ClippingsGridView extends ItemView {
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
   private progress: ProgressBar | null = null;
+  private actionBar: ActionBar | null = null;
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -58,6 +60,11 @@ export class ClippingsGridView extends ItemView {
     };
 
     this.grid.onDeleteRequested = (ids: string[]) => this.confirmDelete(ids);
+
+    this.actionBar = new ActionBar(this.contentEl, {
+      onDelete: () => this.confirmDelete(this.grid?.selectedIds() ?? []),
+    });
+    this.grid.onSelectionChanged = (ids: string[]) => this.actionBar?.setSelection(ids);
 
     this.grid.onSourceFailed = (id: string, signature: string) => {
       if (this.unloadable.get(id) === signature) return;
@@ -105,6 +112,8 @@ export class ClippingsGridView extends ItemView {
     this.plugin.capture.onFinished = null;
     this.progress?.destroy();
     this.progress = null;
+    this.actionBar?.destroy();
+    this.actionBar = null;
     this.grid?.destroy();
     this.grid = null;
   }
