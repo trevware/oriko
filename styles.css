@@ -79,12 +79,12 @@
      spends the gap the selection just expanded into. */
   outline: 2px solid transparent;
   outline-offset: -2px;
-  /* Short enough to track the cursor, long enough to feel damped rather
-     than glued to it. */
+  /* Resting state, so this is the transition that runs on the way OUT.
+     Long and soft, so a card settles back to flat instead of snapping. */
   transition:
-    transform 130ms cubic-bezier(0.22, 0.9, 0.28, 1),
-    outline-color 190ms ease,
-    box-shadow 190ms ease;
+    transform 460ms cubic-bezier(0.19, 1, 0.28, 1),
+    outline-color 220ms ease,
+    box-shadow 320ms ease;
 }
 
 .cg-media {
@@ -299,6 +299,12 @@
   transform: perspective(760px) rotateX(var(--cg-rx, 0deg)) rotateY(var(--cg-ry, 0deg))
     scale(var(--cg-sx, 1), var(--cg-sy, 1));
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  /* While engaged, short enough to follow the cursor. Leaving hover falls
+     back to the resting transition above, which is the gentle one. */
+  transition:
+    transform 120ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    outline-color 190ms ease,
+    box-shadow 190ms ease;
 }
 
 /* Selection outranks hover, so a selected card keeps its ring and depth. */
