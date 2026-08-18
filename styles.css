@@ -14,11 +14,15 @@
   /* Enough to separate the panel from a busy cover, no brightness pump. */
   --pg-surface-blur: blur(24px) saturate(130%);
 
-  /* Even all the way round on purpose. A gradient here is what made it look
-     lit from somewhere, which is the whole Vista problem. */
-  --pg-surface-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.075);
+  /* Barely there. The separation from the wall should come from the fill
+     being lighter than what is behind it, with the edge only just resolving
+     the boundary. At 0.075 it was drawing an outline, which puts the panel
+     in front of the wall rather than just above it. */
+  --pg-surface-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 
-  --pg-surface-lift: 0 2px 10px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.24);
+  /* Soft and close. A deep shadow ringed the panel in dark, which read as a
+     second outline underneath the first. */
+  --pg-surface-lift: 0 1px 6px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.16);
 
   --pg-surface-text: rgba(255, 255, 255, 0.88);
 
