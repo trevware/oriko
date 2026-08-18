@@ -7,6 +7,10 @@ export interface MenuItem {
   /** Right-hand text: a shortcut hint or a count. */
   detail?: string;
   destructive?: boolean;
+  /** Draws a rule above this row, for grouping without a heading. */
+  divider?: boolean;
+  /** Dimmed and inert: shown so the set reads whole, but not selectable. */
+  disabled?: boolean;
   onSelect: () => void;
 }
 
@@ -33,8 +37,11 @@ export class ContextMenu {
     this.panel = this.container.createDiv({ cls: "pg-menu" });
 
     for (const item of items) {
+      if (item.divider) this.panel.createDiv({ cls: "pg-menu-divider" });
+
       const row = this.panel.createDiv({ cls: "pg-menu-item" });
       if (item.destructive) row.addClass("is-destructive");
+      if (item.disabled) row.addClass("is-disabled");
 
       const icon = row.createDiv({ cls: "pg-menu-icon" });
       setIcon(icon, item.icon);
@@ -43,6 +50,7 @@ export class ContextMenu {
 
       row.onclick = (event: MouseEvent) => {
         event.stopPropagation();
+        if (item.disabled) return;
         this.close();
         item.onSelect();
       };

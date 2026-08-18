@@ -7,10 +7,20 @@ import { ConfirmDeleteModal } from "./confirm";
 import { ContextMenu } from "./context-menu";
 import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
+import { GridEditModal, GridsPanelModal } from "./grid-modals";
+import type { GridsController } from "./grid-modals";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
+import { SpaceBar } from "./space-bar";
+import {
+  filterByGrid,
+  hotkeyPosition,
+  membersOf,
+  orderedGrids,
+} from "./spaces";
+import type { GridSpace } from "./spaces";
 import { buildTiles } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
@@ -23,6 +33,8 @@ export class PowerGridView extends ItemView {
   private actionBar: ActionBar | null = null;
   private menu: ContextMenu | null = null;
   private detail: DetailView | null = null;
+  private spaceBar: SpaceBar | null = null;
+  private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -76,7 +88,34 @@ export class PowerGridView extends ItemView {
 
     this.menu = new ContextMenu(this.contentEl);
     this.grid.onContextRequested = (ids, x, y) =>
-      this.menu?.open(this.menuItems(ids), x, y);
+      this.menu?.open(this.menuItems(ids, x, y), x, y);
+
+    this.spaceBar = new SpaceBar(this.contentEl, {
+      onSwitcher: (x, y) => this.openSwitcher(x, y),
+      onCreate: (x, y) => this.openCreate(x, y),
+      onManage: () => new GridsPanelModal(this.app, this.gridsController()).open(),
+    });
+    this.spaceBar.setActive(this.activeGrid());
+
+    this.onGridKey = (event: KeyboardEvent) => {
+      if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
+      // The detail view registers in the capture phase too and owns its keys
+      // while it is up.
+      if (this.detail?.isOpen) return;
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+
+      const position = hotkeyPosition(event.key);
+      if (position === null) return;
+      const grid = this.allGrids()[position];
+      if (!grid) return;
+
+      // Obsidian binds these to tab switching, so this only wins while the
+      // wall has focus, the same bargain the zoom keys already make.
+      event.preventDefault();
+      event.stopPropagation();
+      void this.activate(grid.name);
+    };
+    document.addEventListener("keydown", this.onGridKey, true);
     this.grid.onExportRequested = (ids) => void this.exportToDownloads(ids);
 
     this.detail = new DetailView(this.app, this.contentEl, {
@@ -144,6 +183,10 @@ export class PowerGridView extends ItemView {
   }
 
   async onClose(): Promise<void> {
+    if (this.onGridKey) document.removeEventListener("keydown", this.onGridKey, true);
+    this.onGridKey = null;
+    this.spaceBar?.destroy();
+    this.spaceBar = null;
     this.observer?.disconnect();
     this.observer = null;
     this.playback?.destroy();
@@ -183,7 +226,7 @@ export class PowerGridView extends ItemView {
     return [...new Set(paths)];
   }
 
-  private menuItems(ids: string[]): MenuItem[] {
+  private menuItems(ids: string[], x: number, y: number): MenuItem[] {
     const n = ids.length;
     const count = n === 1 ? "1 selected" : `${n} selected`;
     const items: MenuItem[] = [];
@@ -214,6 +257,15 @@ export class PowerGridView extends ItemView {
           onSelect: () => this.revealFirstFile(ids[0]),
         });
       }
+    }
+
+    if (this.allGrids().length > 1) {
+      items.push({
+        icon: "layers",
+        label: "Move to grid",
+        detail: "\u203a",
+        onSelect: () => this.openMoveTo(ids, x, y),
+      });
     }
 
     items.push({
@@ -283,10 +335,212 @@ export class PowerGridView extends ItemView {
   refresh(): void {
     if (!this.grid) return;
     const tiles = buildTiles(
-      this.plugin.index.records(),
+      filterByGrid(
+        this.plugin.index.records(),
+        this.activeGrid().name,
+        this.plugin.settings.homeGridName,
+        this.registered()
+      ),
       this.plugin.archiver.cache,
       this.unloadable
     );
     this.grid.setTiles(tiles);
+  }
+
+  // ---- Grids -------------------------------------------------------------
+
+  private homeGrid(): GridSpace {
+    return {
+      name: this.plugin.settings.homeGridName,
+      icon: this.plugin.settings.homeGridIcon,
+    };
+  }
+
+  private registered(): Set<string> {
+    return new Set(this.plugin.settings.grids.map((grid) => grid.name));
+  }
+
+  private allGrids(): GridSpace[] {
+    return orderedGrids(this.homeGrid(), this.plugin.settings.grids);
+  }
+
+  /** Falls back to home, so a stale saved name cannot leave the wall empty. */
+  private activeGrid(): GridSpace {
+    const name = this.plugin.settings.activeGrid;
+    return this.allGrids().find((grid) => grid.name === name) ?? this.homeGrid();
+  }
+
+  private async activate(name: string): Promise<void> {
+    if (this.plugin.settings.activeGrid === name) return;
+    this.plugin.settings.activeGrid = name;
+    await this.plugin.saveSettings();
+
+    // Selection and camera both describe tiles that are about to be replaced.
+    this.grid?.clearSelection();
+    this.refresh();
+    this.grid?.resetView();
+    this.spaceBar?.setActive(this.activeGrid());
+  }
+
+  /**
+   * The only place the plugin writes to a note it did not create, and it
+   * writes exactly one key. processFrontMatter rewrites the frontmatter block
+   * alone, so the clipped body is never touched.
+   */
+  private async assign(paths: string[], target: string): Promise<number> {
+    const home = this.plugin.settings.homeGridName;
+    let written = 0;
+
+    for (const path of paths) {
+      const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+      if (!(file instanceof TFile)) continue;
+      try {
+        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+          // Home is the absence of the key, so moving something back removes
+          // it rather than writing the home name in.
+          if (target === home) delete fm.grid;
+          else fm.grid = target;
+        });
+        written++;
+      } catch (error) {
+        new Notice(`Power Grid: could not move ${path} (${String(error)})`);
+      }
+    }
+    return written;
+  }
+
+  private openSwitcher(x: number, y: number): void {
+    const active = this.activeGrid().name;
+    const items: MenuItem[] = this.allGrids().map((grid, index) => ({
+      icon: grid.icon,
+      label: grid.name,
+      detail: index < 9 ? `\u2318${index + 1}` : undefined,
+      // Shown but inert: the set reads whole, and selecting it would do nothing.
+      disabled: grid.name === active,
+      onSelect: () => void this.activate(grid.name),
+    }));
+    this.menu?.open(items, x, y);
+  }
+
+  private openCreate(x: number, y: number): void {
+    this.menu?.open(
+      [
+        {
+          icon: "link",
+          label: "Clip link",
+          detail: "\u2318N",
+          onSelect: () => void this.plugin.capture.captureFromClipboard(),
+        },
+        {
+          icon: "image",
+          label: "Clip image",
+          detail: "\u21e7\u2318N",
+          onSelect: () => void this.plugin.clipImageFromClipboard(),
+        },
+        {
+          icon: "layers",
+          label: "New grid",
+          divider: true,
+          onSelect: () => this.promptNewGrid(),
+        },
+      ],
+      x,
+      y
+    );
+  }
+
+  private promptNewGrid(): void {
+    new GridEditModal(this.app, {
+      heading: "New grid",
+      cta: "Create",
+      initial: { name: "", icon: "star" },
+      existing: this.plugin.settings.grids.map((grid) => grid.name),
+      home: this.plugin.settings.homeGridName,
+      onSubmit: (space) => void this.gridsController().create(space),
+    }).open();
+  }
+
+  /** Reopens the menu in place with the grid list: a submenu in effect. */
+  private openMoveTo(ids: string[], x: number, y: number): void {
+    const items: MenuItem[] = this.allGrids().map((grid) => ({
+      icon: grid.icon,
+      label: grid.name,
+      onSelect: () => void this.moveTo(ids, grid.name),
+    }));
+    this.menu?.open(items, x, y);
+  }
+
+  private async moveTo(ids: string[], target: string): Promise<void> {
+    const moved = await this.assign(ids, target);
+    this.grid?.clearSelection();
+    new Notice(
+      moved === 1
+        ? `Power Grid: 1 clipping moved to ${target}`
+        : `Power Grid: ${moved} clippings moved to ${target}`
+    );
+  }
+
+  private gridsController(): GridsController {
+    const settings = this.plugin.settings;
+
+    return {
+      home: () => this.homeGrid(),
+      grids: () => settings.grids,
+      memberCount: (name) => membersOf(this.plugin.index.records(), name).length,
+
+      create: async (space) => {
+        settings.grids.push(space);
+        await this.plugin.saveSettings();
+        // Land in what you just made rather than leaving it to be found.
+        await this.activate(space.name);
+      },
+
+      rename: async (from, next) => {
+        const members = membersOf(this.plugin.index.records(), from).map((r) => r.path);
+
+        if (from === settings.homeGridName) {
+          settings.homeGridName = next.name;
+          settings.homeGridIcon = next.icon;
+        } else {
+          const entry = settings.grids.find((grid) => grid.name === from);
+          if (!entry) return;
+          entry.name = next.name;
+          entry.icon = next.icon;
+        }
+        if (settings.activeGrid === from) settings.activeGrid = next.name;
+        await this.plugin.saveSettings();
+
+        // Renaming home rewrites only the notes that spell it out; the rest
+        // belong to it by absence and need no touching. assign() then drops
+        // their key entirely, since the target is home.
+        if (next.name !== from && members.length > 0) {
+          await this.assign(members, next.name);
+        }
+
+        this.spaceBar?.setActive(this.activeGrid());
+        this.refresh();
+      },
+
+      reorder: async (index, delta) => {
+        const target = index + delta;
+        if (target < 0 || target >= settings.grids.length) return;
+        const [moved] = settings.grids.splice(index, 1);
+        settings.grids.splice(target, 0, moved);
+        await this.plugin.saveSettings();
+      },
+
+      remove: async (index) => {
+        const [removed] = settings.grids.splice(index, 1);
+        if (!removed) return;
+        // Members keep a key that no longer resolves, which spaces.ts reads as
+        // home. Nothing is rewritten, so recreating the grid undoes this.
+        if (settings.activeGrid === removed.name) {
+          settings.activeGrid = settings.homeGridName;
+        }
+        await this.plugin.saveSettings();
+        this.spaceBar?.setActive(this.activeGrid());
+        this.refresh();
+      },
+    };
   }
 }

@@ -62,20 +62,7 @@ export default class PowerGridPlugin extends Plugin {
     this.addCommand({
       id: "clip-image-from-clipboard",
       name: "Clip image from clipboard",
-      callback: () => {
-        void navigator.clipboard
-          .read()
-          .then(async (items) => {
-            for (const item of items) {
-              const type = item.types.find((t) => t.startsWith("image/"));
-              if (!type) continue;
-              await this.capture.captureImage(await item.getType(type));
-              return;
-            }
-            new Notice("Power Grid: no image on the clipboard");
-          })
-          .catch(() => new Notice("Power Grid: could not read the clipboard"));
-      },
+      callback: () => void this.clipImageFromClipboard(),
     });
 
     this.addCommand({
@@ -133,6 +120,22 @@ export default class PowerGridPlugin extends Plugin {
         void this.index.handleModify(f);
       })
     );
+  }
+
+  /** Lifted out of its command so the grid's create menu can call it too. */
+  async clipImageFromClipboard(): Promise<void> {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith("image/"));
+        if (!type) continue;
+        await this.capture.captureImage(await item.getType(type));
+        return;
+      }
+      new Notice("Power Grid: no image on the clipboard");
+    } catch {
+      new Notice("Power Grid: could not read the clipboard");
+    }
   }
 
   async activateView(): Promise<void> {

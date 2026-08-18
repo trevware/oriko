@@ -19,7 +19,8 @@ The load-bearing rule, learned the hard way:
 
 ## Constraints that are not negotiable
 
-- **The plugin never edits an existing note.** Vault `CLAUDE.md` §9 forbids rewriting clipped content. Notes the plugin *creates* on paste are written once, already complete; notes from the Web Clipper are repaired at render time instead.
+- **The plugin never edits an existing note's content.** Vault `CLAUDE.md` §9 forbids rewriting clipped content. Notes the plugin *creates* on paste are written once, already complete; notes from the Web Clipper are repaired at render time instead.
+- **The one exception is the `grid` key**, written when a clipping is moved between grids, and only ever through `app.fileManager.processFrontMatter`, which rewrites the frontmatter block and leaves the body byte-identical. It lives in one method, `view.assign`. Do not grow this into a general licence to edit notes: any other property the plugin wants is a new decision, not a precedent already set.
 - **Never delete a user's files without asking.** Deletion goes to Obsidian's trash behind a confirmation. Archived media is left behind when a clipping is deleted.
 - **Archived filenames are derived from a hash of the normalized source URL.** That is what lets a remote URL map to a local file with no index. Do not change the scheme without a migration.
 - Cache keys strip both sizing and per-request signature parameters; the URL actually fetched keeps its signature, which Meta and Twitter CDNs require.

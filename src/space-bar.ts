@@ -1,0 +1,74 @@
+import { setIcon } from "obsidian";
+import type { GridSpace } from "./spaces";
+
+export interface SpaceBarHandlers {
+  /** Open the grid list, anchored at the given point. */
+  onSwitcher: (x: number, y: number) => void;
+  /** Open the create menu, anchored at the given point. */
+  onCreate: (x: number, y: number) => void;
+  /** Open the grids management panel. */
+  onManage: () => void;
+}
+
+/**
+ * The floating controls that sit over the wall: a gear bottom left for
+ * managing grids, and bottom right the grid switcher and the create button.
+ *
+ * Kept separate from the selection action bar even though both float at the
+ * bottom. That one appears only while something is selected and speaks about
+ * the selection; these are always present and speak about the grid itself.
+ */
+export class SpaceBar {
+  private root: HTMLElement;
+  private manage: HTMLElement;
+  private switcher: HTMLElement;
+  private icon: HTMLElement;
+  private label: HTMLElement;
+
+  constructor(container: HTMLElement, handlers: SpaceBarHandlers) {
+    this.root = container.createDiv({ cls: "pg-spacebar" });
+
+    this.manage = this.root.createEl("button", { cls: "pg-space-manage" });
+    this.manage.setAttribute("aria-label", "Manage grids");
+    setIcon(this.manage, "settings");
+    this.manage.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      handlers.onManage();
+    };
+
+    const right = this.root.createDiv({ cls: "pg-space-right" });
+
+    this.switcher = right.createEl("button", { cls: "pg-space-switch" });
+    this.switcher.setAttribute("aria-label", "Switch grid");
+    this.icon = this.switcher.createDiv({ cls: "pg-space-icon" });
+    this.label = this.switcher.createDiv({ cls: "pg-space-label" });
+    const chevron = this.switcher.createDiv({ cls: "pg-space-chevron" });
+    setIcon(chevron, "chevron-up");
+    this.switcher.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      // Anchored to the button, not the pointer, so the menu lands in the same
+      // place however the button was reached.
+      const rect = this.switcher.getBoundingClientRect();
+      handlers.onSwitcher(rect.left, rect.top);
+    };
+
+    const create = right.createEl("button", { cls: "pg-space-create" });
+    create.setAttribute("aria-label", "New");
+    setIcon(create, "plus");
+    create.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      const rect = create.getBoundingClientRect();
+      handlers.onCreate(rect.right, rect.top);
+    };
+  }
+
+  /** Reflects whichever grid is on screen. */
+  setActive(grid: GridSpace): void {
+    setIcon(this.icon, grid.icon);
+    this.label.setText(grid.name);
+  }
+
+  destroy(): void {
+    this.root.remove();
+  }
+}

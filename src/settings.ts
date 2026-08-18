@@ -1,3 +1,5 @@
+import type { GridSpace } from "./spaces";
+
 export interface PowerGridSettings {
   clippingsFolder: string;
   attachmentFolder: string;
@@ -12,6 +14,18 @@ export interface PowerGridSettings {
    * image the site gives its own crawlers.
    */
   useResolvers: boolean;
+
+  /**
+   * Grids the user created, in the order they appear in the switcher, which
+   * is also the order their hotkeys run in. Home is not stored here: it always
+   * exists and is always first.
+   */
+  grids: GridSpace[];
+  /** Display name of the implicit grid. A clipping with no key belongs to it. */
+  homeGridName: string;
+  homeGridIcon: string;
+  /** Name of the grid on screen, persisted so a restart reopens where you were. */
+  activeGrid: string;
 }
 
 export const DEFAULT_SETTINGS: PowerGridSettings = {
@@ -22,4 +36,8 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   maxBytes: 26214400,
   thumbnailWidth: 400,
   useResolvers: true,
+  grids: [],
+  homeGridName: "Clippings",
+  homeGridIcon: "layout-grid",
+  activeGrid: "Clippings",
 };

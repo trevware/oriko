@@ -277,7 +277,12 @@ function today(): string {
 }
 
 /** Matches the Web Clipper's frontmatter contract, per vault CLAUDE.md §9. */
-export function buildNote(link: ResolvedLink, created = today()): string {
+/**
+ * `grid` is written only when the capture is going somewhere other than home.
+ * Home is the absence of the key, so stamping it would put a redundant line
+ * in every note the plugin creates.
+ */
+export function buildNote(link: ResolvedLink, created = today(), grid = ""): string {
   const lines = [
     "---",
     `title: ${yamlString(link.title)}`,
@@ -289,7 +294,9 @@ export function buildNote(link: ResolvedLink, created = today()): string {
   lines.push(link.published ? `published: ${yamlString(link.published)}` : "published:");
   lines.push(`created: ${created}`);
   lines.push(`description: ${yamlString(link.description)}`);
-  lines.push("tags:", '  - "clippings"', "---", "");
+  lines.push("tags:", '  - "clippings"');
+  if (grid) lines.push(`grid: ${yamlString(grid)}`);
+  lines.push("---", "");
 
   if (link.description) lines.push(link.description, "");
 
@@ -317,7 +324,8 @@ export function buildNote(link: ResolvedLink, created = today()): string {
 export function buildPastedImageNote(
   title: string,
   attachmentPath: string,
-  created: string
+  created: string,
+  grid = ""
 ): string {
   return [
     "---",
@@ -332,6 +340,7 @@ export function buildPastedImageNote(
     // A plain string: the scanner reads cover with str(), so a list here
     // would parse as empty and the clipping would have no tile at all.
     `cover: ${yamlString(attachmentPath)}`,
+    ...(grid ? [`grid: ${yamlString(grid)}`] : []),
     "---",
     "",
     `![[${attachmentPath}]]`,

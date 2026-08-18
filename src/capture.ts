@@ -117,7 +117,7 @@ export class CaptureService {
     try {
       const file = await this.app.vault.create(
         notePath,
-        buildPastedImageNote(title, attachment, today())
+        buildPastedImageNote(title, attachment, today(), this.targetGrid())
       );
       // Same as the link path: ingest alone leaves the grid unaware.
       await this.index.handleModify(file);
@@ -128,6 +128,12 @@ export class CaptureService {
     }
 
     this.onFinished?.(title);
+  }
+
+  /** The grid a new clipping should carry, or "" when that is home. */
+  private targetGrid(): string {
+    const settings = this.settings();
+    return settings.activeGrid === settings.homeGridName ? "" : settings.activeGrid;
   }
 
   private report(fraction: number | null, label: string): void {
@@ -297,7 +303,7 @@ export class CaptureService {
     }
 
     try {
-      return await this.app.vault.create(path, buildNote(link));
+      return await this.app.vault.create(path, buildNote(link, today(), this.targetGrid()));
     } catch (error) {
       new Notice(`Power Grid: could not create the note (${String(error)})`);
       return null;
