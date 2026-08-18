@@ -151,31 +151,40 @@ export class ContextMenu {
         setIcon(arrow, "arrow-right");
       }
 
-      records.push({ item, root: row, icon, detail });
+      const record: RowRecord = { item, root: row, icon, detail };
+      records.push(record);
+
+      // Everything below reads record.item, never the item captured above.
+      // patch() swaps that field, so a handler closing over the original
+      // would keep answering with the state the menu opened in: Clear
+      // filters, disabled while nothing was filtered, stayed unclickable
+      // after a filter was applied even though the row had visibly enabled.
 
       // Only the top panel spawns submenus, so only its rows manage one.
       if (panel === this.panel) {
         row.onmouseenter = () => {
-          if (item.disabled) return;
-          if (item.submenu) this.openSub(row, item.submenu);
+          const current = record.item;
+          if (current.disabled) return;
+          if (current.submenu) this.openSub(row, current.submenu);
           else this.closeSub();
         };
       }
 
       row.onclick = (event: MouseEvent) => {
         event.stopPropagation();
-        if (item.disabled) return;
-        if (item.submenu) {
-          this.openSub(row, item.submenu);
+        const current = record.item;
+        if (current.disabled) return;
+        if (current.submenu) {
+          this.openSub(row, current.submenu);
           return;
         }
-        if (item.keepOpen) {
-          item.onSelect?.();
+        if (current.keepOpen) {
+          current.onSelect?.();
           this.rerender();
           return;
         }
         this.close();
-        item.onSelect?.();
+        current.onSelect?.();
       };
     }
 
