@@ -32,7 +32,11 @@ const GAP = 6;
  */
 const SELECT_LIFT = 4;
 /** Must match the leave animation in styles.css. */
-const LEAVE_MS = 200;
+/* Must outlast the pg-vanish keyframes, or the element returns to the pool
+   mid-animation and the departure is cut off. */
+const LEAVE_MS = 260;
+/* Matches the pg-pop keyframes. */
+const ENTER_MS = 460;
 /** Per-tile delay when several enter at once, capped so a big batch is not slow. */
 const ENTER_STAGGER_MS = 28;
 const ENTER_STAGGER_CAP = 6;
@@ -232,6 +236,15 @@ export class GridRenderer {
       }
     }
     this.relayout();
+  }
+
+  /** Pops a newly arrived tile in, staggered so a batch lands as a wave. */
+  private playEnter(element: TileElement, id: string, order: number): void {
+    this.entering.delete(id);
+    const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
+    element.root.style.setProperty("--pg-enter-delay", `${delay}ms`);
+    element.root.addClass("is-entering");
+    window.setTimeout(() => element.root.removeClass("is-entering"), delay + ENTER_MS + 60);
   }
 
   /** Fades a removed tile out in place, then returns its element to the pool. */
@@ -731,6 +744,11 @@ export class GridRenderer {
     element.root.style.setProperty("--pg-sx", sx.toFixed(4));
     element.root.style.setProperty("--pg-sy", sy.toFixed(4));
 
+    // Ahead of the early returns below. A pooled element can come back
+    // already carrying the incoming tile's signature, and a genuinely new
+    // clipping that landed on one would then skip its entrance entirely.
+    if (this.entering.has(model.id)) this.playEnter(element, model.id, order);
+
     if (element.signature === model.signature) return;
 
     // Posters are always local files; the painted asset may be either.
@@ -756,18 +774,6 @@ export class GridRenderer {
       }
       element.signature = model.signature;
       return;
-    }
-
-    const isNew = this.entering.has(model.id);
-    if (isNew) {
-      this.entering.delete(model.id);
-      const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
-      element.root.style.setProperty("--pg-enter-delay", `${delay}ms`);
-      element.root.addClass("is-entering");
-      window.setTimeout(
-        () => element.root.removeClass("is-entering"),
-        delay + 420
-      );
     }
 
     element.id = model.id;
