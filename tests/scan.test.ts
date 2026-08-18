@@ -206,3 +206,17 @@ describe("splitFrontmatter", () => {
     expect(yaml).toBe('title: "a --- b"');
   });
 });
+
+describe("scanClipping grid key", () => {
+  it("reads the grid a clipping belongs to", () => {
+    expect(scanClipping("Clippings/a.md", { grid: "Playground" }, "").grid).toBe("Playground");
+  });
+
+  it("is empty when the note carries no key, which is every clipping today", () => {
+    expect(scanClipping("Clippings/a.md", { title: "A" }, "").grid).toBe("");
+  });
+
+  it("ignores a non-string value rather than rendering one", () => {
+    expect(scanClipping("Clippings/a.md", { grid: ["a", "b"] }, "").grid).toBe("");
+  });
+});

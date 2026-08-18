@@ -19,6 +19,13 @@ export interface ClippingRecord {
   created: string;
   /** Optional hand-set override for the grid tile's cover image. */
   cover: string;
+  /**
+   * Which grid this clipping belongs to. Empty means it carries no key, which
+   * is how every clipping that predates grids reads. Left raw here: turning
+   * it into an effective grid needs the registry, which scanning has no
+   * business knowing about. See spaces.ts.
+   */
+  grid: string;
   media: MediaRef[];
   haystack: string;
 }
@@ -190,6 +197,7 @@ export function scanClipping(
     .toLowerCase();
 
   const cover = str(frontmatter.cover);
+  const grid = str(frontmatter.grid);
 
   return {
     path,
@@ -200,6 +208,7 @@ export function scanClipping(
     status,
     created,
     cover,
+    grid,
     media,
     haystack,
   };

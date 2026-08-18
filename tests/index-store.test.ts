@@ -12,6 +12,7 @@ function rec(path: string, created: string, title: string): ClippingRecord {
     categories: [],
     status: "unread",
     cover: "",
+    grid: "",
     media: [],
     haystack: title.toLowerCase(),
   };
