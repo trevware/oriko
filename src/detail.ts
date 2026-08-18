@@ -41,6 +41,56 @@ function domainOf(url: string): string {
  * animated. The click position becomes the transform origin, so a corner
  * click swings out while a centre click grows straight forward.
  */
+/**
+ * True pixel size of the media, so the stage can be built at the right
+ * shape from the first frame. Resolves immediately for anything the grid
+ * already decoded, which is the common case, and gives up quickly rather
+ * than holding the open hostage to a slow network.
+ */
+function naturalSize(
+  url: string,
+  kind: "image" | "video",
+  fallback: { width: number; height: number },
+  timeoutMs = 220
+): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (size: { width: number; height: number }): void => {
+      if (settled) return;
+      settled = true;
+      resolve(size.width > 0 && size.height > 0 ? size : fallback);
+    };
+
+    const timer = window.setTimeout(() => finish(fallback), timeoutMs);
+    const done = (size: { width: number; height: number }): void => {
+      window.clearTimeout(timer);
+      finish(size);
+    };
+
+    if (kind === "video") {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => done({ width: video.videoWidth, height: video.videoHeight });
+      video.onerror = () => done(fallback);
+      video.src = url;
+      return;
+    }
+
+    const image = new Image();
+    if (image.complete && image.naturalWidth > 0) {
+      done({ width: image.naturalWidth, height: image.naturalHeight });
+      return;
+    }
+    image.onload = () => done({ width: image.naturalWidth, height: image.naturalHeight });
+    image.onerror = () => done(fallback);
+    image.src = url;
+    // A decoded image reports its size synchronously once src is assigned.
+    if (image.complete && image.naturalWidth > 0) {
+      done({ width: image.naturalWidth, height: image.naturalHeight });
+    }
+  });
+}
+
 export class DetailView {
   private root: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
@@ -63,9 +113,18 @@ export class DetailView {
     return file instanceof TFile ? this.app.vault.getResourcePath(file) : path;
   }
 
-  open(model: TileModel, origin: DetailOrigin): void {
+  /** Fires once the closing flight has finished and the overlay is gone. */
+  onClosed: (() => void) | null = null;
+
+  async open(model: TileModel, origin: DetailOrigin): Promise<void> {
     this.close(true);
     this.closing = false;
+
+    const url = model.remote ? model.filePath : this.resource(model.filePath);
+    const size = await naturalSize(url, model.kind, {
+      width: model.width,
+      height: model.height,
+    });
 
     this.root = this.container.createDiv({ cls: "cg-detail" });
     const backdrop = this.root.createDiv({ cls: "cg-detail-backdrop" });
@@ -93,7 +152,7 @@ export class DetailView {
     };
 
     const target = fitRect(
-      { width: model.width, height: model.height },
+      size,
       { width: bounds.width - SIDEBAR, height: bounds.height },
       PADDING
     );
@@ -135,42 +194,6 @@ export class DetailView {
     const image = this.stage.createEl("img", { cls: "cg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
-
-    // Cached dimensions can be a placeholder ratio, which would leave the
-    // stage a different shape from the image inside it. Re-fit once the
-    // real size is known, after the flight so the transform is not disturbed.
-    image.addEventListener(
-      "load",
-      () => {
-        if (image.naturalWidth > 0) {
-          window.setTimeout(
-            () => this.refit(image.naturalWidth, image.naturalHeight),
-            FLIGHT_MS
-          );
-        }
-      },
-      { once: true }
-    );
-  }
-
-  /** Reshapes the stage to the media's true aspect, once it is known. */
-  private refit(width: number, height: number): void {
-    if (!this.stage || this.closing) return;
-
-    const bounds = this.container.getBoundingClientRect();
-    const target = fitRect(
-      { width, height },
-      { width: bounds.width - SIDEBAR, height: bounds.height },
-      PADDING
-    );
-
-    if (Math.abs(target.w - this.stage.offsetWidth) < 2) return;
-
-    this.stage.addClass("is-settling");
-    this.stage.style.left = `${target.x}px`;
-    this.stage.style.top = `${target.y}px`;
-    this.stage.style.width = `${target.w}px`;
-    this.stage.style.height = `${target.h}px`;
   }
 
   private paintMeta(model: TileModel, bounds: DOMRect): void {
@@ -317,5 +340,6 @@ export class DetailView {
     this.stage = null;
     this.origin = null;
     this.closing = false;
+    this.onClosed?.();
   }
 }

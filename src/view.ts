@@ -88,7 +88,11 @@ export class ClippingsGridView extends ItemView {
         if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
       },
     });
-    this.grid.onOpenDetail = (model, origin) => this.detail?.open(model, origin);
+    this.detail.onClosed = () => this.grid?.focusTile(null);
+    this.grid.onOpenDetail = (model, origin) => {
+      this.grid?.focusTile(model.id);
+      void this.detail?.open(model, origin);
+    };
 
     this.grid.onSourceFailed = (id: string, signature: string) => {
       if (this.unloadable.get(id) === signature) return;

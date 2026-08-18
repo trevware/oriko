@@ -45,6 +45,8 @@ const CLICK_SLOP = 3;
 const PINCH_SENSITIVITY = 0.01;
 /** Degrees a card tips at its edges. Small: it should read as give, not spin. */
 const MAX_TILT_DEG = 5.5;
+/** How far neighbours give way when a card opens, in screen pixels. */
+const FOCUS_PUSH_PX = 26;
 
 interface TileElement {
   root: HTMLElement;
@@ -112,6 +114,10 @@ export class GridRenderer {
   private tiltedId: string | null = null;
   private pointer: { x: number; y: number } | null = null;
   private tiltFrame = 0;
+
+  /** The card currently open in the detail view, hidden while it is. */
+  private focusedId: string | null = null;
+  private pushOffsets = new Map<string, { x: number; y: number }>();
 
   onRendered: () => void = () => {};
   onSourceFailed: (id: string, signature: string) => void = () => {};
@@ -612,6 +618,43 @@ export class GridRenderer {
     this.clearTilt();
   }
 
+  /**
+   * Hides the card that just opened and eases its neighbours outward.
+   *
+   * Hiding it is what makes the return read as one motion: leave it in
+   * place and the flight lands on top of a duplicate of itself, which is
+   * exactly the sliding-transparency effect it looks like.
+   */
+  focusTile(id: string | null): void {
+    this.focusedId = id;
+    this.pushOffsets.clear();
+
+    const focus = id ? this.positionById.get(id) : null;
+    if (focus) {
+      const cx = focus.x + focus.w / 2;
+      const cy = focus.y + focus.h / 2;
+      // Push is specified in screen pixels, so convert through the camera or
+      // it would grow and shrink with zoom.
+      const push = FOCUS_PUSH_PX / this.camera.zoom;
+
+      for (const tileId of this.mounted.keys()) {
+        if (tileId === id) continue;
+        const box = this.positionById.get(tileId);
+        if (!box) continue;
+        const dx = box.x + box.w / 2 - cx;
+        const dy = box.y + box.h / 2 - cy;
+        const distance = Math.hypot(dx, dy);
+        if (distance < 0.001) continue;
+        this.pushOffsets.set(tileId, {
+          x: (dx / distance) * push,
+          y: (dy / distance) * push,
+        });
+      }
+    }
+
+    this.render();
+  }
+
   private endPan(): void {
     this.spaceHeld = false;
     this.panning = false;
@@ -704,7 +747,11 @@ export class GridRenderer {
     // position; a pooled element reused for a different clipping snaps,
     // otherwise it would visibly fly across the canvas.
     element.root.toggleClass("is-gliding", element.id === model.id);
-    element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+    element.root.toggleClass("is-focus-hidden", this.focusedId === model.id);
+    const push = this.pushOffsets.get(model.id);
+    element.root.style.transform = `translate3d(${
+      position.x + (push?.x ?? 0)
+    }px, ${position.y + (push?.y ?? 0)}px, 0)`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
 
@@ -924,6 +971,7 @@ export class GridRenderer {
     if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
     this.mounted.clear();
     this.measured.clear();
+    this.pushOffsets.clear();
     this.pool = [];
   }
 }
