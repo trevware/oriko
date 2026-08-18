@@ -7,7 +7,12 @@ import { ConfirmDeleteModal } from "./confirm";
 import { ContextMenu } from "./context-menu";
 import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
-import { GridEditModal, GridsPanelModal } from "./grid-modals";
+import {
+  GridEditModal,
+  GridsPanelModal,
+  confirmGridDelete,
+  openGridEditor,
+} from "./grid-modals";
 import type { GridsController } from "./grid-modals";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
@@ -88,12 +93,12 @@ export class PowerGridView extends ItemView {
 
     this.menu = new ContextMenu(this.contentEl);
     this.grid.onContextRequested = (ids, x, y) =>
-      this.menu?.open(this.menuItems(ids, x, y), x, y);
+      this.menu?.open(this.menuItems(ids), x, y);
 
     this.spaceBar = new SpaceBar(this.contentEl, {
       onSwitcher: (x, y) => this.openSwitcher(x, y),
       onCreate: (x, y) => this.openCreate(x, y),
-      onManage: () => new GridsPanelModal(this.app, this.gridsController()).open(),
+      onSettings: (x, y) => this.openSettings(x, y),
     });
     this.spaceBar.setActive(this.activeGrid());
 
@@ -226,7 +231,7 @@ export class PowerGridView extends ItemView {
     return [...new Set(paths)];
   }
 
-  private menuItems(ids: string[], x: number, y: number): MenuItem[] {
+  private menuItems(ids: string[]): MenuItem[] {
     const n = ids.length;
     const count = n === 1 ? "1 selected" : `${n} selected`;
     const items: MenuItem[] = [];
@@ -261,10 +266,13 @@ export class PowerGridView extends ItemView {
 
     if (this.allGrids().length > 1) {
       items.push({
-        icon: "layers",
+        icon: "corner-up-right",
         label: "Move to grid",
-        detail: "\u203a",
-        onSelect: () => this.openMoveTo(ids, x, y),
+        submenu: this.allGrids().map((grid) => ({
+          icon: grid.icon,
+          label: grid.name,
+          onSelect: () => void this.moveTo(ids, grid.name),
+        })),
       });
     }
 
@@ -422,6 +430,48 @@ export class PowerGridView extends ItemView {
     this.menu?.open(items, x, y);
   }
 
+  /** Settings for the grid on screen, with the whole set one step further in. */
+  private openSettings(x: number, y: number): void {
+    const active = this.activeGrid();
+    const index = this.plugin.settings.grids.findIndex((grid) => grid.name === active.name);
+    const controller = this.gridsController();
+    const isHome = index === -1;
+
+    this.menu?.open(
+      [
+        {
+          icon: "pencil",
+          label: "Edit grid",
+          detail: active.name,
+          onSelect: () =>
+            openGridEditor(this.app, controller, active, isHome ? undefined : index, () =>
+              this.refresh()
+            ),
+        },
+        {
+          icon: "trash-2",
+          label: "Delete grid",
+          // Home is where an unknown grid falls back to, so something has to
+          // always be there. Shown rather than hidden, so the row does not
+          // appear and vanish depending on where you are.
+          detail: isHome ? "Home grid" : undefined,
+          disabled: isHome,
+          destructive: !isHome,
+          onSelect: () => confirmGridDelete(this.app, controller, active, index),
+        },
+        {
+          icon: "layers",
+          label: "Manage grids",
+          divider: true,
+          detail: `${this.allGrids().length} grids`,
+          onSelect: () => new GridsPanelModal(this.app, controller).open(),
+        },
+      ],
+      x,
+      y
+    );
+  }
+
   private openCreate(x: number, y: number): void {
     this.menu?.open(
       [
@@ -458,16 +508,6 @@ export class PowerGridView extends ItemView {
       home: this.plugin.settings.homeGridName,
       onSubmit: (space) => void this.gridsController().create(space),
     }).open();
-  }
-
-  /** Reopens the menu in place with the grid list: a submenu in effect. */
-  private openMoveTo(ids: string[], x: number, y: number): void {
-    const items: MenuItem[] = this.allGrids().map((grid) => ({
-      icon: grid.icon,
-      label: grid.name,
-      onSelect: () => void this.moveTo(ids, grid.name),
-    }));
-    this.menu?.open(items, x, y);
   }
 
   private async moveTo(ids: string[], target: string): Promise<void> {

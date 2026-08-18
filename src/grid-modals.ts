@@ -156,6 +156,79 @@ export class GridConfirmModal extends Modal {
   }
 }
 
+/**
+ * Edit one grid. `index` is its position in the registry, or undefined for
+ * home, which lives outside it.
+ *
+ * Lifted out of the panel so the settings menu shares these confirmations
+ * rather than growing a second, drifting copy of them.
+ */
+export function openGridEditor(
+  app: App,
+  grids: GridsController,
+  grid: GridSpace,
+  index: number | undefined,
+  after: () => void = () => undefined
+): void {
+  const others = grids
+    .grids()
+    .filter((_, i) => i !== index)
+    .map((g) => g.name);
+
+  new GridEditModal(app, {
+    heading: `Edit ${grid.name}`,
+    cta: "Save",
+    initial: grid,
+    existing: others,
+    // Home is not in the registry and cannot collide with itself.
+    home: index === undefined ? "" : grids.home().name,
+    self: grid.name,
+    onSubmit: (next) => {
+      const renamed = next.name !== grid.name;
+      const members = renamed ? grids.memberCount(grid.name) : 0;
+      const apply = (): void => void grids.rename(grid.name, next).then(after);
+
+      // Only a rename touches notes. Changing an icon is settings alone, so
+      // it should not stop to ask.
+      if (renamed && members > 0) {
+        new GridConfirmModal(app, {
+          heading: `Rename ${grid.name} to ${next.name}?`,
+          body:
+            members === 1
+              ? "1 clipping carries this grid and will be updated."
+              : `${members} clippings carry this grid and will be updated.`,
+          cta: "Rename",
+          onConfirm: apply,
+        }).open();
+        return;
+      }
+      apply();
+    },
+  }).open();
+}
+
+export function confirmGridDelete(
+  app: App,
+  grids: GridsController,
+  grid: GridSpace,
+  index: number,
+  after: () => void = () => undefined
+): void {
+  const members = grids.memberCount(grid.name);
+  const home = grids.home().name;
+
+  new GridConfirmModal(app, {
+    heading: `Delete ${grid.name}?`,
+    body:
+      members === 0
+        ? "The grid is empty, so nothing moves."
+        : `${members} clipping${members === 1 ? "" : "s"} will return to ${home}. No notes are deleted and nothing is rewritten.`,
+    cta: "Delete grid",
+    destructive: true,
+    onConfirm: () => void grids.remove(index).then(after),
+  }).open();
+}
+
 /** Managing the whole set: rename, re-icon, reorder, delete. */
 export class GridsPanelModal extends Modal {
   constructor(app: App, private grids: GridsController) {
@@ -177,18 +250,19 @@ export class GridsPanelModal extends Modal {
     this.row(contentEl, home, {
       // Home cannot be deleted or moved: it is where an unknown grid falls
       // back to, so something has to always be there, first.
-      onEdit: () => this.edit(home, undefined, home.name),
+      onEdit: () => openGridEditor(this.app, this.grids, home, undefined, () => this.render()),
     });
 
     list.forEach((grid, index) => {
       this.row(contentEl, grid, {
-        onEdit: () => this.edit(grid, index, grid.name),
+        onEdit: () => openGridEditor(this.app, this.grids, grid, index, () => this.render()),
         onUp: index > 0 ? () => void this.grids.reorder(index, -1).then(() => this.render()) : undefined,
         onDown:
           index < list.length - 1
             ? () => void this.grids.reorder(index, 1).then(() => this.render())
             : undefined,
-        onDelete: () => this.confirmDelete(grid, index),
+        onDelete: () =>
+          confirmGridDelete(this.app, this.grids, grid, index, () => this.render()),
       });
     });
 
@@ -240,63 +314,6 @@ export class GridsPanelModal extends Modal {
     button("chevron-down", "Move down", actions.onDown);
     button("pencil", "Rename", actions.onEdit);
     button("trash-2", "Delete", actions.onDelete);
-  }
-
-  private edit(grid: GridSpace, index: number | undefined, self: string): void {
-    const others = this.grids
-      .grids()
-      .filter((_, i) => i !== index)
-      .map((g) => g.name);
-    const home = this.grids.home().name;
-
-    new GridEditModal(this.app, {
-      heading: `Edit ${grid.name}`,
-      cta: "Save",
-      initial: grid,
-      existing: others,
-      home: index === undefined ? "" : home,
-      self,
-      onSubmit: (next) => {
-        const renamed = next.name !== grid.name;
-        const members = renamed ? this.grids.memberCount(grid.name) : 0;
-
-        const apply = (): void => {
-          void this.grids.rename(grid.name, next).then(() => this.render());
-        };
-
-        // Only a rename touches notes. An icon change is settings only, so it
-        // should not stop to ask.
-        if (renamed && members > 0) {
-          new GridConfirmModal(this.app, {
-            heading: `Rename ${grid.name} to ${next.name}?`,
-            body:
-              members === 1
-                ? "1 clipping carries this grid and will be updated."
-                : `${members} clippings carry this grid and will be updated.`,
-            cta: "Rename",
-            onConfirm: apply,
-          }).open();
-          return;
-        }
-        apply();
-      },
-    }).open();
-  }
-
-  private confirmDelete(grid: GridSpace, index: number): void {
-    const members = this.grids.memberCount(grid.name);
-    const home = this.grids.home().name;
-
-    new GridConfirmModal(this.app, {
-      heading: `Delete ${grid.name}?`,
-      body:
-        members === 0
-          ? "The grid is empty, so nothing moves."
-          : `${members} clipping${members === 1 ? "" : "s"} will return to ${home}. No notes are deleted and nothing is rewritten.`,
-      cta: "Delete grid",
-      destructive: true,
-      onConfirm: () => void this.grids.remove(index).then(() => this.render()),
-    }).open();
   }
 
   onClose(): void {

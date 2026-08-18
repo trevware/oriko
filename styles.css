@@ -557,6 +557,32 @@
   background: var(--pg-inner-hover);
 }
 
+/* The row stays lit while its submenu is open, so the choice keeps the
+   context it was made from. */
+.pg-menu-item.is-open-parent {
+  background: var(--pg-inner-hover);
+}
+
+.pg-menu-arrow {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--pg-surface-text);
+  opacity: 0.5;
+}
+
+.pg-menu-arrow .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Above its parent, and never wider than it needs to be: a list of grid
+   names should not inherit the parent's min-width. */
+.pg-menu-sub {
+  z-index: 42;
+  min-width: 180px;
+}
+
 .pg-menu-item.is-destructive:hover {
   background: rgba(255, 82, 82, 0.18);
 }
@@ -860,17 +886,13 @@
   box-shadow: var(--pg-surface-ring), var(--pg-surface-lift), inset 0 0 0 999px var(--pg-inner-hover);
 }
 
-/* Managing grids is a rare, deliberate act, so it sits apart from the two
-   controls you actually reach for and stays quiet until looked at. */
+/* Sits apart from the two controls on the other side, but at full strength:
+   a permanent control that fades out at rest reads as one that has been
+   dismissed, and you cannot tell it is clickable without finding it first. */
 .pg-space-manage {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  opacity: 0.4;
-}
-
-.pg-space-manage:hover {
-  opacity: 1;
 }
 
 .pg-space-switch {

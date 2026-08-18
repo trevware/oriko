@@ -9,8 +9,8 @@ export interface SpaceBarHandlers {
   onSwitcher: (x: number, y: number) => void;
   /** Open the create menu, anchored at the given point. */
   onCreate: (x: number, y: number) => void;
-  /** Open the grids management panel. */
-  onManage: () => void;
+  /** Open the settings menu for the grid on screen, anchored at a point. */
+  onSettings: (x: number, y: number) => void;
 }
 
 /**
@@ -32,11 +32,14 @@ export class SpaceBar {
     this.root = container.createDiv({ cls: "pg-spacebar" });
 
     this.manage = this.root.createEl("button", { cls: "pg-space-manage" });
-    this.manage.setAttribute("aria-label", "Manage grids");
-    setIcon(this.manage, "settings");
+    this.manage.setAttribute("aria-label", "Grid settings");
+    setIcon(this.manage, "sliders-horizontal");
     this.manage.onclick = (event: MouseEvent) => {
       event.stopPropagation();
-      handlers.onManage();
+      // Left edge, so the flip in placeMenu leaves it opening rightward and
+      // upward out of the button, mirroring the two on the other side.
+      const rect = this.manage.getBoundingClientRect();
+      handlers.onSettings(rect.left, rect.top - LAUNCH_GAP);
     };
 
     const right = this.root.createDiv({ cls: "pg-space-right" });
