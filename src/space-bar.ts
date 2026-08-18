@@ -11,6 +11,8 @@ export interface SpaceBarHandlers {
   onCreate: (x: number, y: number) => void;
   /** Open the settings menu for the grid on screen, anchored at a point. */
   onSettings: (x: number, y: number) => void;
+  /** Open the filter menu, anchored at a point. */
+  onFilter: (x: number, y: number) => void;
 }
 
 /**
@@ -24,6 +26,8 @@ export interface SpaceBarHandlers {
 export class SpaceBar {
   private root: HTMLElement;
   private manage: HTMLElement;
+  private filter: HTMLElement;
+  private filterCount: HTMLElement;
   private switcher: HTMLElement;
   private icon: HTMLElement;
   private label: HTMLElement;
@@ -31,7 +35,21 @@ export class SpaceBar {
   constructor(container: HTMLElement, handlers: SpaceBarHandlers) {
     this.root = container.createDiv({ cls: "pg-spacebar" });
 
-    this.manage = this.root.createEl("button", { cls: "pg-space-manage" });
+    // Left cluster: what you are looking at. Right cluster: which wall it is,
+    // and adding to it.
+    const left = this.root.createDiv({ cls: "pg-space-left" });
+
+    this.filter = left.createEl("button", { cls: "pg-space-filter" });
+    this.filter.setAttribute("aria-label", "Filter");
+    setIcon(this.filter, "list-filter");
+    this.filterCount = this.filter.createDiv({ cls: "pg-space-count" });
+    this.filter.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      const rect = this.filter.getBoundingClientRect();
+      handlers.onFilter(rect.left, rect.top - LAUNCH_GAP);
+    };
+
+    this.manage = left.createEl("button", { cls: "pg-space-manage" });
     this.manage.setAttribute("aria-label", "Grid settings");
     setIcon(this.manage, "sliders-horizontal");
     this.manage.onclick = (event: MouseEvent) => {
@@ -75,6 +93,16 @@ export class SpaceBar {
   setActive(grid: GridSpace): void {
     setIcon(this.icon, grid.icon);
     this.label.setText(grid.name);
+  }
+
+  /**
+   * A filter hides things, so it has to say so from the outside. Without a
+   * count on the button, a filtered wall is indistinguishable from an empty
+   * grid, and the only clue is a menu you have to open to read.
+   */
+  setFilterCount(count: number): void {
+    this.filterCount.setText(count > 0 ? String(count) : "");
+    this.filter.toggleClass("is-active", count > 0);
   }
 
   destroy(): void {

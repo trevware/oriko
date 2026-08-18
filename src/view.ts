@@ -18,6 +18,16 @@ import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
+import {
+  FACETS,
+  activeCount,
+  emptyFilter,
+  facetsOf,
+  isFilterEmpty,
+  matchesFilter,
+  toggleFacet,
+} from "./filter";
+import type { Facet, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
 import {
   filterByGrid,
@@ -27,6 +37,7 @@ import {
 } from "./spaces";
 import type { GridSpace } from "./spaces";
 import { buildTiles } from "./tile";
+import type { TileModel } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
 
@@ -41,6 +52,12 @@ export class PowerGridView extends ItemView {
   private spaceBar: SpaceBar | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
+  /**
+   * Not persisted, and cleared on a grid switch. A filter hides things, so
+   * one that outlives the moment you set it turns into a wall that looks
+   * emptier than it is for a reason you no longer remember.
+   */
+  private filter: FilterState = emptyFilter();
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -100,6 +117,7 @@ export class PowerGridView extends ItemView {
       onSwitcher: (x, y) => this.openSwitcher(x, y),
       onCreate: (x, y) => this.openCreate(x, y),
       onSettings: (x, y) => this.openSettings(x, y),
+      onFilter: (x, y) => this.openFilter(x, y),
     });
     this.spaceBar.setActive(this.activeGrid());
 
@@ -381,7 +399,79 @@ export class PowerGridView extends ItemView {
       this.plugin.archiver.cache,
       this.unloadable
     );
-    this.grid.setTiles(tiles, options);
+
+    // Facets are counted from the whole grid, not from what survives the
+    // filter: counting the result would make options disappear the moment
+    // you used one, leaving no way back.
+    this.facets = tiles;
+    this.spaceBar?.setFilterCount(activeCount(this.filter));
+
+    this.grid.setTiles(
+      isFilterEmpty(this.filter) ? tiles : tiles.filter((t) => matchesFilter(t, this.filter)),
+      options
+    );
+  }
+
+  /** The grid's tiles before filtering, which is what the facets count. */
+  private facets: TileModel[] = [];
+
+  private openFilter(x: number, y: number): void {
+    const build = (): MenuItem[] => {
+      const available = facetsOf(this.facets);
+      const labels: Record<Facet, string> = {
+        categories: "Categories",
+        statuses: "Status",
+        kinds: "Media type",
+        domains: "Source",
+      };
+      const icons: Record<Facet, string> = {
+        categories: "tag",
+        statuses: "circle-dot",
+        kinds: "image",
+        domains: "globe",
+      };
+
+      const items: MenuItem[] = FACETS.map((facet) => {
+        const values = available[facet];
+        const chosen = this.filter[facet];
+        return {
+          icon: icons[facet],
+          label: labels[facet],
+          // Nothing to offer is still worth showing: an absent row reads as a
+          // missing feature, a disabled one reads as an empty shelf.
+          disabled: values.length === 0,
+          detail: values.length === 0 ? "none" : chosen.length > 0 ? `${chosen.length}` : undefined,
+          submenu: values.map((entry) => ({
+            icon: chosen.includes(entry.value) ? "check" : "",
+            label: entry.value,
+            detail: String(entry.count),
+            keepOpen: true,
+            onSelect: () => {
+              this.filter = toggleFacet(this.filter, facet, entry.value);
+              this.refresh({ replace: true });
+            },
+          })),
+        };
+      });
+
+      const active = activeCount(this.filter);
+      items.push({
+        icon: "circle-slash",
+        label: "Clear filters",
+        divider: true,
+        disabled: active === 0,
+        detail: active > 0 ? `${active} active` : undefined,
+        keepOpen: true,
+        onSelect: () => {
+          this.filter = emptyFilter();
+          this.refresh({ replace: true });
+        },
+      });
+
+      return items;
+    };
+
+    this.menu?.open(build(), x, y, build);
   }
 
   // ---- Grids -------------------------------------------------------------
@@ -411,7 +501,10 @@ export class PowerGridView extends ItemView {
     if (this.plugin.settings.activeGrid === name) return;
     this.plugin.settings.activeGrid = name;
 
-    // Selection and camera both describe tiles that are about to be replaced.
+    // Selection, camera and filter all describe tiles that are about to be
+    // replaced. The filter especially: it was chosen from facets that only
+    // existed in the grid being left.
+    this.filter = emptyFilter();
     this.grid?.clearSelection();
     // replace, not add: departing tiles go straight back to the pool so the
     // arrivals can recycle them, and the camera is placed rather than tweened.

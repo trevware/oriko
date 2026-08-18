@@ -16,6 +16,12 @@ export interface MenuItem {
    * the row stays lit, so the choice keeps the context it was made from.
    */
   submenu?: MenuItem[];
+  /**
+   * Leaves the menu up after selecting, for a row you are expected to use
+   * several of in a row. Needs a rebuild passed to open(), or the menu would
+   * keep showing the state it had before you touched it.
+   */
+  keepOpen?: boolean;
   onSelect?: () => void;
 }
 
@@ -35,6 +41,9 @@ export class ContextMenu {
   private panel: HTMLElement | null = null;
   private sub: HTMLElement | null = null;
   private onKey: ((event: KeyboardEvent) => void) | null = null;
+  private rebuild: (() => MenuItem[]) | null = null;
+  /** Which submenu is showing, so a rebuild can put it back. */
+  private openLabel: string | null = null;
 
   constructor(private container: HTMLElement) {}
 
@@ -42,9 +51,15 @@ export class ContextMenu {
     return this.panel !== null;
   }
 
-  open(items: MenuItem[], clientX: number, clientY: number): void {
+  open(
+    items: MenuItem[],
+    clientX: number,
+    clientY: number,
+    rebuild?: () => MenuItem[]
+  ): void {
     this.close();
     if (items.length === 0) return;
+    this.rebuild = rebuild ?? null;
 
     this.backdrop = this.container.createDiv({ cls: "pg-menu-backdrop" });
     this.panel = this.container.createDiv({ cls: "pg-menu" });
@@ -107,7 +122,9 @@ export class ContextMenu {
       if (item.disabled) row.addClass("is-disabled");
 
       const icon = row.createDiv({ cls: "pg-menu-icon" });
-      setIcon(icon, item.icon);
+      // Blank is meaningful: an unticked row still needs the gutter, or the
+      // labels jump sideways as things are selected.
+      if (item.icon) setIcon(icon, item.icon);
       row.createDiv({ cls: "pg-menu-label", text: item.label });
 
       if (item.submenu) {
@@ -134,18 +151,47 @@ export class ContextMenu {
           this.openSub(row, item.submenu);
           return;
         }
+        if (item.keepOpen) {
+          item.onSelect?.();
+          this.rerender();
+          return;
+        }
         this.close();
         item.onSelect?.();
       };
     }
   }
 
+  /**
+   * Rebuilds both panels in place after a keepOpen selection, restoring the
+   * submenu that was showing. The position is left alone: facet rows do not
+   * come and go, only their ticks and counts, so the panel keeps its size.
+   */
+  private rerender(): void {
+    if (!this.rebuild || !this.panel) return;
+    const reopen = this.openLabel;
+    const items = this.rebuild();
+
+    this.closeSub();
+    this.panel.empty();
+    this.fill(this.panel, items);
+
+    if (!reopen) return;
+    const parent = items.find((item) => item.label === reopen);
+    if (!parent?.submenu) return;
+    const row = this.panel
+      .findAll(".pg-menu-label")
+      .find((label) => label.textContent === reopen)?.parentElement;
+    if (row) this.openSub(row, parent.submenu, reopen);
+  }
+
   /** Beside the parent, top aligned with the row that opened it. */
-  private openSub(row: HTMLElement, items: MenuItem[]): void {
+  private openSub(row: HTMLElement, items: MenuItem[], label?: string): void {
     if (row.hasClass("is-open-parent")) return;
     this.closeSub();
     if (!this.panel || items.length === 0) return;
 
+    this.openLabel = label ?? row.find(".pg-menu-label")?.textContent ?? null;
     row.addClass("is-open-parent");
     this.sub = this.container.createDiv({ cls: "pg-menu pg-menu-sub" });
     this.fill(this.sub, items);
@@ -179,6 +225,7 @@ export class ContextMenu {
   private closeSub(): void {
     this.sub?.remove();
     this.sub = null;
+    this.openLabel = null;
     this.panel?.findAll(".is-open-parent").forEach((row) => row.removeClass("is-open-parent"));
   }
 
@@ -186,6 +233,7 @@ export class ContextMenu {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
     this.closeSub();
+    this.rebuild = null;
     this.backdrop?.remove();
     this.panel?.remove();
     this.backdrop = null;

@@ -605,6 +605,10 @@
 .pg-menu-sub {
   z-index: 42;
   min-width: 180px;
+  /* A source or category list grows with the collection, so it scrolls
+     rather than running off the top of the pane. */
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .pg-menu-item.is-destructive:hover {
@@ -888,6 +892,7 @@
   pointer-events: none;
 }
 
+.pg-space-left,
 .pg-space-right {
   display: flex;
   align-items: center;
@@ -930,10 +935,36 @@
 /* Sits apart from the two controls on the other side, but at full strength:
    a permanent control that fades out at rest reads as one that has been
    dismissed, and you cannot tell it is clickable without finding it first. */
-.pg-space-manage {
+.pg-space-manage,
+.pg-space-filter {
   width: 48px;
   height: 38px;
   border-radius: 19px;
+}
+
+/* Lit while filtering, because a filtered wall and an empty grid look
+   identical from the outside otherwise. */
+.pg-space-filter.is-active {
+  color: var(--color-accent);
+}
+
+.pg-space-count {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  min-width: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: var(--text-on-accent, #fff);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  text-align: center;
+}
+
+.pg-space-count:empty {
+  display: none;
 }
 
 .pg-space-switch {
