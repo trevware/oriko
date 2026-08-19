@@ -397,7 +397,7 @@ export class Palette {
 }
 
 /** Writes a label with its matched runs marked, for the search highlight. */
-function paintLabel(el: HTMLElement, label: string, ranges: MatchRange[]): void {
+export function paintLabel(el: HTMLElement, label: string, ranges: MatchRange[]): void {
   if (ranges.length === 0) {
     el.setText(label);
     return;
@@ -412,7 +412,7 @@ function paintLabel(el: HTMLElement, label: string, ranges: MatchRange[]): void 
   if (cursor < label.length) el.createSpan({ text: label.slice(cursor) });
 }
 
-function hint(foot: HTMLElement, key: string, text: string): void {
+export function hint(foot: HTMLElement, key: string, text: string): void {
   const item = foot.createDiv({ cls: "pg-palette-hint" });
   item.createSpan({ cls: "pg-palette-key", text: key });
   item.createSpan({ text });

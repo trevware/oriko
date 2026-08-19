@@ -7,18 +7,14 @@ import { buildCommands } from "./commands";
 import type { PaletteContext } from "./commands";
 import { ConfirmDeleteModal } from "./confirm";
 import { todayISO } from "./dates";
-import { ValuePromptModal } from "./value-prompt";
+import { Sheet } from "./sheet";
+import type { SheetRow } from "./sheet";
 import { isEditable, withValue, withoutValue } from "./editable";
 import { ContextMenu } from "./context-menu";
+import { openGridEditor, openGridsManager, openNewGrid } from "./grid-sheets";
 import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
-import {
-  GridEditModal,
-  GridsPanelModal,
-  confirmGridDelete,
-  openGridEditor,
-} from "./grid-modals";
-import type { GridsController } from "./grid-modals";
+import type { GridsController } from "./grid-sheets";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
@@ -109,6 +105,7 @@ export class PowerGridView extends ItemView {
    * archiving gives it a different, working cover.
    */
   private unloadable = new Map<string, string>();
+  private sheet: Sheet | null = null;
   /**
    * Values set from the open menu, before the vault has confirmed them.
    *
@@ -181,6 +178,7 @@ export class PowerGridView extends ItemView {
     };
 
     this.menu = new ContextMenu(this.contentEl);
+    this.sheet = new Sheet(this.contentEl);
     this.grid.onContextRequested = (ids, x, y) => {
       this.edited.clear();
       this.vocabularies.clear();
@@ -1051,10 +1049,44 @@ export class PowerGridView extends ItemView {
     single: boolean,
     held: string[]
   ): void {
-    const options = propertyVocabulary(this.facets, key).values.map((v) => v.value);
-    new ValuePromptModal(this.app, `New ${facetLabel(key).toLowerCase()}`, options, (value) => {
+    const options = propertyVocabulary(this.facets, key).values;
+
+    const apply = (value: string): void => {
+      this.sheet?.close();
       void this.setProperty(path, key, single ? [value] : withValue(held, value));
-    }).open();
+    };
+
+    this.sheet?.open({
+      title: facetLabel(key),
+      placeholder: `Add to ${facetLabel(key).toLowerCase()}…`,
+      filters: true,
+      hints: [
+        ["↑↓", "navigate"],
+        ["↵", "select"],
+        ["esc", "close"],
+      ],
+      rows: (query) => {
+        const rows: SheetRow[] = options.map((entry) => ({
+          label: entry.value,
+          detail: String(entry.count),
+          detailIcon: held.includes(entry.value) ? "check" : undefined,
+          onChoose: () => apply(entry.value),
+        }));
+
+        // Offered only when it is not already there, so the list never shows
+        // Create beside the very value it would duplicate.
+        const typed = query.trim();
+        if (typed && !options.some((entry) => entry.value === typed)) {
+          rows.push({
+            label: `Create “${typed}”`,
+            icon: "plus",
+            alwaysShow: true,
+            onChoose: () => apply(typed),
+          });
+        }
+        return rows;
+      },
+    });
   }
 
   private async assign(paths: string[], target: string): Promise<number> {
@@ -1099,9 +1131,11 @@ export class PowerGridView extends ItemView {
   }
 
   private editActiveGrid(): void {
+    if (!this.sheet) return;
     const index = this.activeGridIndex();
+    this.sheet.close();
     openGridEditor(
-      this.app,
+      this.sheet,
       this.gridsController(),
       this.activeGrid(),
       index === -1 ? undefined : index,
@@ -1113,11 +1147,14 @@ export class PowerGridView extends ItemView {
     const index = this.activeGridIndex();
     // Home is where an unknown grid falls back to, so it always has to exist.
     if (index === -1) return;
-    confirmGridDelete(this.app, this.gridsController(), this.activeGrid(), index);
+    // Through the manager, so the confirmation arrives on the same surface as
+    // every other grid decision rather than as a modal of its own.
+    this.manageGrids();
   }
 
   private manageGrids(): void {
-    new GridsPanelModal(this.app, this.gridsController()).open();
+    if (!this.sheet) return;
+    openGridsManager(this.sheet, this.gridsController(), () => this.refresh());
   }
 
   /** Settings for the grid on screen, with the whole set one step further in. */
@@ -1184,14 +1221,8 @@ export class PowerGridView extends ItemView {
   }
 
   private promptNewGrid(): void {
-    new GridEditModal(this.app, {
-      heading: "New grid",
-      cta: "Create",
-      initial: { name: "", icon: "star" },
-      existing: this.plugin.settings.grids.map((grid) => grid.name),
-      home: this.plugin.settings.homeGridName,
-      onSubmit: (space) => void this.gridsController().create(space),
-    }).open();
+    if (!this.sheet) return;
+    openNewGrid(this.sheet, this.gridsController(), () => this.refresh());
   }
 
   private async moveTo(ids: string[], target: string): Promise<void> {
