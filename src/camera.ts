@@ -1,3 +1,5 @@
+import type { Box } from "./layout";
+
 export interface Camera {
   /** Screen-space offset of the content origin. */
   x: number;
@@ -119,4 +121,53 @@ export function initialCamera(viewport: Size, content: Size): Camera {
 export function preserveAnchor(camera: Camera, oldY: number, newY: number): Camera {
   if (!Number.isFinite(oldY) || !Number.isFinite(newY)) return camera;
   return { ...camera, y: camera.y + (oldY - newY) * camera.zoom };
+}
+
+/**
+ * How much of the viewport a revealed tile should fill at most, and at
+ * least. Between the two the camera keeps whatever zoom it had: arriving
+ * from the palette should move the wall, not redecide how you were looking
+ * at it. Outside them it would land as a speck or spill off the edges, and
+ * a reveal you cannot see is not a reveal.
+ */
+const REVEAL_MAX_FILL = 0.85;
+const REVEAL_MIN_FILL = 0.35;
+
+/** The zoom at which a box fills the given fraction of the viewport. */
+function fillZoom(viewport: Size, box: Box, fraction: number): number {
+  return Math.min(
+    (viewport.width * fraction) / Math.max(1, box.w),
+    (viewport.height * fraction) / Math.max(1, box.h)
+  );
+}
+
+/**
+ * Centres a tile on screen, which is how the palette lands on a clipping
+ * that may be nowhere near the current view. Clamped like any other pan, so
+ * revealing something in the first row cannot leave the wall hanging in the
+ * middle of an empty canvas.
+ */
+export function revealCamera(
+  camera: Camera,
+  viewport: Size,
+  box: Box,
+  content: Size
+): Camera {
+  const zoom = clampZoom(
+    clamp(
+      camera.zoom,
+      fillZoom(viewport, box, REVEAL_MIN_FILL),
+      fillZoom(viewport, box, REVEAL_MAX_FILL)
+    )
+  );
+
+  return clampCamera(
+    {
+      zoom,
+      x: viewport.width / 2 - (box.x + box.w / 2) * zoom,
+      y: viewport.height / 2 - (box.y + box.h / 2) * zoom,
+    },
+    viewport,
+    content
+  );
 }

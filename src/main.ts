@@ -68,12 +68,7 @@ export default class PowerGridPlugin extends Plugin {
     this.addCommand({
       id: "archive-clipping-media",
       name: "Archive all clipping media",
-      callback: () => {
-        new Notice("Power Grid: archiving…");
-        void this.archiver
-          .archiveEverything()
-          .then((r) => this.archiver.notifyResult(r));
-      },
+      callback: () => this.archiveAllMedia(),
     });
 
     this.app.workspace.onLayoutReady(() => {
@@ -120,6 +115,12 @@ export default class PowerGridPlugin extends Plugin {
         void this.index.handleModify(f);
       })
     );
+  }
+
+  /** Lifted out of its command so the grid's palette can call it too. */
+  archiveAllMedia(): void {
+    new Notice("Power Grid: archiving…");
+    void this.archiver.archiveEverything().then((r) => this.archiver.notifyResult(r));
   }
 
   /** Lifted out of its command so the grid's create menu can call it too. */

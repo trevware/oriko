@@ -1153,3 +1153,237 @@ button.pg-grid-row-button.is-disabled:hover {
     transform: none;
   }
 }
+
+/* Centred search: one input over the wall that finds both the clippings on
+   it and the things you can do to them. Same surface, same rows and the same
+   inner radius as the menus, so it reads as the menu system opened from the
+   keyboard rather than a second design. */
+.pg-palette-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 44;
+  background: rgba(0, 0, 0, 0.42);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.pg-palette-backdrop.is-open {
+  opacity: 1;
+}
+
+.pg-palette {
+  position: absolute;
+  z-index: 45;
+  /* High enough that the list grows downward into open space, low enough
+     that the wall behind it still reads as the thing being searched. */
+  top: 14vh;
+  left: 50%;
+  width: min(620px, calc(100% - 32px));
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--pg-surface-pad);
+  border-radius: var(--pg-surface-radius);
+  background-color: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
+  opacity: 0;
+  /* The translate has to survive the entry transform, or the panel walks
+     half its own width across the screen as it opens. */
+  transform: translateX(-50%) scale(0.96);
+  transition:
+    opacity 130ms ease,
+    transform 160ms cubic-bezier(0.22, 0.9, 0.28, 1);
+}
+
+.pg-palette.is-open {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.pg-palette-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 13px 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pg-palette-search {
+  display: flex;
+  align-items: center;
+  color: var(--pg-surface-text);
+  opacity: 0.45;
+}
+
+.pg-palette-search .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* The command you are answering, kept in view while you answer it. */
+.pg-palette-chip {
+  display: none;
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--pg-surface-text);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.pg-palette-chip.is-visible {
+  display: block;
+}
+
+/* Selector carries the panel as well, so it outranks Obsidian's own input
+   styling, which otherwise paints a filled box with its own border. */
+.pg-palette input.pg-palette-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--pg-surface-text);
+  /* 16px: anything smaller is what makes a mobile browser zoom on focus. */
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.pg-palette input.pg-palette-input:focus,
+.pg-palette input.pg-palette-input:focus-visible {
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+
+.pg-palette input.pg-palette-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.pg-palette-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-top: 6px;
+  /* Keeps the row that scrollIntoView lands on clear of the rounded corner. */
+  scroll-padding: 8px 0;
+}
+
+.pg-palette-section {
+  padding: 8px 13px 4px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pg-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 13px;
+  border-radius: var(--pg-inner-radius);
+  color: var(--pg-surface-text);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* One highlight, driven by the keyboard. Hover moves it rather than adding a
+   second lit row, so the thing Enter will run is never in doubt. */
+.pg-palette-item.is-active {
+  background: var(--pg-inner-hover);
+}
+
+.pg-palette-item.is-destructive.is-active {
+  background: rgba(255, 82, 82, 0.18);
+}
+
+.pg-palette-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  opacity: 0.9;
+}
+
+.pg-palette-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  /* Clipping titles are page titles: long, and they must not push the grid
+     name and shortcut hint off the row. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-palette-mark {
+  color: #fff;
+  font-weight: 600;
+}
+
+.pg-palette-detail {
+  flex: 0 0 auto;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.pg-palette-detail:empty {
+  display: none;
+}
+
+.pg-palette-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--pg-surface-text);
+  opacity: 0.5;
+}
+
+.pg-palette-arrow .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.pg-palette-empty {
+  padding: 26px 13px 30px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  text-align: center;
+}
+
+.pg-palette-foot {
+  display: flex;
+  gap: 16px;
+  padding: 9px 13px 3px;
+  border-top: 1px solid var(--background-modifier-border);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11.5px;
+}
+
+.pg-palette-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pg-palette-key {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-palette,
+  .pg-palette-backdrop {
+    transition: none;
+  }
+}

@@ -3,6 +3,8 @@ import { absolutePath } from "./convert";
 import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
 import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
 import { ActionBar } from "./action-bar";
+import { buildCommands } from "./commands";
+import type { PaletteContext } from "./commands";
 import { ConfirmDeleteModal } from "./confirm";
 import { ContextMenu } from "./context-menu";
 import { DetailView } from "./detail";
@@ -16,6 +18,7 @@ import {
 import type { GridsController } from "./grid-modals";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
+import { Palette } from "./palette";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
 import {
@@ -30,6 +33,7 @@ import {
 import type { Facet, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
 import {
+  effectiveGrid,
   filterByGrid,
   hotkeyPosition,
   membersOf,
@@ -41,6 +45,14 @@ import type { TileModel } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
 
+/**
+ * Most clippings the palette lists at once. A cap rather than a scroll to
+ * the horizon: past a handful you are not reading the list any more, you are
+ * typing more of the query, and leaving room below them is what keeps the
+ * commands reachable without scrolling.
+ */
+const PALETTE_CLIPPINGS = 8;
+
 export class PowerGridView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
@@ -50,6 +62,7 @@ export class PowerGridView extends ItemView {
   private menu: ContextMenu | null = null;
   private detail: DetailView | null = null;
   private spaceBar: SpaceBar | null = null;
+  private palette: Palette | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
   /**
@@ -126,12 +139,38 @@ export class PowerGridView extends ItemView {
     });
     this.spaceBar.setActive(this.activeGrid());
 
+    this.palette = new Palette(this.contentEl, {
+      commands: () => buildCommands(this.paletteContext()),
+      // Every clipping in the vault, not just this wall's: the whole point
+      // of searching is to find the one you cannot remember filing.
+      clippings: () => this.plugin.index.records(),
+      options: () => ({
+        limit: PALETTE_CLIPPINGS,
+        activeGrid: this.activeGrid().name,
+        homeGrid: this.plugin.settings.homeGridName,
+        registered: this.registered(),
+      }),
+      onClipping: (path) => this.revealClipping(path),
+    });
+
     this.onGridKey = (event: KeyboardEvent) => {
       if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
       // The detail view registers in the capture phase too and owns its keys
       // while it is up.
       if (this.detail?.isOpen) return;
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
+
+      if (event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        event.stopPropagation();
+        this.palette?.toggle();
+        return;
+      }
+
+      // The palette has the keyboard while it is up, grid hotkeys included:
+      // switching walls out from under a search would leave it answering
+      // about a wall that is no longer there.
+      if (this.palette?.isOpen) return;
 
       const position = hotkeyPosition(event.key);
       if (position === null) return;
@@ -151,10 +190,7 @@ export class PowerGridView extends ItemView {
       onExport: (id) => void this.exportToDownloads([id]),
       onReveal: (id) => this.revealFirstFile(id),
       onDelete: (id) => this.confirmDelete([id]),
-      onOpenNote: (id) => {
-        const file = this.app.vault.getAbstractFileByPath(id);
-        if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
-      },
+      onOpenNote: (id) => this.openNote(id),
     });
     this.detail.onClosed = () => {
       this.grid?.focusTile(null);
@@ -190,6 +226,9 @@ export class PowerGridView extends ItemView {
     // a URL into a board app.
     this.registerDomEvent(document, "paste", (event: ClipboardEvent) => {
       if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
+      // Pasting into the palette's search box is typing, not clipping.
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable='true']")) return;
       const data = event.clipboardData;
       if (!data) return;
 
@@ -215,6 +254,8 @@ export class PowerGridView extends ItemView {
     this.cancelRefresh();
     if (this.onGridKey) document.removeEventListener("keydown", this.onGridKey, true);
     this.onGridKey = null;
+    this.palette?.close();
+    this.palette = null;
     this.spaceBar?.destroy();
     this.spaceBar = null;
     this.observer?.disconnect();
@@ -265,10 +306,7 @@ export class PowerGridView extends ItemView {
       items.push({
         icon: "file-text",
         label: "Open note",
-        onSelect: () => {
-          const file = this.app.vault.getAbstractFileByPath(ids[0]);
-          if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
-        },
+        onSelect: () => this.openNote(ids[0]),
       });
     }
 
@@ -310,6 +348,11 @@ export class PowerGridView extends ItemView {
     });
 
     return items;
+  }
+
+  private openNote(id: string): void {
+    const file = this.app.vault.getAbstractFileByPath(id);
+    if (file instanceof TFile) void this.app.workspace.getLeaf(false).openFile(file);
   }
 
   private revealFirstFile(id: string): void {
@@ -500,6 +543,79 @@ export class PowerGridView extends ItemView {
     this.menu?.open(build(), x, y, build);
   }
 
+  // ---- Palette -----------------------------------------------------------
+
+  /**
+   * The wall as the palette sees it, rebuilt on every keystroke so its rows
+   * describe the selection, filter and grids as they stand rather than as
+   * they were when it opened.
+   */
+  private paletteContext(): PaletteContext {
+    const selection = this.grid?.selectedIds() ?? [];
+
+    return {
+      selection,
+      grids: this.allGrids(),
+      activeGrid: this.activeGrid().name,
+      homeGrid: this.plugin.settings.homeGridName,
+      facets: facetsOf(this.facets),
+      filter: this.activeFilter(),
+      hasSystem: systemAvailable(),
+      // Every row runs the method its context-menu equivalent runs. The two
+      // surfaces list different things; neither reimplements the work.
+      actions: {
+        openNote: (id) => this.openNote(id),
+        exportSelection: (ids) => void this.exportToDownloads(ids),
+        reveal: (id) => this.revealFirstFile(id),
+        move: (ids, grid) => void this.moveTo(ids, grid),
+        remove: (ids) => this.confirmDelete(ids),
+        switchGrid: (name) => this.activate(name),
+        newGrid: () => this.promptNewGrid(),
+        editGrid: () => this.editActiveGrid(),
+        deleteGrid: () => this.deleteActiveGrid(),
+        manageGrids: () => this.manageGrids(),
+        toggleFacet: (facet, value) =>
+          this.setFilter(toggleFacet(this.activeFilter(), facet, value)),
+        clearFilters: () => this.setFilter(emptyFilter()),
+        clipLink: () => void this.plugin.capture.captureFromClipboard(),
+        clipImage: () => void this.plugin.clipImageFromClipboard(),
+        archiveAll: () => this.plugin.archiveAllMedia(),
+        selectAll: () => this.grid?.selectAll(),
+        resetZoom: () => this.grid?.resetView(),
+      },
+    };
+  }
+
+  /**
+   * Lands on a clipping the palette found, wherever it lives: switch grid
+   * first if it is on another wall, then centre and select the tile.
+   *
+   * A filter can hide the very thing that was just searched for. Dropping it
+   * is the right answer there, because asking for a clipping by name is a
+   * more specific instruction than the narrowing that was left on earlier.
+   * With no tile at all (nothing renderable in the note) the note itself is
+   * the only place left to go.
+   */
+  private revealClipping(path: string): void {
+    const record = this.plugin.index.get(path);
+    if (!record) return;
+
+    const grid = effectiveGrid(record, this.plugin.settings.homeGridName, this.registered());
+    this.activate(grid);
+    if (this.grid?.reveal(path)) return;
+
+    if (!isFilterEmpty(this.activeFilter())) {
+      this.setFilter(emptyFilter());
+      if (this.grid?.reveal(path)) {
+        new Notice("Power Grid: filter cleared to show that clipping");
+        return;
+      }
+    }
+
+    new Notice("Power Grid: nothing to show on the wall, opening the note");
+    this.openNote(path);
+  }
+
   // ---- Grids -------------------------------------------------------------
 
   private homeGrid(): GridSpace {
@@ -584,12 +700,38 @@ export class PowerGridView extends ItemView {
     this.menu?.open(items, x, y);
   }
 
+  /** Where the active grid sits in settings.grids, or -1 for home. */
+  private activeGridIndex(): number {
+    const active = this.activeGrid().name;
+    return this.plugin.settings.grids.findIndex((grid) => grid.name === active);
+  }
+
+  private editActiveGrid(): void {
+    const index = this.activeGridIndex();
+    openGridEditor(
+      this.app,
+      this.gridsController(),
+      this.activeGrid(),
+      index === -1 ? undefined : index,
+      () => this.refresh()
+    );
+  }
+
+  private deleteActiveGrid(): void {
+    const index = this.activeGridIndex();
+    // Home is where an unknown grid falls back to, so it always has to exist.
+    if (index === -1) return;
+    confirmGridDelete(this.app, this.gridsController(), this.activeGrid(), index);
+  }
+
+  private manageGrids(): void {
+    new GridsPanelModal(this.app, this.gridsController()).open();
+  }
+
   /** Settings for the grid on screen, with the whole set one step further in. */
   private openSettings(x: number, y: number): void {
     const active = this.activeGrid();
-    const index = this.plugin.settings.grids.findIndex((grid) => grid.name === active.name);
-    const controller = this.gridsController();
-    const isHome = index === -1;
+    const isHome = this.activeGridIndex() === -1;
 
     this.menu?.open(
       [
@@ -597,28 +739,24 @@ export class PowerGridView extends ItemView {
           icon: "pencil",
           label: "Edit grid",
           detail: active.name,
-          onSelect: () =>
-            openGridEditor(this.app, controller, active, isHome ? undefined : index, () =>
-              this.refresh()
-            ),
+          onSelect: () => this.editActiveGrid(),
         },
         {
           icon: "trash-2",
           label: "Delete grid",
-          // Home is where an unknown grid falls back to, so something has to
-          // always be there. Shown rather than hidden, so the row does not
-          // appear and vanish depending on where you are.
+          // Shown rather than hidden, so the row does not appear and vanish
+          // depending on where you are.
           detail: isHome ? "Home grid" : undefined,
           disabled: isHome,
           destructive: !isHome,
-          onSelect: () => confirmGridDelete(this.app, controller, active, index),
+          onSelect: () => this.deleteActiveGrid(),
         },
         {
           icon: "layers",
           label: "Manage grids",
           divider: true,
           detail: `${this.allGrids().length} grids`,
-          onSelect: () => new GridsPanelModal(this.app, controller).open(),
+          onSelect: () => this.manageGrids(),
         },
       ],
       x,

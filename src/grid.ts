@@ -5,6 +5,7 @@ import {
   clampCamera,
   initialCamera,
   preserveAnchor,
+  revealCamera,
   visibleContentBand,
   zoomAt,
 } from "./camera";
@@ -432,7 +433,7 @@ export class GridRenderer {
 
       if (event.key === "a") {
         event.preventDefault();
-        this.applySelection(new Set(this.tiles.map((t) => t.id)));
+        this.selectAll();
         return;
       }
 
@@ -594,6 +595,32 @@ export class GridRenderer {
     for (const [id, element] of this.mounted) {
       element.root.toggleClass("is-selected", this.selection.has(id));
     }
+  }
+
+  /**
+   * Centres a tile and selects it, which is how the palette lands on a
+   * clipping that could be anywhere on a wall thousands of pixels tall.
+   * Selecting it as well is what makes the arrival useful: whatever you
+   * searched for is then the thing ⌘E, a move or a delete acts on.
+   *
+   * Returns false when this wall has no tile for that clipping, so the
+   * caller can fall back to opening the note rather than flying nowhere.
+   */
+  reveal(id: string): boolean {
+    const position = this.positionById.get(id);
+    if (!position) return false;
+
+    this.cancelTween();
+    this.animateCamera(
+      revealCamera(this.camera, this.viewportSize(), position, this.contentSize())
+    );
+    this.selectionAnchor = id;
+    this.applySelection(new Set([id]));
+    return true;
+  }
+
+  selectAll(): void {
+    this.applySelection(new Set(this.tiles.map((t) => t.id)));
   }
 
   selectedIds(): string[] {
