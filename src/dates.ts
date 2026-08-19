@@ -15,21 +15,84 @@
 
 const DAY = 86_400_000;
 
-/** Nested, not partitioned, the way Finder and mail clients group by date. A
-    date belongs to every bucket it still falls inside, so counts are
-    cumulative and picking two buckets simply widens to the larger. */
-export const BUCKETS: ReadonlyArray<{ label: string; within: number }> = [
-  { label: "Last 7 days", within: 7 * DAY },
-  { label: "Last 30 days", within: 30 * DAY },
-  { label: "Last 90 days", within: 90 * DAY },
-  { label: "Last year", within: 365 * DAY },
+export type DateUnit = "day" | "week" | "month" | "year";
+
+/** A relative window the user asked for, kept in the units they wrote rather
+    than as a day count, so it reads back the way it was described. */
+export interface DateWindow {
+  amount: number;
+  unit: DateUnit;
+}
+
+const UNIT_DAYS: Record<DateUnit, number> = { day: 1, week: 7, month: 30, year: 365 };
+
+export function windowLabel(window: DateWindow): string {
+  // One is not folded into "Last week": that names a different span, the week
+  // just gone, while this one reaches back seven days from now.
+  const unit = window.amount === 1 ? window.unit : `${window.unit}s`;
+  return `Last ${window.amount} ${unit}`;
+}
+
+/** Local midnight, which is what a person means by the start of a day. */
+function startOfDay(now: number): number {
+  const d = new Date(now);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Monday: a week that starts on Sunday puts a weekend either side of the
+    boundary, and a clipping wall is mostly weekday work. */
+function startOfWeek(now: number): number {
+  const d = new Date(startOfDay(now));
+  return d.getTime() - ((d.getDay() + 6) % 7) * DAY;
+}
+
+export interface Bucket {
+  label: string;
+  /** The instant this window opens, given now. */
+  since: (now: number) => number;
+}
+
+/**
+ * Nested, not partitioned, the way Finder and mail clients group by date. A
+ * date belongs to every window it still falls inside, so counts are cumulative
+ * and picking two widens to the larger. Narrowest first, which is how they
+ * read.
+ */
+export const BUCKETS: ReadonlyArray<Bucket> = [
+  { label: "Today", since: startOfDay },
+  { label: "This week", since: startOfWeek },
+  { label: "Last 7 days", since: (now) => now - 7 * DAY },
+  { label: "Last 30 days", since: (now) => now - 30 * DAY },
+  { label: "Last 90 days", since: (now) => now - 90 * DAY },
+  { label: "Last year", since: (now) => now - 365 * DAY },
 ];
 
-/** Everything that has fallen out of every bucket above. */
+/** Everything that has fallen out of every window above. */
 export const OLDER = "Older";
 
-/** Every bucket label, newest first, which is the order a menu lists them in. */
-export const BUCKET_LABELS: string[] = [...BUCKETS.map((b) => b.label), OLDER];
+/** The windows on offer: the built-ins plus the user's own, narrowest first.
+    A custom window naming an existing one is dropped rather than shown twice. */
+export function windowsFor(custom: DateWindow[] = []): Bucket[] {
+  const seen = new Set(BUCKETS.map((bucket) => bucket.label));
+  const extra: Bucket[] = [];
+
+  for (const window of custom) {
+    const label = windowLabel(window);
+    if (window.amount <= 0 || seen.has(label)) continue;
+    seen.add(label);
+    const days = window.amount * UNIT_DAYS[window.unit];
+    extra.push({ label, since: (now) => now - days * DAY });
+  }
+
+  // Ordered by how far back each reaches at a fixed instant, so a custom
+  // window lands among the built-ins rather than after them.
+  return [...BUCKETS, ...extra].sort((a, b) => b.since(0) - a.since(0));
+}
+
+/** Every window label, narrowest first, then Older. */
+export function bucketLabels(custom: DateWindow[] = []): string[] {
+  return [...windowsFor(custom).map((bucket) => bucket.label), OLDER];
+}
 
 /**
  * An ISO date, with or without a time.
@@ -70,22 +133,88 @@ export function isDateProperty(values: Iterable<string>): boolean {
 }
 
 /**
- * The buckets a date value belongs to, in BUCKETS order. Empty for a value
- * that is not a date at all, which contributes nothing rather than inventing
- * a group for it.
+ * The windows a date value belongs to, narrowest first. Empty for a value that
+ * is not a date at all, which contributes nothing rather than inventing a
+ * group for it.
  */
-export function dateBuckets(value: string, now: number): string[] {
+export function dateBuckets(value: string, now: number, custom: DateWindow[] = []): string[] {
   if (!looksLikeDate(value)) return [];
-  const at = Date.parse(value);
+  const at = parseDate(value);
   if (Number.isNaN(at)) return [];
 
   // A date-only value is parsed at UTC midnight while `now` is local, so a
-  // clipping made today can read as slightly in the future. Clamping to zero
-  // keeps it in the newest bucket instead of stranding it in Older.
-  const age = Math.max(0, now - at);
+  // clipping made today can read as slightly in the future. Clamping keeps it
+  // in the newest window instead of stranding it in Older.
+  const when = Math.min(at, now);
 
-  const labels = BUCKETS.filter((bucket) => age < bucket.within).map((b) => b.label);
+  const labels = windowsFor(custom)
+    .filter((bucket) => when >= bucket.since(now))
+    .map((bucket) => bucket.label);
   return labels.length > 0 ? labels : [OLDER];
+}
+
+/**
+ * The filters a date facet carries that are not windows.
+ *
+ * Encoded as strings so filter state stays a list of chosen values and needs
+ * no second shape for predicates: `before:2020-01-01`, `since:2020-01-01`,
+ * `empty`, `present`.
+ */
+const TOKEN = /^(before|since):(\d{4}-\d{2}-\d{2})$/;
+
+/** Bare date, no time. */
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * When a value happened, in local time.
+ *
+ * A bare `2026-08-19` is parsed by Date.parse as UTC midnight, which is the
+ * previous evening for everyone west of Greenwich: the day a clipping was made
+ * would fall outside Today for half the world. A date with no time means that
+ * calendar day where the reader is, so it is built locally.
+ */
+export function parseDate(value: string): number {
+  const parts = DATE_ONLY.exec(value);
+  if (parts) {
+    return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])).getTime();
+  }
+  return Date.parse(value);
+}
+
+export function isDateToken(value: string): boolean {
+  return value === "empty" || value === "present" || TOKEN.test(value);
+}
+
+/**
+ * True or false when the value is a token, and null when it is an ordinary
+ * window label, where plain membership decides instead.
+ */
+export function dateTokenMatches(value: string, held: string[], now: number): boolean | null {
+  if (value === "empty") return held.length === 0;
+  if (value === "present") return held.length > 0;
+
+  const parts = TOKEN.exec(value);
+  if (!parts) return null;
+
+  const cutoff = parseDate(parts[2]);
+  if (Number.isNaN(cutoff)) return false;
+
+  return held.some((entry) => {
+    if (!looksLikeDate(entry)) return false;
+    const at = parseDate(entry);
+    if (Number.isNaN(at)) return false;
+    // On or after includes the day named and before excludes it, so the pair
+    // covers every date exactly once with no gap and no overlap.
+    return parts[1] === "before" ? at < cutoff : at >= cutoff;
+  });
+}
+
+export function tokenLabel(value: string): string {
+  if (value === "empty") return "Is empty";
+  if (value === "present") return "Is not empty";
+  const parts = TOKEN.exec(value);
+  if (!parts) return value;
+  return parts[1] === "before" ? `Before ${parts[2]}` : `On or after ${parts[2]}`;
 }
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");

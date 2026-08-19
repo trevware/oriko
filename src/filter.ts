@@ -1,4 +1,5 @@
-import { BUCKET_LABELS, dateBuckets, isDateProperty } from "./dates";
+import { bucketLabels, dateBuckets, dateTokenMatches, isDateProperty } from "./dates";
+import type { DateWindow } from "./dates";
 import { domainOf } from "./scan";
 import type { TileModel } from "./tile";
 
@@ -41,6 +42,8 @@ export interface FacetDef {
   /** Reference instant for date bucketing. Carried on the descriptor so the
       per-tile calls below keep their signatures. */
   now?: number;
+  /** The user's own relative windows, offered alongside the built-in ones. */
+  windows?: DateWindow[];
 }
 
 /** Chosen values, by facet id. A facet with nothing chosen is absent rather
@@ -90,7 +93,7 @@ export function facetLabel(key: string): string {
  * two the plugin derives. Properties lead so the default settings reproduce
  * the menu this feature replaced, exactly.
  */
-export function facetDefs(properties: string[]): FacetDef[] {
+export function facetDefs(properties: string[], windows: DateWindow[] = []): FacetDef[] {
   const defs: FacetDef[] = properties.map((key) => ({
     id: key,
     label: facetLabel(key),
@@ -98,6 +101,7 @@ export function facetDefs(properties: string[]): FacetDef[] {
     keywords: PROPERTY_KEYWORDS[key] ?? `${key} property narrow`,
     source: "property",
     key,
+    windows,
   }));
   return [...defs, KIND_FACET, DOMAIN_FACET];
 }
@@ -172,10 +176,16 @@ function valuesFor(tile: TileModel, def: FacetDef): string[] {
       // A date expands to every bucket it still falls inside. Several values
       // from one is exactly what a multi-valued property like categories
       // already does, so nothing downstream has to know these are dates.
+      // Absence is a value of its own here, so "is empty" can be offered and
+      // counted like any other row rather than needing a predicate beside the
+      // list. Everything else reports present alongside its windows, which is
+      // what makes "is not empty" the complement rather than a second rule.
+      if (held.length === 0) return ["empty"];
+
       const now = def.now ?? 0;
-      const buckets = new Set<string>();
+      const buckets = new Set<string>(["present"]);
       for (const value of held) {
-        for (const bucket of dateBuckets(value, now)) buckets.add(bucket);
+        for (const bucket of dateBuckets(value, now, def.windows)) buckets.add(bucket);
       }
       return [...buckets];
     }
@@ -201,8 +211,15 @@ export function matchesFilter(
   return defs.every((def) => {
     const wanted = filter[def.id];
     if (!wanted || wanted.length === 0) return true;
+
     const held = valuesFor(tile, def);
-    return held.some((value) => wanted.includes(value));
+    if (held.some((value) => wanted.includes(value))) return true;
+
+    // A comparison is not a value the tile reports, so membership cannot see
+    // it. Only dates carry these, and only when one has been set.
+    if (def.shape !== "date" || !def.key) return false;
+    const raw = tile.record.properties[def.key] ?? [];
+    return wanted.some((value) => dateTokenMatches(value, raw, def.now ?? 0) === true);
   });
 }
 
@@ -269,9 +286,8 @@ function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   // put the widest bucket first, which is the reverse of how a date list is
   // read and moves the rows about as the wall changes.
   if (def.shape === "date") {
-    return values.sort(
-      (a, b) => BUCKET_LABELS.indexOf(a.value) - BUCKET_LABELS.indexOf(b.value)
-    );
+    const order = [...bucketLabels(def.windows), "present", "empty"];
+    return values.sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
   }
 
   // Most used first, then alphabetically, so the order is stable between

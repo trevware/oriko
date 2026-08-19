@@ -233,9 +233,13 @@ describe("pruneFilter", () => {
   });
 });
 
-const NOW = Date.parse("2026-08-19T12:00:00Z");
-const daysAgo = (n: number): string =>
-  new Date(NOW - n * 86_400_000).toISOString().slice(0, 10);
+// A Wednesday, built locally: the windows are measured from local midnight,
+// so a UTC clock would move the weekday and make these pass by timezone.
+const NOW = new Date(2026, 7, 19, 12, 0, 0).getTime();
+const daysAgo = (n: number): string => {
+  const d = new Date(NOW - n * 86_400_000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 function dated(id: string, created: string): TileModel {
   const t = tile(id);
@@ -270,13 +274,57 @@ describe("date facets", () => {
   ];
   const defs = typedFacets(facetDefs(["created"]), tiles, NOW);
 
-  it("offers buckets newest first, not the raw dates and not by count", () => {
+  it("offers windows newest first, not the raw dates and not by count", () => {
+    // Monday is two days back from this Wednesday, so the newest clipping is
+    // inside the calendar week as well as the rolling seven days.
     expect(facetsOf(tiles, defs).created.map((v) => v.value)).toEqual([
+      "This week",
       "Last 7 days",
       "Last 30 days",
       "Last 90 days",
       "Last year",
       "Older",
+      "present",
+    ]);
+  });
+
+  it("reports absence as a value of its own, so it can be offered and counted", () => {
+    const withNone = [...tiles, tile("none")];
+    const counts = Object.fromEntries(
+      facetsOf(withNone, defs).created.map((v) => [v.value, v.count])
+    );
+    expect(counts["empty"]).toBe(1);
+    expect(counts["present"]).toBe(3);
+  });
+
+  it("narrows to the clippings a comparison covers", () => {
+    const f = toggleFacet(emptyFilter(), "created", `before:${daysAgo(100)}`);
+    expect(tiles.filter((t) => matchesFilter(t, f, defs)).map((t) => t.id)).toEqual([
+      "ancient",
+    ]);
+  });
+
+  it("takes on or after as inclusive of the day named", () => {
+    const f = toggleFacet(emptyFilter(), "created", `since:${daysAgo(45)}`);
+    expect(tiles.filter((t) => matchesFilter(t, f, defs)).map((t) => t.id)).toEqual([
+      "recent",
+      "month",
+    ]);
+  });
+
+  it("offers a custom window among the built-in ones", () => {
+    const custom = typedFacets(
+      facetDefs(["created"], [{ amount: 60, unit: "day" }]),
+      tiles,
+      NOW
+    );
+    const labels = facetsOf(tiles, custom).created.map((v) => v.value);
+    expect(labels.slice(0, 5)).toEqual([
+      "This week",
+      "Last 7 days",
+      "Last 30 days",
+      "Last 60 days",
+      "Last 90 days",
     ]);
   });
 
