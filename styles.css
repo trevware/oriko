@@ -19,6 +19,28 @@
      the boundary. At 0.075 it was drawing an outline, which puts the panel
      in front of the wall rather than just above it. */
   --pg-surface-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  /* Every value below is a role, not a colour, so the light theme can
+     restate the set without touching a single rule that uses them. The
+     alphas differ between themes on purpose: a wash that reads as a gentle
+     lift on a dark panel reads as a smudge on a light one. */
+  --pg-surface-mid: rgba(255, 255, 255, 0.72);
+  --pg-surface-dim: rgba(255, 255, 255, 0.45);
+  --pg-surface-faint: rgba(255, 255, 255, 0.35);
+  --pg-inner-active: rgba(255, 255, 255, 0.14);
+  --pg-inner-press: rgba(255, 255, 255, 0.22);
+  --pg-inner-well: rgba(255, 255, 255, 0.07);
+  --pg-inner-chip: rgba(255, 255, 255, 0.1);
+  --pg-rule: rgba(255, 255, 255, 0.12);
+  --pg-scrim: rgba(0, 0, 0, 0.42);
+  --pg-peek-ring: rgba(255, 255, 255, 0.55);
+  --pg-stage-lift: 0 24px 70px rgba(0, 0, 0, 0.45);
+  /* Stronger than a label, which is what makes a matched run read as one. */
+  --pg-mark: #fff;
+  /* Tile shadows are the thing that gives a light wall away fastest: an
+     alpha tuned against near-black is a bruise against white. */
+  --pg-tile-lift: 0 6px 18px rgba(0, 0, 0, 0.3);
+  --pg-tile-lift-selected: 0 8px 22px rgba(0, 0, 0, 0.38);
+  --pg-tile-lift-strong: 0 10px 26px rgba(0, 0, 0, 0.42);
 
   /* Soft and close. A deep shadow ringed the panel in dark, which read as a
      second outline underneath the first. */
@@ -38,6 +60,31 @@
   background: var(--background-primary);
   display: flex;
   flex-direction: column;
+}
+
+/* Obsidian carries the theme on the body, so the panels follow it with no
+   setting of ours and no flash on load. */
+.theme-light .power-grid-view {
+  --pg-surface: rgba(252, 252, 253, 0.9);
+  --pg-surface-ring: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  --pg-surface-lift: 0 1px 6px rgba(0, 0, 0, 0.07), 0 8px 24px rgba(0, 0, 0, 0.09);
+  --pg-surface-text: rgba(22, 22, 26, 0.92);
+  --pg-surface-mid: rgba(22, 22, 26, 0.72);
+  --pg-surface-dim: rgba(22, 22, 26, 0.5);
+  --pg-surface-faint: rgba(22, 22, 26, 0.38);
+  --pg-inner-hover: rgba(0, 0, 0, 0.06);
+  --pg-inner-active: rgba(0, 0, 0, 0.09);
+  --pg-inner-press: rgba(0, 0, 0, 0.14);
+  --pg-inner-well: rgba(0, 0, 0, 0.05);
+  --pg-inner-chip: rgba(0, 0, 0, 0.07);
+  --pg-rule: rgba(0, 0, 0, 0.1);
+  --pg-scrim: rgba(0, 0, 0, 0.25);
+  --pg-peek-ring: rgba(28, 28, 32, 0.6);
+  --pg-stage-lift: 0 20px 56px rgba(0, 0, 0, 0.18);
+  --pg-mark: rgba(10, 10, 12, 1);
+  --pg-tile-lift: 0 4px 14px rgba(0, 0, 0, 0.12);
+  --pg-tile-lift-selected: 0 6px 18px rgba(0, 0, 0, 0.16);
+  --pg-tile-lift-strong: 0 8px 22px rgba(0, 0, 0, 0.2);
 }
 
 .pg-viewport {
@@ -247,7 +294,7 @@
   transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
     scale(var(--pg-sx, 1), var(--pg-sy, 1));
   outline-color: var(--color-accent);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--pg-tile-lift-selected);
 }
 
 .pg-confirm-list {
@@ -354,7 +401,7 @@
 .pg-tile:hover .pg-frame {
   transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
     scale(var(--pg-sx, 1), var(--pg-sy, 1));
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--pg-tile-lift);
   /* While engaged, short enough to follow the cursor. Leaving hover falls
      back to the resting transition above, which is the gentle one. */
   transition:
@@ -365,7 +412,7 @@
 
 /* Selection outranks hover, so a selected card keeps its ring and depth. */
 .pg-tile.is-selected:hover .pg-frame {
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42);
+  box-shadow: var(--pg-tile-lift-strong);
 }
 
 /* Dragging should not leave a trail of tiles popping under the cursor. */
@@ -428,7 +475,7 @@
   padding: 0 10px 0 4px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--pg-surface-mid);
   white-space: nowrap;
 }
 
@@ -436,7 +483,7 @@
   width: 1px;
   align-self: stretch;
   margin: 2px 4px 2px 0;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--pg-rule);
 }
 
 /* Selector carries the bar as well, so it outranks Obsidian's own button
@@ -468,11 +515,11 @@
 }
 
 .pg-actionbar button.pg-actionbar-button:hover {
-  background-color: rgba(255, 255, 255, 0.14);
+  background-color: var(--pg-inner-active);
 }
 
 .pg-actionbar button.pg-actionbar-button:active {
-  background-color: rgba(255, 255, 255, 0.22);
+  background-color: var(--pg-inner-press);
   transform: scale(0.93);
 }
 
@@ -497,7 +544,7 @@
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
   box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
-  color: #fff;
+  color: var(--pg-surface-text);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -534,7 +581,7 @@
   position: absolute;
   inset: 0;
   z-index: 40;
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--pg-scrim);
   opacity: 0;
   transition: opacity 140ms ease;
 }
@@ -634,7 +681,7 @@
 .pg-menu-detail {
   flex: 0 0 auto;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--pg-surface-dim);
   white-space: nowrap;
 }
 
@@ -683,7 +730,7 @@
   /* No fill. The stage is sized to the media's own aspect, so any surface
      showing through would be letterboxing rather than design. */
   background: transparent;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--pg-stage-lift);
 }
 
 /* Carries the zoom transform. Kept off the stage on purpose: the stage's own
@@ -733,7 +780,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--pg-inner-chip);
   color: var(--text-normal);
   cursor: pointer;
   opacity: 0;
@@ -758,7 +805,7 @@
 }
 
 .pg-detail-back:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--pg-inner-press);
 }
 
 .pg-detail-meta {
@@ -1167,7 +1214,7 @@ button.pg-grid-row-button.is-disabled:hover {
   position: absolute;
   inset: 0;
   z-index: 44;
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--pg-scrim);
   opacity: 0;
   transition: opacity 140ms ease;
 }
@@ -1233,7 +1280,7 @@ button.pg-grid-row-button.is-disabled:hover {
   flex: 0 0 auto;
   padding: 3px 9px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--pg-inner-chip);
   color: var(--pg-surface-text);
   font-size: 13px;
   white-space: nowrap;
@@ -1268,7 +1315,7 @@ button.pg-grid-row-button.is-disabled:hover {
 }
 
 .pg-palette input.pg-palette-input::placeholder {
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--pg-surface-faint);
 }
 
 .pg-palette-list {
@@ -1285,7 +1332,7 @@ button.pg-grid-row-button.is-disabled:hover {
 
 .pg-palette-section {
   padding: 8px 13px 4px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--pg-surface-faint);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1334,14 +1381,14 @@ button.pg-grid-row-button.is-disabled:hover {
 }
 
 .pg-palette-mark {
-  color: #fff;
+  color: var(--pg-mark);
   font-weight: 600;
 }
 
 .pg-palette-detail {
   flex: 0 0 auto;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--pg-surface-dim);
   white-space: nowrap;
 }
 
@@ -1363,7 +1410,7 @@ button.pg-grid-row-button.is-disabled:hover {
 
 .pg-palette-empty {
   padding: 26px 13px 30px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--pg-surface-dim);
   font-size: 14px;
   text-align: center;
 }
@@ -1373,7 +1420,7 @@ button.pg-grid-row-button.is-disabled:hover {
   gap: 16px;
   padding: 9px 13px 3px;
   border-top: 1px solid var(--background-modifier-border);
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--pg-surface-faint);
   font-size: 11.5px;
 }
 
@@ -1386,8 +1433,8 @@ button.pg-grid-row-button.is-disabled:hover {
 .pg-palette-key {
   padding: 1px 5px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.55);
+  background: var(--pg-inner-well);
+  color: var(--pg-surface-dim);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1447,7 +1494,7 @@ button.pg-grid-row-button.is-disabled:hover {
 .pg-panel-title::after {
   content: attr(data-count);
   margin-left: 8px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--pg-surface-faint);
   font-size: 12px;
   font-weight: 400;
 }
@@ -1490,7 +1537,7 @@ button.pg-grid-row-button.is-disabled:hover {
 }
 
 .pg-panel-row.is-selected {
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--pg-inner-active);
 }
 
 .pg-panel-thumb {
@@ -1500,7 +1547,7 @@ button.pg-grid-row-button.is-disabled:hover {
   height: 34px;
   border-radius: 7px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--pg-inner-well);
 }
 
 .pg-panel-thumb img {
@@ -1541,7 +1588,7 @@ button.pg-grid-row-button.is-disabled:hover {
   flex: 0 0 auto;
   max-width: 38%;
   font-size: 11.5px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--pg-surface-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1549,7 +1596,7 @@ button.pg-grid-row-button.is-disabled:hover {
 
 .pg-panel-empty {
   padding: 24px 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--pg-surface-dim);
   font-size: 13px;
   text-align: center;
 }
@@ -1557,7 +1604,7 @@ button.pg-grid-row-button.is-disabled:hover {
 /* Pointing at a row rings its tile, which is what connects the list to the
    wall. Lighter than the selection ring, which means something else. */
 .pg-tile.is-peeked .pg-frame {
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 2px var(--pg-peek-ring);
 }
 
 /* Its own corner, with the list hanging below it. Fixed rather than sliding:
@@ -1585,7 +1632,7 @@ button.pg-grid-row-button.is-disabled:hover {
   margin: -3px 0;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--pg-inner-well);
 }
 
 .pg-palette-icon.is-thumb img {
