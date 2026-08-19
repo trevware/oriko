@@ -28,6 +28,12 @@ export interface ClippingRecord {
   grid: string;
   media: MediaRef[];
   haystack: string;
+  /**
+   * Every frontmatter value, normalized to strings, so any key can back a
+   * filter facet. Kept whole rather than curated: the settings list has to be
+   * able to offer keys the suggester rejects.
+   */
+  properties: Record<string, string[]>;
 }
 
 const MD_IMAGE = /!\[([^\]]*)\]\(\s*(<?)([^)\s>]+)\2(?:\s+"[^"]*")?\s*\)/g;
@@ -71,6 +77,30 @@ function asStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.map(String);
   if (typeof value === "string" && value.trim()) return [value];
   return [];
+}
+
+/** One frontmatter value as facet values. Anything with no sensible string
+    form, an object or an empty value, contributes nothing. */
+function toValues(value: unknown): string[] {
+  const one = (v: unknown): string | null => {
+    if (typeof v === "string") return v.trim() || null;
+    if (typeof v === "number" || typeof v === "boolean") return String(v);
+    return null;
+  };
+  if (Array.isArray(value)) {
+    return value.map(one).filter((v): v is string => v !== null);
+  }
+  const single = one(value);
+  return single === null ? [] : [single];
+}
+
+function toProperties(frontmatter: Record<string, unknown>): Record<string, string[]> {
+  const properties: Record<string, string[]> = {};
+  for (const [key, value] of Object.entries(frontmatter)) {
+    const values = toValues(value);
+    if (values.length > 0) properties[key] = values;
+  }
+  return properties;
 }
 
 function str(value: unknown, fallback = ""): string {
@@ -199,6 +229,15 @@ export function scanClipping(
   const cover = str(frontmatter.cover);
   const grid = str(frontmatter.grid);
 
+  const properties = toProperties(frontmatter);
+  // The two facets that ship enabled take the fields computed above rather
+  // than the raw frontmatter, so status keeps its "unread" default and
+  // categories keeps asStringArray. A purely generic pass would drop every
+  // clipping with no status line out of the Status facet.
+  properties.status = [status];
+  if (categories.length > 0) properties.categories = categories;
+  else delete properties.categories;
+
   return {
     path,
     title,
@@ -211,5 +250,6 @@ export function scanClipping(
     grid,
     media,
     haystack,
+    properties,
   };
 }

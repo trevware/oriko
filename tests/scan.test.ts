@@ -220,3 +220,41 @@ describe("scanClipping grid key", () => {
     expect(scanClipping("Clippings/a.md", { grid: ["a", "b"] }, "").grid).toBe("");
   });
 });
+
+describe("scanClipping properties", () => {
+  it("captures scalars, lists, numbers and booleans as string arrays", () => {
+    const record = scanClipping(
+      "Clippings/a.md",
+      { medium: "photo", tags: ["a", "b"], rating: 4, starred: true },
+      ""
+    );
+    expect(record.properties.medium).toEqual(["photo"]);
+    expect(record.properties.tags).toEqual(["a", "b"]);
+    expect(record.properties.rating).toEqual(["4"]);
+    expect(record.properties.starred).toEqual(["true"]);
+  });
+
+  it("omits empty values, blank list entries and nested objects", () => {
+    const record = scanClipping(
+      "Clippings/a.md",
+      { blank: "", nothing: null, list: ["a", "", "  "], nested: { x: 1 } },
+      ""
+    );
+    expect(record.properties.blank).toBeUndefined();
+    expect(record.properties.nothing).toBeUndefined();
+    expect(record.properties.nested).toBeUndefined();
+    expect(record.properties.list).toEqual(["a"]);
+  });
+
+  it("carries the unread default into properties.status", () => {
+    const record = scanClipping("Clippings/a.md", {}, "");
+    expect(record.status).toBe("unread");
+    expect(record.properties.status).toEqual(["unread"]);
+  });
+
+  it("mirrors the normalized categories into properties.categories", () => {
+    const record = scanClipping("Clippings/a.md", { categories: "solo" }, "");
+    expect(record.categories).toEqual(["solo"]);
+    expect(record.properties.categories).toEqual(["solo"]);
+  });
+});

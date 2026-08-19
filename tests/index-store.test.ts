@@ -15,6 +15,7 @@ function rec(path: string, created: string, title: string): ClippingRecord {
     grid: "",
     media: [],
     haystack: title.toLowerCase(),
+    properties: {},
   };
 }
 

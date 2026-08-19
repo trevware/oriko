@@ -26,6 +26,7 @@ function clipping(over: Partial<ClippingRecord> = {}): ClippingRecord {
     grid: "",
     media: [],
     haystack: "",
+    properties: {},
     ...over,
   };
 }

@@ -29,6 +29,7 @@ function clipping(title: string, grid = "", extra = ""): ClippingRecord {
     grid,
     media: [],
     haystack: `${title} ${extra}`.toLowerCase(),
+    properties: {},
   };
 }
 

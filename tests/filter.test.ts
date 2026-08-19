@@ -39,6 +39,10 @@ function tile(
       grid: "",
       media: [],
       haystack: "",
+      properties: {
+        categories: opts.categories ?? [],
+        status: [opts.status ?? "unread"],
+      },
     },
     posterPath: "",
     animated: false,

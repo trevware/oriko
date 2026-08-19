@@ -28,6 +28,7 @@ function record(path: string, grid = ""): ClippingRecord {
     grid,
     media: [],
     haystack: "",
+    properties: {},
   };
 }
 
