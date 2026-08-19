@@ -53,6 +53,28 @@ export function choosePlaying(candidates: PlaybackCandidate[], max: number): str
     .map((c) => c.id);
 }
 
+export type VisibilityAction = "pause" | "resume" | "none";
+
+export interface VisibilityState {
+  hidden: boolean;
+  playing: boolean;
+  /** True when this code paused it, as opposed to the viewer having done so. */
+  suspended: boolean;
+}
+
+/**
+ * What to do with a lone video when the window comes and goes.
+ *
+ * The wall's own videos are governed by what is on screen, so they need no
+ * memory; the detail view's single video does, because it must come back
+ * exactly as it was left. Resuming only what was suspended here is the whole
+ * point: a video the viewer paused deliberately has to stay paused.
+ */
+export function visibilityAction({ hidden, playing, suspended }: VisibilityState): VisibilityAction {
+  if (hidden) return playing ? "pause" : "none";
+  return suspended ? "resume" : "none";
+}
+
 type Playable = HTMLVideoElement | HTMLImageElement;
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choosePlaying, visibleRatio } from "../src/playback";
+import { choosePlaying, visibleRatio, visibilityAction } from "../src/playback";
 
 describe("choosePlaying", () => {
   it("plays nothing when nothing is sufficiently visible", () => {
@@ -123,3 +123,27 @@ describe("choosePlaying without a cap", () => {
     expect(chosen).toEqual(["seen"]);
   });
 });
+
+describe("visibilityAction", () => {
+  it("pauses what is playing when the window goes away", () => {
+    expect(visibilityAction({ hidden: true, playing: true, suspended: false })).toBe("pause");
+  });
+
+  it("resumes on return only what it paused itself", () => {
+    expect(visibilityAction({ hidden: false, playing: false, suspended: true })).toBe("resume");
+  });
+
+  it("leaves a video the viewer paused themselves alone", () => {
+    // Nothing was suspended on the way out, so nothing is owed on the way in.
+    expect(visibilityAction({ hidden: true, playing: false, suspended: false })).toBe("none");
+    expect(visibilityAction({ hidden: false, playing: false, suspended: false })).toBe("none");
+  });
+
+  it("does not pause twice while hidden", () => {
+    expect(visibilityAction({ hidden: true, playing: false, suspended: true })).toBe("none");
+  });
+
+  it("says nothing about a video that is already playing and on screen", () => {
+    expect(visibilityAction({ hidden: false, playing: true, suspended: false })).toBe("none");
+  });
+})

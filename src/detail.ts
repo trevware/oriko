@@ -2,6 +2,7 @@ import { App, TFile, normalizePath, setIcon } from "obsidian";
 import { zoomAt } from "./camera";
 import type { Camera } from "./camera";
 import { fitRect, flightMidpoint, flipTransform } from "./layout";
+import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { attachTip, tipLabel } from "./tip";
@@ -120,6 +121,16 @@ export class DetailView {
   private layer: HTMLElement | null = null;
   private origin: DetailOrigin | null = null;
   private onKey: ((event: KeyboardEvent) => void) | null = null;
+  /**
+   * Watches the window while a video is on the stage, so it stops with it.
+   *
+   * The wall's PlaybackController is switched off while the detail view is
+   * up, and this video was never registered with it in the first place, so
+   * without this a minimised app would go on decoding it, sound and all.
+   */
+  private onVisibility: (() => void) | null = null;
+  /** True only when the pause was ours to undo, not the viewer's. */
+  private suspended = false;
   private closing = false;
 
   private view: Camera = { ...FIT };
@@ -268,12 +279,40 @@ export class DetailView {
       video.loop = true;
       video.playsInline = true;
       if (model.posterPath) video.poster = this.resource(model.posterPath);
+      this.watchVisibility(video);
       return;
     }
 
     const image = host.createEl("img", { cls: "pg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
+  }
+
+  /** Parity with the wall: nothing plays behind a window you cannot see. */
+  private watchVisibility(video: HTMLVideoElement): void {
+    this.onVisibility = () => {
+      const action = visibilityAction({
+        hidden: document.hidden,
+        playing: !video.paused,
+        suspended: this.suspended,
+      });
+      if (action === "pause") {
+        video.pause();
+        this.suspended = true;
+      } else if (action === "resume") {
+        this.suspended = false;
+        void video.play().catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", this.onVisibility);
+  }
+
+  private stopWatchingVisibility(): void {
+    if (this.onVisibility) {
+      document.removeEventListener("visibilitychange", this.onVisibility);
+    }
+    this.onVisibility = null;
+    this.suspended = false;
   }
 
   private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): void {
@@ -646,6 +685,7 @@ export class DetailView {
     this.cancelApply();
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
+    this.stopWatchingVisibility();
     this.veil?.cancel();
     this.veil = null;
     this.root?.remove();
