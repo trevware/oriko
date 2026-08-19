@@ -654,11 +654,11 @@ export class PowerGridView extends ItemView {
   }
 
   /**
-   * Shows or hides the list beside the wall.
+   * Shows or hides the list over the wall.
    *
-   * The wall lays out at the width of its viewport, so the panel takes space
-   * from it rather than covering it, and the relayout is explicit: the
-   * observer watches the pane, whose size has not changed.
+   * The panel floats, like every other surface here, so the wall neither
+   * reflows nor moves underneath it. What you were looking at stays exactly
+   * where it was.
    */
   togglePanel(): void {
     const panel = this.panel;
@@ -676,7 +676,6 @@ export class PowerGridView extends ItemView {
       // Nothing is pointing at a tile any more.
       this.grid?.highlightTile(null);
     }
-    this.grid?.relayout();
     void this.plugin.saveSettings();
   }
 

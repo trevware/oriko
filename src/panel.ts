@@ -85,12 +85,10 @@ export class LayerPanel {
     this.scroller.onmouseleave = () => this.handlers.onHover(null);
     this.root.onmouseleave = () => this.handlers.onHover(null);
 
-    this.container.addClass("has-panel");
     this.paint();
   }
 
   close(): void {
-    this.container.removeClass("has-panel");
     this.root?.remove();
     this.root = null;
     this.heading = null;

@@ -906,8 +906,9 @@
 }
 
 .pg-spacebar button,
-.pg-panel-toggle {
+.power-grid-view button.pg-panel-toggle {
   pointer-events: auto;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -928,7 +929,7 @@
 }
 
 .pg-spacebar button:hover,
-.pg-panel-toggle:hover {
+.power-grid-view button.pg-panel-toggle:hover {
   background-color: var(--pg-surface);
   box-shadow:
     var(--pg-surface-ring),
@@ -937,7 +938,7 @@
 }
 
 .pg-spacebar button:active,
-.pg-panel-toggle:active {
+.power-grid-view button.pg-panel-toggle:active {
   transform: scale(0.96);
 }
 
@@ -946,7 +947,7 @@
    dismissed, and you cannot tell it is clickable without finding it first. */
 .pg-space-manage,
 .pg-space-filter,
-.pg-panel-toggle {
+.power-grid-view button.pg-panel-toggle {
   width: 48px;
   height: 38px;
   border-radius: 19px;
@@ -1400,35 +1401,19 @@ button.pg-grid-row-button.is-disabled:hover {
   --pg-panel-row: 44px;
 }
 
-.power-grid-view.has-panel .pg-viewport {
-  /* margin, not padding: clientWidth includes padding, and the wall lays out
-     at clientWidth, so padding would leave a column of tiles under the panel. */
-  margin-left: var(--pg-panel-width);
-}
-
-/* The floating controls keep clear of it too, or the left cluster would sit
-   on top of the list. */
-.power-grid-view.has-panel .pg-spacebar {
-  left: calc(var(--pg-panel-width) + 22px);
-}
-
-.power-grid-view.has-panel .pg-actionbar {
-  margin-left: calc(var(--pg-panel-width) / 2);
-}
-
 .pg-panel {
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  /* Below its handle, clear of the space bar: a card floating over the wall,
+     like every other surface here, rather than a column carved out of it. */
+  top: 70px;
+  left: 22px;
+  bottom: 72px;
   z-index: 26;
   width: var(--pg-panel-width);
   display: flex;
   flex-direction: column;
   padding: var(--pg-surface-pad);
-  /* Square against the pane edge, rounded where it meets the wall: it is a
-     wall of the pane, not a card floating in it. */
-  border-radius: 0 var(--pg-surface-radius) var(--pg-surface-radius) 0;
+  border-radius: var(--pg-surface-radius);
   background-color: var(--pg-surface);
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
@@ -1570,32 +1555,18 @@ button.pg-grid-row-button.is-disabled:hover {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
 }
 
-/* Its own corner, at the edge it moves. Travels with the panel so it never
-   ends up sitting on top of the list it opened. */
-.pg-panel-toggle {
+/* Its own corner, with the list hanging below it. Fixed rather than sliding:
+   the panel floats over the wall now, so there is nothing to get out of the
+   way of. */
+.power-grid-view button.pg-panel-toggle {
   position: absolute;
   top: 22px;
   left: 22px;
   z-index: 28;
-  transition:
-    background-color 120ms ease,
-    left 160ms cubic-bezier(0.22, 0.9, 0.28, 1),
-    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
-    box-shadow 180ms ease;
-}
-
-.power-grid-view.has-panel .pg-panel-toggle {
-  left: calc(var(--pg-panel-width) + 22px);
 }
 
 .pg-panel-head {
   padding-right: 13px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pg-panel-toggle {
-    transition: none;
-  }
 }
 
 /* A clipping is a picture, so the palette shows the picture rather than a
