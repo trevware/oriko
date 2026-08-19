@@ -28,7 +28,12 @@ export interface MenuItem {
    * keep showing the state it had before you touched it.
    */
   keepOpen?: boolean;
-  onSelect?: () => void;
+  /**
+   * May return a promise. A keepOpen row that writes to a note has to finish
+   * before the menu re-reads, or the rebuild shows the state from before the
+   * click and the row appears not to have worked.
+   */
+  onSelect?: () => void | Promise<void>;
 }
 
 interface RowRecord {
@@ -203,8 +208,9 @@ export class ContextMenu {
           return;
         }
         if (current.keepOpen) {
-          current.onSelect?.();
-          this.rerender();
+          const done = current.onSelect?.();
+          if (done) void done.then(() => this.rerender());
+          else this.rerender();
           return;
         }
         this.close();

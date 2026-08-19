@@ -937,7 +937,16 @@ export class PowerGridView extends ItemView {
       });
     } catch (error) {
       new Notice(`Power Grid: could not update ${key} (${String(error)})`);
+      return;
     }
+
+    // Re-read now rather than waiting for the vault's own modify event, and
+    // paint now rather than on the next frame. Both are what make the tick
+    // appear on the click that caused it: the menu rebuilds as soon as this
+    // resolves, and it reads the index for what a clipping holds and the wall
+    // for how many carry each value.
+    await this.plugin.index.handleModify(file);
+    this.refresh({ replace: true });
   }
 
   /**
@@ -971,13 +980,18 @@ export class PowerGridView extends ItemView {
             : on
               ? withoutValue(held, entry.value)
               : withValue(held, entry.value);
-          void this.setProperty(path, key, next);
+          // Returned, not discarded: the menu waits on it before rebuilding,
+          // which is what puts the tick on screen with the click.
+          return this.setProperty(path, key, next);
         },
       };
     });
 
     rows.push({
-      icon: "plus",
+      // No icon, or this one row would reserve the gutter for the whole
+      // panel: the panel drops it only when nothing in it has one. The rule
+      // above already separates this row from the values.
+      icon: "",
       label: "New value…",
       divider: rows.length > 0,
       onSelect: () => this.promptPropertyValue(path, key, single, held),
