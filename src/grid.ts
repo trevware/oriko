@@ -1,4 +1,5 @@
-import { App, TFile, normalizePath } from "obsidian";
+import { App } from "obsidian";
+import { resourceUrl } from "./convert";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -117,6 +118,8 @@ export class GridRenderer {
   private marqueeMoved = false;
   /** Where a shift-click measures its range from. */
   private selectionAnchor: string | null = null;
+  /** Tile the layer panel is pointing at, if any. */
+  private highlighted: string | null = null;
 
   private positionById = new Map<string, Position>();
   private tiltedId: string | null = null;
@@ -619,6 +622,46 @@ export class GridRenderer {
     return true;
   }
 
+  /**
+   * A click in the layer panel, given the wall's own selection semantics so
+   * the two surfaces cannot disagree about what a shift-click means.
+   *
+   * A plain pick also flies there, which is the whole point of the panel:
+   * the list is how you find something, the wall is where you look at it.
+   */
+  pick(id: string, mode: "replace" | "toggle" | "range"): void {
+    if (mode === "toggle") {
+      this.selectOnly(id, toggleSelection(this.selection, id));
+      return;
+    }
+    if (mode === "range") {
+      this.applySelection(
+        rangeSelection(
+          this.tiles.map((t) => t.id),
+          this.selectionAnchor,
+          id,
+          this.selection
+        )
+      );
+      return;
+    }
+    this.selectOnly(id, new Set([id]));
+    this.reveal(id);
+  }
+
+  /**
+   * Rings the tile under the cursor in the panel. Kept as state rather than
+   * a one-off class because tiles are recycled: without it, scrolling the
+   * wall would move the ring onto whichever clipping inherited the element.
+   */
+  highlightTile(id: string | null): void {
+    if (this.highlighted === id) return;
+    this.highlighted = id;
+    for (const [tileId, element] of this.mounted) {
+      element.root.toggleClass("is-peeked", tileId === id);
+    }
+  }
+
   selectAll(): void {
     this.applySelection(new Set(this.tiles.map((t) => t.id)));
   }
@@ -751,10 +794,7 @@ export class GridRenderer {
   }
 
   private sourceFor(path: string, remote: boolean): string {
-    if (!path) return "";
-    if (remote) return path;
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
-    return file instanceof TFile ? this.app.vault.getResourcePath(file) : "";
+    return resourceUrl(this.app.vault, path, remote);
   }
 
   private swapImage(image: HTMLImageElement, next: string): void {
@@ -799,6 +839,7 @@ export class GridRenderer {
 
   private paint(element: TileElement, model: TileModel, position: Position, order: number): void {
     element.root.style.display = "";
+    element.root.toggleClass("is-peeked", model.id === this.highlighted);
 
     // A tile that keeps representing the same clipping glides to its new
     // position; a pooled element reused for a different clipping snaps,

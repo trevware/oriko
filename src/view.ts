@@ -19,6 +19,8 @@ import type { GridsController } from "./grid-modals";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
+import { LayerPanel } from "./panel";
+import { resourceUrl } from "./convert";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
 import {
@@ -42,7 +44,7 @@ import {
   orderedGrids,
 } from "./spaces";
 import type { GridSpace } from "./spaces";
-import { buildTiles } from "./tile";
+import { buildTiles, previewOf } from "./tile";
 import type { TileModel } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
@@ -76,6 +78,7 @@ export class PowerGridView extends ItemView {
   private detail: DetailView | null = null;
   private spaceBar: SpaceBar | null = null;
   private palette: Palette | null = null;
+  private panel: LayerPanel | null = null;
   /** A clipping just made here, to fly to as soon as it has a tile. */
   private pendingReveal: { path: string; until: number } | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
@@ -145,7 +148,10 @@ export class PowerGridView extends ItemView {
     this.actionBar = new ActionBar(this.contentEl, {
       onDelete: () => this.confirmDelete(this.grid?.selectedIds() ?? []),
     });
-    this.grid.onSelectionChanged = (ids: string[]) => this.actionBar?.setSelection(ids);
+    this.grid.onSelectionChanged = (ids: string[]) => {
+      this.actionBar?.setSelection(ids);
+      this.panel?.setSelection(ids);
+    };
 
     this.menu = new ContextMenu(this.contentEl);
     this.grid.onContextRequested = (ids, x, y) =>
@@ -156,8 +162,19 @@ export class PowerGridView extends ItemView {
       onCreate: (x, y) => this.openCreate(x, y),
       onSettings: (x, y) => this.openSettings(x, y),
       onFilter: (x, y) => this.openFilter(x, y),
+      onPanel: () => this.togglePanel(),
     });
     this.spaceBar.setActive(this.activeGrid());
+
+    this.panel = new LayerPanel(this.contentEl, this.app.vault, {
+      // Selection semantics belong to the wall, so the panel forwards rather
+      // than deciding what a shift-click means.
+      onPick: (id, mode) => this.grid?.pick(id, mode),
+      onHover: (id) => this.grid?.highlightTile(id),
+      onClose: () => this.togglePanel(),
+    });
+    if (this.plugin.settings.panelOpen) this.panel.open();
+    this.spaceBar.setPanelOpen(this.plugin.settings.panelOpen);
 
     this.palette = new Palette(this.contentEl, {
       commands: () => buildCommands(this.paletteContext()),
@@ -171,6 +188,7 @@ export class PowerGridView extends ItemView {
         registered: this.registered(),
       }),
       onClipping: (path) => this.revealClipping(path),
+      preview: (path) => this.previewUrl(path),
     });
 
     this.onGridKey = (event: KeyboardEvent) => {
@@ -288,6 +306,8 @@ export class PowerGridView extends ItemView {
     this.onGridKey = null;
     this.palette?.close();
     this.palette = null;
+    this.panel?.close();
+    this.panel = null;
     this.spaceBar?.destroy();
     this.spaceBar = null;
     this.observer?.disconnect();
@@ -555,12 +575,12 @@ export class PowerGridView extends ItemView {
   private applyFilter(options: { replace?: boolean }): void {
     const filter = this.activeFilter();
     this.spaceBar?.setFilterCount(activeCount(filter));
-    this.grid?.setTiles(
-      isFilterEmpty(filter)
-        ? this.facets
-        : this.facets.filter((tile) => matchesFilter(tile, filter)),
-      options
-    );
+    const shown = isFilterEmpty(filter)
+      ? this.facets
+      : this.facets.filter((tile) => matchesFilter(tile, filter));
+    this.grid?.setTiles(shown, options);
+    // The same list, so a filter narrows both and neither can drift.
+    this.panel?.setTiles(shown, this.activeGrid().name);
   }
 
   /** The grid's tiles before filtering, which is what the facets count. */
@@ -629,6 +649,57 @@ export class PowerGridView extends ItemView {
     };
 
     this.menu?.open(build(), x, y, build);
+  }
+
+  /**
+   * Shows or hides the list beside the wall.
+   *
+   * The wall lays out at the width of its viewport, so the panel takes space
+   * from it rather than covering it, and the relayout is explicit: the
+   * observer watches the pane, whose size has not changed.
+   */
+  togglePanel(): void {
+    const panel = this.panel;
+    if (!panel) return;
+
+    if (panel.isOpen) panel.close();
+    else panel.open();
+
+    this.plugin.settings.panelOpen = panel.isOpen;
+    this.spaceBar?.setPanelOpen(panel.isOpen);
+    if (panel.isOpen) {
+      this.panel?.setTiles(this.shownTiles(), this.activeGrid().name);
+      this.panel?.setSelection(this.grid?.selectedIds() ?? []);
+    } else {
+      // Nothing is pointing at a tile any more.
+      this.grid?.highlightTile(null);
+    }
+    this.grid?.relayout();
+    void this.plugin.saveSettings();
+  }
+
+  /**
+   * A thumbnail for any clipping in the vault, tile or no tile.
+   *
+   * The palette searches every grid, so most results have no tile on this
+   * wall to borrow from. Building one for the record is cheap: picking a
+   * cover is a handful of map lookups, and it means the list shows the same
+   * picture the wall would.
+   */
+  private previewUrl(path: string): string {
+    const record = this.plugin.index.get(path);
+    if (!record) return "";
+    const [tile] = buildTiles([record], this.plugin.archiver.cache);
+    const preview = tile ? previewOf(tile) : null;
+    return preview ? resourceUrl(this.app.vault, preview.path, preview.remote) : "";
+  }
+
+  /** What the wall is showing right now, filter applied. */
+  private shownTiles(): TileModel[] {
+    const filter = this.activeFilter();
+    return isFilterEmpty(filter)
+      ? this.facets
+      : this.facets.filter((tile) => matchesFilter(tile, filter));
   }
 
   // ---- Palette -----------------------------------------------------------

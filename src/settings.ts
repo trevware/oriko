@@ -26,6 +26,8 @@ export interface PowerGridSettings {
   homeGridIcon: string;
   /** Name of the grid on screen, persisted so a restart reopens where you were. */
   activeGrid: string;
+  /** Whether the layer panel is showing, kept so it opens as you left it. */
+  panelOpen: boolean;
 }
 
 export const DEFAULT_SETTINGS: PowerGridSettings = {
@@ -40,4 +42,5 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
+  panelOpen: false,
 };

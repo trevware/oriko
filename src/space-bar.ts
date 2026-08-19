@@ -13,6 +13,8 @@ export interface SpaceBarHandlers {
   onSettings: (x: number, y: number) => void;
   /** Open the filter menu, anchored at a point. */
   onFilter: (x: number, y: number) => void;
+  /** Show or hide the layer panel. */
+  onPanel: () => void;
 }
 
 /**
@@ -26,6 +28,7 @@ export interface SpaceBarHandlers {
 export class SpaceBar {
   private root: HTMLElement;
   private manage: HTMLElement;
+  private panel: HTMLElement;
   private filter: HTMLElement;
   private filterCount: HTMLElement;
   private shownCount = -1;
@@ -39,6 +42,14 @@ export class SpaceBar {
     // Left cluster: what you are looking at. Right cluster: which wall it is,
     // and adding to it.
     const left = this.root.createDiv({ cls: "pg-space-left" });
+
+    this.panel = left.createEl("button", { cls: "pg-space-panel" });
+    this.panel.setAttribute("aria-label", "Show list");
+    setIcon(this.panel, "panel-left");
+    this.panel.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      handlers.onPanel();
+    };
 
     this.filter = left.createEl("button", { cls: "pg-space-filter" });
     this.filter.setAttribute("aria-label", "Filter");
@@ -88,6 +99,12 @@ export class SpaceBar {
       const rect = create.getBoundingClientRect();
       handlers.onCreate(rect.right, rect.top - LAUNCH_GAP);
     };
+  }
+
+  /** Lit while the panel is showing, so the button reads as a state. */
+  setPanelOpen(open: boolean): void {
+    this.panel.toggleClass("is-active", open);
+    this.panel.setAttribute("aria-label", open ? "Hide list" : "Show list");
   }
 
   /** Reflects whichever grid is on screen. */

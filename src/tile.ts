@@ -219,3 +219,23 @@ export function buildTiles(
 
   return tiles;
 }
+
+export interface Preview {
+  path: string;
+  /** True when the path is a url rather than a file in the vault. */
+  remote: boolean;
+}
+
+/**
+ * A still worth putting in a list row, or null when there is none.
+ *
+ * Rows are small, so the generated still wins wherever one exists: it is a
+ * few kilobytes against an original that can be megabytes, and it does not
+ * animate, which a forty-pixel row has no business doing. A video has only
+ * its poster, since an img cannot hold one.
+ */
+export function previewOf(tile: TileModel): Preview | null {
+  if (tile.posterPath) return { path: tile.posterPath, remote: false };
+  if (tile.kind === "video") return null;
+  return tile.filePath ? { path: tile.filePath, remote: tile.remote } : null;
+}

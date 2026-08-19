@@ -1387,3 +1387,226 @@ button.pg-grid-row-button.is-disabled:hover {
     transition: none;
   }
 }
+
+/* Layer panel: the wall as a list, on the same surface as everything else
+   that floats over it. It takes space from the wall rather than covering it,
+   so no tile ends up permanently hidden behind it. */
+.power-grid-view {
+  --pg-panel-width: 300px;
+  --pg-panel-row: 44px;
+}
+
+.power-grid-view.has-panel .pg-viewport {
+  /* margin, not padding: clientWidth includes padding, and the wall lays out
+     at clientWidth, so padding would leave a column of tiles under the panel. */
+  margin-left: var(--pg-panel-width);
+}
+
+/* The floating controls keep clear of it too, or the left cluster would sit
+   on top of the list. */
+.power-grid-view.has-panel .pg-spacebar {
+  left: calc(var(--pg-panel-width) + 22px);
+}
+
+.power-grid-view.has-panel .pg-actionbar {
+  margin-left: calc(var(--pg-panel-width) / 2);
+}
+
+.pg-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 26;
+  width: var(--pg-panel-width);
+  display: flex;
+  flex-direction: column;
+  padding: var(--pg-surface-pad);
+  /* Square against the pane edge, rounded where it meets the wall: it is a
+     wall of the pane, not a card floating in it. */
+  border-radius: 0 var(--pg-surface-radius) var(--pg-surface-radius) 0;
+  background-color: var(--pg-surface);
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
+}
+
+.pg-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 10px 13px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pg-panel-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--pg-surface-text);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The count rides along with the name rather than taking a row of its own. */
+.pg-panel-title::after {
+  content: attr(data-count);
+  margin-left: 8px;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.pg-panel button.pg-panel-close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--pg-surface-text);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.pg-panel button.pg-panel-close:hover {
+  background: var(--pg-inner-hover);
+  opacity: 1;
+}
+
+.pg-panel-list {
+  position: relative;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin-top: 6px;
+}
+
+/* Holds the scrollbar honest while only the visible rows exist. */
+.pg-panel-spacer {
+  width: 1px;
+  pointer-events: none;
+}
+
+.pg-panel-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--pg-panel-row);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 0 3px;
+  border-radius: var(--pg-inner-radius);
+  color: var(--pg-surface-text);
+  cursor: pointer;
+  user-select: none;
+  /* Windowed rows are moved, never re-created, so this must not animate. */
+  transition: background-color 90ms ease;
+}
+
+.pg-panel-row:hover {
+  background: var(--pg-inner-hover);
+}
+
+.pg-panel-row.is-selected {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.pg-panel-thumb {
+  flex: 0 0 auto;
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pg-panel-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pg-panel-thumb.is-blank img {
+  display: none;
+}
+
+/* A video reads as one at a glance, without a second line of text. */
+.pg-panel-row.is-video .pg-panel-thumb::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 7px;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.pg-panel-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-panel-detail {
+  flex: 0 0 auto;
+  max-width: 38%;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-panel-empty {
+  padding: 24px 13px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Pointing at a row rings its tile, which is what connects the list to the
+   wall. Lighter than the selection ring, which means something else. */
+.pg-tile.is-peeked .pg-frame {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
+.pg-space-panel.is-active {
+  color: var(--pg-surface-text);
+  background: var(--pg-inner-hover);
+}
+
+/* A clipping is a picture, so the palette shows the picture rather than a
+   generic file icon. Same gutter either way, so nothing shifts. */
+.pg-palette-icon.is-thumb {
+  width: 26px;
+  height: 26px;
+  margin: -3px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pg-palette-icon.is-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}

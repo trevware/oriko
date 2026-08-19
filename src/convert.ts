@@ -1,4 +1,4 @@
-import { FileSystemAdapter, Platform, Vault } from "obsidian";
+import { FileSystemAdapter, Platform, TFile, Vault, normalizePath } from "obsidian";
 import { nodeRequire } from "./system";
 
 /**
@@ -47,6 +47,19 @@ export function conversionAvailable(): boolean {
 }
 
 /** Absolute path for a vault-relative path, or null on a non-file vault. */
+/**
+ * A url the renderer can load for something in the vault, or the url itself
+ * when the path is already remote. One definition, because every surface
+ * that paints a clipping needs it: tiles, the detail stage, the palette and
+ * the layer panel.
+ */
+export function resourceUrl(vault: Vault, path: string, remote = false): string {
+  if (!path) return "";
+  if (remote) return path;
+  const file = vault.getAbstractFileByPath(normalizePath(path));
+  return file instanceof TFile ? vault.getResourcePath(file) : "";
+}
+
 export function absolutePath(vault: Vault, relative: string): string | null {
   const adapter = vault.adapter;
   if (!(adapter instanceof FileSystemAdapter)) return null;

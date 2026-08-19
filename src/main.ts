@@ -87,6 +87,18 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "toggle-layer-panel",
+      name: "Show or hide the list",
+      hotkeys: [{ modifiers: ["Mod"], key: "L" }],
+      checkCallback: (checking: boolean) => {
+        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
+        if (!view) return false;
+        if (!checking) view.togglePanel();
+        return true;
+      },
+    });
+
+    this.addCommand({
       id: "sweep-orphan-media",
       name: "Remove orphaned media",
       callback: () => this.sweepOrphanMedia(),

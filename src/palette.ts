@@ -14,6 +14,12 @@ export interface PaletteHandlers {
   options: () => SearchOptions;
   /** Land on a clipping: switch grid if need be, centre it, select it. */
   onClipping: (path: string) => void;
+  /**
+   * A thumbnail url for a clipping, or "" when it has none. A picture is
+   * what a clipping is, so a row that shows a generic file icon is a row
+   * you have to read rather than recognise.
+   */
+  preview: (path: string) => string;
 }
 
 /**
@@ -311,9 +317,18 @@ export class Palette {
     if (row.destructive) el.addClass("is-destructive");
 
     const icon = el.createDiv({ cls: "pg-palette-icon" });
-    // Blank is meaningful: an unticked facet still needs its gutter, or the
-    // labels jump sideways as values are toggled.
-    if (row.icon) setIcon(icon, row.icon);
+    const thumb = row.clipping ? this.handlers.preview(row.clipping) : "";
+    if (thumb) {
+      icon.addClass("is-thumb");
+      const image = icon.createEl("img");
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.src = thumb;
+    } else if (row.icon) {
+      // Blank is meaningful: an unticked facet still needs its gutter, or
+      // the labels jump sideways as values are toggled.
+      setIcon(icon, row.icon);
+    }
 
     paintLabel(el.createDiv({ cls: "pg-palette-label" }), row.label, row.ranges);
     el.createDiv({ cls: "pg-palette-detail", text: row.detail ?? "" });

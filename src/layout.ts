@@ -230,3 +230,44 @@ export function flightMidpoint(
     scaleY: toward(end.scaleY) * (horizontal ? 1 - stretch * 0.55 : 1 + stretch),
   };
 }
+
+export interface WindowQuery {
+  scrollTop: number;
+  viewportHeight: number;
+  rowHeight: number;
+  count: number;
+  overscan?: number;
+}
+
+export interface WindowRange {
+  start: number;
+  /** Exclusive. */
+  end: number;
+}
+
+/**
+ * Which rows of a uniform-height list are worth building.
+ *
+ * The panel lists a whole grid, which can be thousands of clippings, so the
+ * cost of showing it has to be the size of the window rather than the size
+ * of the list: twenty-odd rows exist at any moment whether the grid holds
+ * fifty or fifty thousand. Uniform heights are what make this arithmetic
+ * rather than a search, which is why a row is a fixed size by design.
+ */
+export function windowRange({
+  scrollTop,
+  viewportHeight,
+  rowHeight,
+  count,
+  overscan = 4,
+}: WindowQuery): WindowRange {
+  if (rowHeight <= 0 || count <= 0) return { start: 0, end: 0 };
+
+  const first = Math.floor(scrollTop / rowHeight) - overscan;
+  const last = Math.ceil((scrollTop + viewportHeight) / rowHeight) + overscan;
+
+  return {
+    start: Math.max(0, Math.min(first, count)),
+    end: Math.max(0, Math.min(last, count)),
+  };
+}

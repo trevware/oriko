@@ -1,5 +1,6 @@
-import { App, TFile, normalizePath, setIcon } from "obsidian";
+import { App, setIcon } from "obsidian";
 import { zoomAt } from "./camera";
+import { resourceUrl } from "./convert";
 import type { Camera } from "./camera";
 import { fitRect, flightMidpoint, flipTransform } from "./layout";
 import { visibilityAction } from "./playback";
@@ -164,8 +165,7 @@ export class DetailView {
   }
 
   private resource(path: string): string {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
-    return file instanceof TFile ? this.app.vault.getResourcePath(file) : path;
+    return resourceUrl(this.app.vault, path) || path;
   }
 
   /** Fires once the stage exists, so the source card can be hidden then. */
