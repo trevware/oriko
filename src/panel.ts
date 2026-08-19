@@ -249,10 +249,11 @@ export class PanelToggle {
   setOpen(open: boolean): void {
     this.root.empty();
     setIcon(this.root, open ? "panel-left-close" : "panel-left");
-    // Re-attached rather than built once: empty() above takes the tip with
-    // the icon, and the label has to follow the state in any case.
-    const label = open ? "Hide list" : "Show list";
-    attachTip(this.root, label, "\u2318L");
+    // Re-attached rather than built once, because empty() above takes the tip
+    // with the icon. The label does not name the action, only the thing: the
+    // icon already shows which way the toggle will go, and a label that reads
+    // Hide while the list is hidden is the classic way to get that backwards.
+    attachTip(this.root, "List", "\u2318L");
     this.root.toggleClass("is-open", open);
   }
 
