@@ -24,15 +24,16 @@ import { resourceUrl } from "./convert";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
 import {
-  FACETS,
   activeCount,
   emptyFilter,
+  facetDefs,
   facetsOf,
   isFilterEmpty,
   matchesFilter,
+  pruneFilter,
   toggleFacet,
 } from "./filter";
-import type { Facet, FilterState } from "./filter";
+import type { FacetDef, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
 import { describeFiles } from "./media-refs";
 import { orphansAfterDeleting, removeMedia } from "./sweep";
@@ -318,6 +319,16 @@ export class PowerGridView extends ItemView {
     this.refresh();
   }
 
+  /**
+   * Public: the settings tab calls this when the property list changes, so an
+   * open wall picks up a new facet without a reload. Filters left over from a
+   * facet that has just been switched off are pruned by activeFilter on the
+   * way through.
+   */
+  refreshFacets(): void {
+    this.applyFilter({ replace: true });
+  }
+
   /** Public: the ⌘K command in main.ts drives the palette through this. */
   togglePalette(): void {
     if (this.detail?.isOpen) return;
@@ -601,9 +612,10 @@ export class PowerGridView extends ItemView {
   private applyFilter(options: { replace?: boolean }): void {
     const filter = this.activeFilter();
     this.spaceBar?.setFilterCount(activeCount(filter));
+    const defs = this.defs();
     const shown = isFilterEmpty(filter)
       ? this.facets
-      : this.facets.filter((tile) => matchesFilter(tile, filter));
+      : this.facets.filter((tile) => matchesFilter(tile, filter, defs));
     this.grid?.setTiles(shown, options);
     // The same list, so a filter narrows both and neither can drift.
     this.panel?.setTiles(shown, this.activeGrid().name);
@@ -612,8 +624,24 @@ export class PowerGridView extends ItemView {
   /** The grid's tiles before filtering, which is what the facets count. */
   private facets: TileModel[] = [];
 
+  /** The facets on offer, rebuilt from settings on each read. The list is
+      four or five items long, so caching it would cost more in staleness
+      than it saves. */
+  private defs(): FacetDef[] {
+    return facetDefs(this.plugin.settings.filterProperties);
+  }
+
+  /** Pruned on the way out, so a property switched off in settings stops
+      counting towards the badge instead of claiming a narrowing that
+      matchesFilter is no longer applying. */
   private activeFilter(): FilterState {
-    return this.filters.get(this.activeGrid().name) ?? emptyFilter();
+    const stored = this.filters.get(this.activeGrid().name) ?? emptyFilter();
+    const pruned = pruneFilter(stored, this.defs());
+    if (pruned !== stored) {
+      if (isFilterEmpty(pruned)) this.filters.delete(this.activeGrid().name);
+      else this.filters.set(this.activeGrid().name, pruned);
+    }
+    return pruned;
   }
 
   private setFilter(next: FilterState): void {
@@ -625,27 +653,16 @@ export class PowerGridView extends ItemView {
 
   private openFilter(x: number, y: number): void {
     const build = (): MenuItem[] => {
-      const available = facetsOf(this.facets);
+      const defs = this.defs();
+      const available = facetsOf(this.facets, defs);
       const filter = this.activeFilter();
-      const labels: Record<Facet, string> = {
-        categories: "Categories",
-        statuses: "Status",
-        kinds: "Media type",
-        domains: "Source",
-      };
-      const icons: Record<Facet, string> = {
-        categories: "tag",
-        statuses: "circle-dot",
-        kinds: "image",
-        domains: "globe",
-      };
 
-      const items: MenuItem[] = FACETS.map((facet) => {
-        const values = available[facet];
-        const chosen = filter[facet];
+      const items: MenuItem[] = defs.map((def) => {
+        const values = available[def.id] ?? [];
+        const chosen = filter[def.id] ?? [];
         return {
-          icon: icons[facet],
-          label: labels[facet],
+          icon: def.icon,
+          label: def.label,
           // Nothing to offer is still worth showing: an absent row reads as a
           // missing feature, a disabled one reads as an empty shelf.
           disabled: values.length === 0,
@@ -655,7 +672,7 @@ export class PowerGridView extends ItemView {
             label: entry.value,
             detail: String(entry.count),
             keepOpen: true,
-            onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), facet, entry.value)),
+            onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), def.id, entry.value)),
           })),
         };
       });
@@ -724,7 +741,7 @@ export class PowerGridView extends ItemView {
     const filter = this.activeFilter();
     return isFilterEmpty(filter)
       ? this.facets
-      : this.facets.filter((tile) => matchesFilter(tile, filter));
+      : this.facets.filter((tile) => matchesFilter(tile, filter, this.defs()));
   }
 
   // ---- Palette -----------------------------------------------------------
@@ -742,7 +759,8 @@ export class PowerGridView extends ItemView {
       grids: this.allGrids(),
       activeGrid: this.activeGrid().name,
       homeGrid: this.plugin.settings.homeGridName,
-      facets: facetsOf(this.facets),
+      facetDefs: this.defs(),
+      facets: facetsOf(this.facets, this.defs()),
       filter: this.activeFilter(),
       hasSystem: systemAvailable(),
       // Every row runs the method its context-menu equivalent runs. The two
@@ -758,8 +776,8 @@ export class PowerGridView extends ItemView {
         editGrid: () => this.editActiveGrid(),
         deleteGrid: () => this.deleteActiveGrid(),
         manageGrids: () => this.manageGrids(),
-        toggleFacet: (facet, value) =>
-          this.setFilter(toggleFacet(this.activeFilter(), facet, value)),
+        toggleFacet: (id, value) =>
+          this.setFilter(toggleFacet(this.activeFilter(), id, value)),
         clearFilters: () => this.setFilter(emptyFilter()),
         clipLink: () => void this.plugin.capture.captureFromClipboard(),
         clipImage: () => void this.plugin.clipImageFromClipboard(),
