@@ -1,7 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
-import { tesseractPath, visionAvailable } from "./convert";
 import type PowerGridPlugin from "./main";
-import { chooseEngine } from "./ocr";
 
 export class PowerGridSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: PowerGridPlugin) {
@@ -31,32 +29,6 @@ export class PowerGridSettingTab extends PluginSettingTab {
           this.plugin.settings.attachmentFolder = value.trim() || "Attachments/Clippings";
           await this.plugin.saveSettings();
         })
-      );
-
-    const engine = chooseEngine({
-      vision: visionAvailable(),
-      tesseract: tesseractPath() !== null,
-    });
-
-    new Setting(containerEl)
-      .setName("Read text in images")
-      // Names the engine rather than claiming it works: this is the one
-      // setting whose answer depends on what the machine happens to have.
-      .setDesc(
-        engine === "vision"
-          ? "Search finds words inside screenshots, using macOS Vision."
-          : engine === "tesseract"
-            ? "Search finds words inside screenshots, using tesseract."
-            : "No OCR engine found. macOS uses Vision automatically; elsewhere, install tesseract."
-      )
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.settings.readImageText)
-          .setDisabled(engine === null)
-          .onChange(async (value) => {
-            this.plugin.settings.readImageText = value;
-            await this.plugin.saveSettings();
-          })
       );
 
     new Setting(containerEl)

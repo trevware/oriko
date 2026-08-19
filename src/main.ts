@@ -4,7 +4,6 @@ import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { describeFiles } from "./media-refs";
-import { describeOcr } from "./ocr";
 import { installRepair } from "./repair";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
@@ -96,17 +95,6 @@ export default class PowerGridPlugin extends Plugin {
         if (!view) return false;
         if (!checking) view.togglePanel();
         return true;
-      },
-    });
-
-    this.addCommand({
-      id: "read-image-text",
-      name: "Read text in images",
-      callback: () => {
-        new Notice("Power Grid: reading text in images…");
-        void this.archiver.readText().then((summary) => {
-          new Notice(`Power Grid: ${describeOcr(summary)}`, 8000);
-        });
       },
     });
 

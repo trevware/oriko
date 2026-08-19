@@ -1,5 +1,4 @@
 import { FileSystemAdapter, Platform, TFile, Vault, normalizePath } from "obsidian";
-import type { OcrEngine } from "./ocr";
 import { nodeRequire } from "./system";
 
 /**
@@ -14,13 +13,7 @@ import { nodeRequire } from "./system";
  */
 
 const SIPS = "/usr/bin/sips";
-const OSASCRIPT = "/usr/bin/osascript";
-const TESSERACT_CANDIDATES = [
-  "/opt/homebrew/bin/tesseract",
-  "/usr/local/bin/tesseract",
-  "/usr/bin/tesseract",
-  "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
-];
+
 const FFMPEG_CANDIDATES = [
   "/opt/homebrew/bin/ffmpeg",
   "/usr/local/bin/ffmpeg",
@@ -32,8 +25,8 @@ interface ChildProcessModule {
   execFile: (
     file: string,
     args: string[],
-    options: { timeout: number; maxBuffer?: number },
-    callback: (error: unknown, stdout?: string, stderr?: string) => void
+    options: { timeout: number },
+    callback: (error: unknown) => void
   ) => void;
 }
 
@@ -146,83 +139,6 @@ const YTDLP_CANDIDATES = [
   "/usr/local/bin/yt-dlp",
   "/usr/bin/yt-dlp",
 ];
-
-export function tesseractPath(): string | null {
-  return firstExisting(TESSERACT_CANDIDATES);
-}
-
-/** macOS reads text with Vision, which needs nothing installed. */
-export function visionAvailable(): boolean {
-  return Platform.isMacOS && firstExisting([OSASCRIPT]) !== null;
-}
-
-/** Like run, but the output is the point rather than the exit code. */
-function capture(command: string, args: string[]): Promise<string | null> {
-  const cp = nodeRequire("child_process") as ChildProcessModule | null;
-  if (!cp) return Promise.resolve(null);
-
-  return new Promise<string | null>((resolve) => {
-    try {
-      cp.execFile(
-        command,
-        args,
-        // A dense page can run long; the cap is what stops a pathological
-        // image filling the renderer's heap through a pipe.
-        { timeout: TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024 },
-        (error: unknown, stdout?: string) => resolve(error ? null : (stdout ?? ""))
-      );
-    } catch {
-      resolve(null);
-    }
-  });
-}
-
-/**
- * Vision, driven through osascript's JavaScript bridge.
- *
- * The path is embedded in the script rather than passed as an argument: a
- * -e script's argv handling differs between osascript's language modes, and
- * JSON.stringify quotes a path that contains anything awkward.
- */
-function visionScript(absoluteSource: string): string {
-  return [
-    "ObjC.import('Vision');",
-    "ObjC.import('Foundation');",
-    `const url = $.NSURL.fileURLWithPath(${JSON.stringify(absoluteSource)});`,
-    "const handler = $.VNImageRequestHandler.alloc.initWithURLOptions(url, $());",
-    "const request = $.VNRecognizeTextRequest.alloc.init;",
-    // 0 is the accurate path. Fast misses small interface type, which is
-    // most of what a wall of screenshots is made of.
-    "request.recognitionLevel = 0;",
-    "request.usesLanguageCorrection = true;",
-    "handler.performRequestsError($([request]), $());",
-    "const results = request.results;",
-    "const out = [];",
-    "for (let i = 0; i < results.count; i++) {",
-    "  const top = results.objectAtIndex(i).topCandidates(1);",
-    "  if (top.count > 0) out.push(ObjC.unwrap(top.objectAtIndex(0).string));",
-    "}",
-    "out.join('\\n');",
-  ].join("\n");
-}
-
-/**
- * The words in an image, or null when the read failed outright. An empty
- * string is a real answer: plenty of pictures have no text in them.
- */
-export async function readImageText(
-  absoluteSource: string,
-  engine: OcrEngine
-): Promise<string | null> {
-  if (engine === "vision") {
-    return capture(OSASCRIPT, ["-l", "JavaScript", "-e", visionScript(absoluteSource)]);
-  }
-
-  const tesseract = tesseractPath();
-  if (!tesseract) return null;
-  // stdout, rather than a file it would have to clean up afterwards.
-  return capture(tesseract, [absoluteSource, "stdout"]);
-}
 
 export function ytdlpPath(): string | null {
   return firstExisting(YTDLP_CANDIDATES);
