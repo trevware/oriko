@@ -28,6 +28,8 @@ export interface PowerGridSettings {
   activeGrid: string;
   /** Whether the layer panel is showing, kept so it opens as you left it. */
   panelOpen: boolean;
+  /** Read the words inside archived pictures, so they can be searched. */
+  readImageText: boolean;
 }
 
 export const DEFAULT_SETTINGS: PowerGridSettings = {
@@ -43,4 +45,5 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
   panelOpen: false,
+  readImageText: true,
 };

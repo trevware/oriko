@@ -40,6 +40,12 @@ export interface PaletteGroup {
 export interface SearchOptions {
   /** Most clippings to show, so the commands are never pushed off screen. */
   limit: number;
+  /**
+   * Words read out of a clipping's own pictures, if any have been. Supplied
+   * rather than looked up, so this module keeps knowing nothing about the
+   * media cache.
+   */
+  textOf?: (record: ClippingRecord) => string;
   activeGrid: string;
   homeGrid: string;
   registered: ReadonlySet<string>;
@@ -96,6 +102,7 @@ export function searchPalette(
   const found = rank(query, clippings, (record) => ({
     primary: record.title,
     secondary: record.haystack,
+    tertiary: options.textOf?.(record),
   }));
 
   // Capped after ranking, so what survives is the best of the pile rather

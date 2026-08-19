@@ -31,6 +31,13 @@ export interface SearchFields {
    * its offsets mean nothing on screen.
    */
   secondary?: string;
+  /**
+   * Text read out of the clipping's own pictures. Demoted again, below
+   * anything anyone typed: a screenshot that happens to contain the word
+   * "design" should be findable by it, and should never come before the
+   * clipping somebody actually filed under design.
+   */
+  tertiary?: string;
 }
 
 export interface Ranked<T> {
@@ -54,6 +61,7 @@ const CHAR_CONTIGUOUS = 4;
 const MAX_SPREAD_PENALTY = 30;
 
 const SECONDARY_PENALTY = 500;
+const TERTIARY_PENALTY = 900;
 
 const BOUNDARY = /[\s\-_/.,:;!?'"()[\]{}|#@+&]/;
 
@@ -164,17 +172,24 @@ export function rank<T>(
   const results: Ranked<T>[] = [];
 
   for (const item of items) {
-    const { primary, secondary } = fields(item);
+    const { primary, secondary, tertiary } = fields(item);
     const hit = fuzzyMatch(query, primary);
     if (hit) {
       results.push({ item, score: hit.score, ranges: hit.ranges });
       continue;
     }
 
-    if (!secondary) continue;
-    const fallback = fuzzyMatch(query, secondary);
-    // No ranges: they would index into text the row does not show.
-    if (fallback) results.push({ item, score: fallback.score - SECONDARY_PENALTY, ranges: [] });
+    // No ranges past this point: they would index into text the row does not
+    // show. The penalties are wide enough that a whole tier sits below the
+    // one above it, whatever the two matches scored on their own.
+    const fallback = secondary ? fuzzyMatch(query, secondary) : null;
+    if (fallback) {
+      results.push({ item, score: fallback.score - SECONDARY_PENALTY, ranges: [] });
+      continue;
+    }
+
+    const read = tertiary ? fuzzyMatch(query, tertiary) : null;
+    if (read) results.push({ item, score: read.score - TERTIARY_PENALTY, ranges: [] });
   }
 
   // Array.sort is stable, so equal scores keep their input order.

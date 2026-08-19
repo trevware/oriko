@@ -20,6 +20,7 @@ import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
 import { LayerPanel, PanelToggle } from "./panel";
+import { textForRecord } from "./ocr";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
@@ -186,6 +187,11 @@ export class PowerGridView extends ItemView {
         activeGrid: this.activeGrid().name,
         homeGrid: this.plugin.settings.homeGridName,
         registered: this.registered(),
+        // Looked up per record rather than precomputed: the cache fills in
+        // behind the palette while it is open, and a map built on open
+        // would answer with what was known a keystroke ago.
+        textOf: (record) =>
+          textForRecord(record, (key) => this.plugin.archiver.cache.get(key)?.text),
       }),
       onClipping: (path) => this.revealClipping(path),
       preview: (path) => this.previewUrl(path),

@@ -8,6 +8,9 @@ import {
   convertImageToPng,
   downloadSourceVideo,
   extractVideoFrame,
+  readImageText,
+  tesseractPath,
+  visionAvailable,
   ytdlpPath,
 } from "./convert";
 import { posterPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
@@ -18,6 +21,7 @@ import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
 import { supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail, needsPageCover } from "./page-cover";
+import { chooseEngine, cleanText } from "./ocr";
 import type { ClippingRecord } from "./scan";
 import type { PowerGridSettings } from "./settings";
 
@@ -175,6 +179,52 @@ export class ArchiveService {
     }
 
     if (derived > 0) this.emit();
+  }
+
+  /**
+   * Reads the words out of every archived picture, so a screenshot can be
+   * found by what it says rather than only by what someone typed about it.
+   *
+   * Incremental in the same way deriveAssets is: an entry that already has
+   * text is skipped, and an empty result is stored as an empty string so a
+   * picture with nothing in it is not read again on every pass. A failed
+   * read stores nothing, which leaves it to be retried rather than recorded
+   * as blank.
+   */
+  async readText(): Promise<number> {
+    const engine = chooseEngine({
+      vision: visionAvailable(),
+      tesseract: tesseractPath() !== null,
+    });
+    if (!engine) return 0;
+
+    let read = 0;
+    for (const entry of this.cache.entries()) {
+      if (entry.text !== undefined || entry.failed) continue;
+
+      // A video has no readable frames of its own; its poster is the still
+      // that was pulled out of it, and a terminal recording's text is there.
+      const source = entry.kind === "video" ? entry.thumb : entry.file;
+      if (!source) continue;
+
+      const absolute = absolutePath(this.app.vault, normalizePath(source));
+      if (!absolute) continue;
+
+      const raw = await readImageText(absolute, engine);
+      if (raw === null) continue;
+
+      this.cache.setText(entry.key, cleanText(raw));
+      read++;
+      // Saved as it goes: a pass over a large wall takes a while, and work
+      // already done should survive a quit halfway through.
+      if (read % 20 === 0) await this.saveCache();
+    }
+
+    if (read > 0) {
+      await this.saveCache();
+      this.emit();
+    }
+    return read;
   }
 
   /** Reports archive progress for a single record, for the capture bar. */
@@ -434,6 +484,7 @@ export class ArchiveService {
         await this.archiveRecord(record, false);
       }
       await this.deriveAssets();
+      if (this.settings().readImageText) await this.readText();
       await this.saveCache();
     } catch {
       // Background work never interrupts the user; the next pass retries.

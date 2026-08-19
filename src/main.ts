@@ -99,6 +99,21 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "read-image-text",
+      name: "Read text in images",
+      callback: () => {
+        new Notice("Power Grid: reading text in images…");
+        void this.archiver.readText().then((read) => {
+          new Notice(
+            read === 0
+              ? "Power Grid: no new text found, or no OCR engine available"
+              : `Power Grid: read text from ${read} image${read === 1 ? "" : "s"}`
+          );
+        });
+      },
+    });
+
+    this.addCommand({
       id: "sweep-orphan-media",
       name: "Remove orphaned media",
       callback: () => this.sweepOrphanMedia(),

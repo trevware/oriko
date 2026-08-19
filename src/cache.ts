@@ -9,11 +9,18 @@ export interface CacheEntry {
   height: number;
   bytes: number;
   failed?: string;
+  /**
+   * Words read out of the picture, for search. Undefined means it has not
+   * been read yet; an empty string means it was read and there was nothing
+   * in it, which is a real answer and stops it being read again every pass.
+   */
+  text?: string;
 }
 
 /**
  * Rebuildable, never authoritative. Deleting cache.json costs one folder
- * rescan plus header reads; nothing user-visible depends on it surviving.
+ * rescan plus header reads, and now a re-read of the text in every picture,
+ * which is a minute of background work rather than anything lost.
  */
 export class MediaCache {
   private entriesByKey = new Map<string, CacheEntry>();
@@ -28,6 +35,11 @@ export class MediaCache {
 
   set(entry: CacheEntry): void {
     this.entriesByKey.set(entry.key, entry);
+  }
+
+  setText(key: string, text: string): void {
+    const entry = this.entriesByKey.get(key);
+    if (entry) entry.text = text;
   }
 
   /** Dropped when its file is removed, so the URL is fetched again if reused. */
