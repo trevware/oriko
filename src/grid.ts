@@ -88,6 +88,11 @@ export class GridRenderer {
   /** Ids present in the previous setTiles, to tell new tiles from newly visible ones. */
   private known = new Set<string>();
   private entering = new Set<string>();
+  /**
+   * Set for the one render following a replace. Holds off the glide, so the
+   * wall restages instead of every survivor sliding to a new spot.
+   */
+  private restaging = false;
   /** Elements playing their leave animation, no longer eligible for reuse. */
   private leaving = new Set<TileElement>();
 
@@ -238,7 +243,15 @@ export class GridRenderer {
    * `replace` means the wall is showing a different set of things, not that
    * things were added to the set it was already showing.
    *
-   * It suppresses the *departure* only. The arrival pop stays: it is what
+   * It restages the whole wall: everything on it pops in at its new position
+   * and nothing glides there. Gliding is right when a clipping is added to
+   * the set you are already looking at, since the tiles around it are the
+   * same tiles and should be followed to where they went. It is wrong when
+   * the set itself changes. A filter reflows the masonry, so a dozen
+   * survivors set off along a dozen different paths at once, and that reads
+   * as jitter rather than as movement.
+   *
+   * The departure is suppressed with it. The arrival pop stays: it is what
    * makes a switch land rather than cut, and it is cheap, being bounded by
    * what is actually on screen.
    *
@@ -253,8 +266,12 @@ export class GridRenderer {
     this.tiles = tiles;
     this.byId = new Map(tiles.map((t) => [t.id, t]));
 
-    // New to the data, as opposed to merely scrolled into view.
-    this.entering = new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
+    // New to the data, as opposed to merely scrolled into view. On a replace
+    // everything counts as arriving, including whatever survived the change.
+    this.entering = options.replace
+      ? new Set(tiles.map((t) => t.id))
+      : new Set(tiles.filter((t) => !this.known.has(t.id)).map((t) => t.id));
+    this.restaging = options.replace === true;
     this.known = new Set(tiles.map((t) => t.id));
 
     for (const [id, element] of [...this.mounted]) {
@@ -759,7 +776,7 @@ export class GridRenderer {
     // A tile that keeps representing the same clipping glides to its new
     // position; a pooled element reused for a different clipping snaps,
     // otherwise it would visibly fly across the canvas.
-    element.root.toggleClass("is-gliding", element.id === model.id);
+    element.root.toggleClass("is-gliding", !this.restaging && element.id === model.id);
     element.root.toggleClass("is-focus-hidden", this.focusedId === model.id);
     element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
     element.root.style.width = `${position.w}px`;
@@ -949,6 +966,10 @@ export class GridRenderer {
       }
       this.paint(element, model, position, order++);
     }
+
+    // Spent. Tiles mounted by a later scroll are following the wall, not
+    // restaging with it, so they glide as usual.
+    this.restaging = false;
 
     this.paintSelection();
     this.onRendered();
