@@ -605,6 +605,7 @@
 .pg-menu-sub {
   z-index: 42;
   min-width: 180px;
+  overscroll-behavior: contain;
   /* A source or category list grows with the collection, so it scrolls
      rather than running off the top of the pane. */
   max-height: 60vh;
@@ -1273,7 +1274,11 @@ button.pg-grid-row-button.is-disabled:hover {
 
 .pg-palette-list {
   flex: 1 1 auto;
+  /* Positioned, so a row's offsetTop is measured against the list itself. */
+  position: relative;
   overflow-y: auto;
+  /* Or a wheel past the last row keeps going into the pane behind it. */
+  overscroll-behavior: contain;
   padding-top: 6px;
   /* Keeps the row that scrollIntoView lands on clear of the rounded corner. */
   scroll-padding: 8px 0;
@@ -1453,6 +1458,7 @@ button.pg-grid-row-button.is-disabled:hover {
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   margin-top: 6px;
 }
 

@@ -99,7 +99,7 @@ export class Palette {
     document.addEventListener("keydown", this.onKey, true);
 
     this.render();
-    this.input.focus();
+    this.input.focus({ preventScroll: true });
 
     // Next frame, so the entry transition has a state to move from.
     window.requestAnimationFrame(() => {
@@ -210,7 +210,7 @@ export class Palette {
     if (this.input) {
       this.input.value = "";
       this.input.placeholder = command.stage.placeholder;
-      this.input.focus();
+      this.input.focus({ preventScroll: true });
     }
     this.render();
   }
@@ -222,7 +222,7 @@ export class Palette {
     if (this.input) {
       this.input.value = "";
       this.input.placeholder = ROOT_PLACEHOLDER;
-      this.input.focus();
+      this.input.focus({ preventScroll: true });
     }
     this.render();
   }
@@ -248,7 +248,7 @@ export class Palette {
       }
       // A click lands focus on the row, and the next keystroke would go to
       // the wall rather than the query.
-      this.input?.focus();
+      this.input?.focus({ preventScroll: true });
       return;
     }
 
@@ -354,7 +354,28 @@ export class Palette {
 
   private paintActive(scroll = true): void {
     this.rowEls.forEach((el, index) => el.toggleClass("is-active", index === this.active));
-    if (scroll) this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
+    if (scroll) this.scrollRowIntoView(this.rowEls[this.active]);
+  }
+
+  /**
+   * Scrolls the list, and only the list.
+   *
+   * scrollIntoView walks up and scrolls every scrollable ancestor on the
+   * way, and the view container is one of them even at overflow: hidden,
+   * which is programmatically scrollable all the same. Arrowing to the last
+   * row therefore dragged the whole pane down, taking the wall and the
+   * panel handle with it, and it stayed there after the palette closed.
+   */
+  private scrollRowIntoView(row: HTMLElement | undefined): void {
+    const list = this.listEl;
+    if (!list || !row) return;
+
+    const top = row.offsetTop;
+    const bottom = top + row.offsetHeight;
+    if (top < list.scrollTop) list.scrollTop = top;
+    else if (bottom > list.scrollTop + list.clientHeight) {
+      list.scrollTop = bottom - list.clientHeight;
+    }
   }
 }
 

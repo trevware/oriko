@@ -263,6 +263,16 @@ export class PowerGridView extends ItemView {
     this.plugin.index.onChange(() => this.refresh());
     this.plugin.archiver.onChange(() => this.refresh());
 
+    // The stage is a fixed frame: the wall pans inside it, and nothing else
+    // may move it. Overflow: hidden stops a user scrolling it but not the
+    // browser doing so on someone's behalf, which focus, scrollIntoView and
+    // an overscrolling child list all ask for. One rule, enforced here,
+    // rather than a promise every new surface has to remember to keep.
+    this.registerDomEvent(this.contentEl, "scroll", () => {
+      if (this.contentEl.scrollTop !== 0) this.contentEl.scrollTop = 0;
+      if (this.contentEl.scrollLeft !== 0) this.contentEl.scrollLeft = 0;
+    });
+
     this.observer = new ResizeObserver(() => this.grid?.relayout());
     this.observer.observe(this.contentEl);
 
