@@ -5,6 +5,10 @@ import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 import type PowerGridPlugin from "./main";
 
 export class PowerGridSettingTab extends PluginSettingTab {
+  /** Set while the text control is built, so the Add button beside it can
+      commit the same value the Enter key does. */
+  private addProperty: (() => void) | null = null;
+
   constructor(app: App, private plugin: PowerGridPlugin) {
     super(app, plugin);
   }
@@ -30,98 +34,62 @@ export class PowerGridSettingTab extends PluginSettingTab {
 
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text:
-        "Frontmatter properties the filter menu offers, in this order. " +
-        "Media type and Source are always available and are not listed here, " +
-        "because no property backs them.",
+      text: "Offered by the filter menu, alongside Media type and Source.",
     });
 
-    enabled.forEach((key, index) => {
-      new Setting(containerEl)
-        .setName(facetLabel(key))
-        .setDesc(key)
-        .addExtraButton((button) =>
-          button
-            .setIcon("chevron-up")
-            .setTooltip("Move up")
-            .setDisabled(index === 0)
-            .onClick(() => {
-              const next = [...enabled];
-              [next[index - 1], next[index]] = [next[index], next[index - 1]];
-              void this.commit(next);
-            })
-        )
-        .addExtraButton((button) =>
-          button
-            .setIcon("chevron-down")
-            .setTooltip("Move down")
-            .setDisabled(index === enabled.length - 1)
-            .onClick(() => {
-              const next = [...enabled];
-              [next[index], next[index + 1]] = [next[index + 1], next[index]];
-              void this.commit(next);
-            })
-        )
-        .addExtraButton((button) =>
-          button
-            .setIcon("x")
-            .setTooltip("Remove")
-            .onClick(() => void this.commit(enabled.filter((k) => k !== key)))
-        );
-    });
-
+    // Chips rather than a settings row each. One row per property put a
+    // full-height card on screen for every key in the vault, which is a wall
+    // of thirteen cards to express a list of two words.
+    const chips = containerEl.createDiv({ cls: "pg-props" });
+    for (const key of enabled) {
+      const chip = chips.createSpan({ cls: "pg-prop" });
+      chip.createSpan({ text: facetLabel(key) });
+      const remove = chip.createEl("button", { cls: "pg-prop-remove", text: "\u00d7" });
+      remove.setAttribute("aria-label", `Remove ${facetLabel(key)}`);
+      remove.onclick = () => void this.commit(enabled.filter((k) => k !== key));
+    }
     if (enabled.length === 0) {
-      containerEl.createEl("p", {
-        cls: "setting-item-description",
-        text: "No properties enabled. The menu still offers Media type and Source.",
+      chips.createSpan({
+        cls: "pg-props-empty",
+        text: "None. The menu still offers Media type and Source.",
       });
     }
 
-    const survey = surveyProperties(this.plugin.index.records()).filter(
-      (stat) => !enabled.includes(stat.key)
-    );
+    // Suggested first, so type-ahead puts the properties worth filtering by at
+    // the top of the list. The counts behind that ranking are not shown: they
+    // are how the order is decided, not something to read.
+    const available = surveyProperties(this.plugin.index.records())
+      .filter((stat) => !enabled.includes(stat.key))
+      .map((stat) => stat.key);
 
-    if (survey.length > 0) {
-      new Setting(containerEl).setName("Found in your clippings").setHeading();
-
-      for (const stat of survey) {
-        const notes = `${stat.notes} ${stat.notes === 1 ? "note" : "notes"}`;
-        const values = `${stat.distinct} ${stat.distinct === 1 ? "value" : "values"}`;
-        new Setting(containerEl)
-          .setName(facetLabel(stat.key))
-          // The counts are the whole reason this list is worth showing: they
-          // are what tells you a property is worth filtering by before you
-          // switch it on.
-          .setDesc(
-            stat.suggested
-              ? `${stat.key} · ${notes}, ${values} · recommended`
-              : `${stat.key} · ${notes}, ${values}`
-          )
-          .addButton((button) => {
-            // The recommended ones get the accent treatment, so the list reads
-            // as a recommendation rather than an undifferentiated dump.
-            if (stat.suggested) button.setCta();
-            button
-              .setButtonText("Add")
-              .onClick(() => void this.commit([...enabled, stat.key]));
-          });
-      }
-    }
-
-    let typed = "";
     new Setting(containerEl)
       .setName("Add a property")
-      .setDesc("For a property you have not started filling in yet.")
-      .addText((text) =>
-        text.setPlaceholder("property name").onChange((value) => {
-          typed = value.trim();
-        })
-      )
+      .setDesc("Suggestions come from your clippings. Any name works.")
+      .addText((text) => {
+        text.setPlaceholder("property name");
+
+        // A datalist is one control doing both jobs: it type-aheads the keys
+        // already in the vault, and still accepts a property that has been
+        // decided on but not yet filled in, which no survey can find.
+        const list = containerEl.createEl("datalist");
+        list.id = "pg-property-suggestions";
+        for (const key of available) list.createEl("option", { value: key });
+        text.inputEl.setAttribute("list", list.id);
+
+        const add = (): void => {
+          const key = text.getValue().trim();
+          if (!key || enabled.includes(key)) return;
+          void this.commit([...enabled, key]);
+        };
+        text.inputEl.onkeydown = (event: KeyboardEvent) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          add();
+        };
+        this.addProperty = add;
+      })
       .addButton((button) =>
-        button.setButtonText("Add").onClick(() => {
-          if (!typed || enabled.includes(typed)) return;
-          void this.commit([...enabled, typed]);
-        })
+        button.setButtonText("Add").onClick(() => this.addProperty?.())
       );
   }
 

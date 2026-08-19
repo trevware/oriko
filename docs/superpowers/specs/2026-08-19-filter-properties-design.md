@@ -135,15 +135,19 @@ The date rule is the one that is not obvious. `created` has three distinct value
 
 ## Settings UI
 
-One section, "Filter properties", in the existing settings tab.
+One section, "Filter properties", in the existing settings tab. It has to stay small: a settings row per property put a full-height card on screen for every key in the vault, which is thirteen cards to express a list of two words.
 
-**Enabled**, in menu order, each row with move-up, move-down and remove. Removing is not destructive: the property drops back into the list below.
+**Enabled properties are chips**, in menu order, each with a remove control. Removing is not destructive; the property returns to the suggestions.
 
-**Found in your clippings**, every surveyed key not already enabled, recommended ones first and marked, then the rest, each showing `N notes, M values` and a single button to enable. This is what makes an unsuggested property like `author` one click rather than a remembered spelling.
+**One "Add a property" row**, a text field backed by a `<datalist>`. That single control does both jobs: it type-aheads the keys already in the clippings, suggested ones first, and it still accepts a property that has been decided on but not yet filled in, which no survey can find. Enter or the Add button commits.
 
-**Add a property**, a text field for a key that does not appear in any clipping yet, so a property can be enabled before it is filled in.
+**Counts are not shown.** `surveyProperties` still computes notes, occurrences and distinct values, because that is how the suggestion order is decided, but the numbers are working out rather than something to read.
+
+**No reordering control.** Order is the order properties are added; to change it, remove and re-add. Up and down buttons on every row were most of what made the first version of this section heavy, and reordering four facets is rare enough not to earn permanent screen space.
 
 Changing any of this saves settings, reprunes active filters, and repaints the view.
+
+Because this section renders in Obsidian's settings pane rather than inside `.power-grid-view`, the plugin's `--pg-*` surface tokens are out of scope and would resolve to nothing. The chips use Obsidian's own variables, which is also what keeps the section looking like the rest of the settings.
 
 ## Menus
 

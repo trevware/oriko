@@ -1726,3 +1726,58 @@ button.pg-grid-row-button.is-disabled:hover {
   object-fit: cover;
   display: block;
 }
+
+/* ---------------------------------------------------------------------------
+   Settings tab: the filter-property chips.
+
+   These live in Obsidian's own settings pane, outside .power-grid-view, so the
+   plugin's surface tokens are out of scope here and would resolve to nothing.
+   Obsidian's variables instead, which is also what keeps the section looking
+   like the rest of the settings rather than like the wall.
+--------------------------------------------------------------------------- */
+
+.pg-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 18px;
+}
+
+.pg-prop {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+}
+
+.pg-prop button.pg-prop-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pg-prop button.pg-prop-remove:hover {
+  background-color: var(--background-modifier-border);
+  color: var(--text-normal);
+}
+
+.pg-props-empty {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
