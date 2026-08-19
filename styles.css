@@ -716,6 +716,24 @@
   display: none;
 }
 
+/* A mark reads as state, not as a footnote, so it comes up to full strength
+   where the count it replaced was deliberately quiet. */
+.pg-menu-detail.is-marked {
+  display: flex;
+  align-items: center;
+  color: var(--pg-surface-text);
+}
+
+.pg-menu-detail.is-marked .svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* No row in this panel has a left icon, so nothing reserves the gutter. */
+.pg-menu.is-iconless .pg-menu-icon {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* The .is-open rules carry their own transition and outrank a bare
      .pg-menu here, so they have to be named or the entry animation survives

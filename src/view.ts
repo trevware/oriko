@@ -679,9 +679,13 @@ export class PowerGridView extends ItemView {
           disabled: values.length === 0,
           detail: values.length === 0 ? "none" : chosen.length > 0 ? `${chosen.length}` : undefined,
           submenu: values.map((entry) => ({
-            icon: chosen.includes(entry.value) ? "check" : "",
+            // No left icon at all, so the panel drops the gutter. A chosen
+            // value marks itself where its count was: the count of a value you
+            // have already picked is not what you are looking at the row for.
+            icon: "",
             label: entry.value,
             detail: String(entry.count),
+            detailIcon: chosen.includes(entry.value) ? "check" : undefined,
             keepOpen: true,
             onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), def.id, entry.value)),
           })),

@@ -6,6 +6,12 @@ export interface MenuItem {
   label: string;
   /** Right-hand text: a shortcut hint or a count. */
   detail?: string;
+  /**
+   * Right-hand icon, shown in place of `detail`. A row whose state is worth
+   * marking can say so where its count was, rather than in a left-hand gutter
+   * that every other row then has to reserve while saying nothing.
+   */
+  detailIcon?: string;
   destructive?: boolean;
   /** Draws a rule above this row, for grouping without a heading. */
   divider?: boolean;
@@ -149,14 +155,16 @@ export class ContextMenu {
       if (item.disabled) row.addClass("is-disabled");
 
       const icon = row.createDiv({ cls: "pg-menu-icon" });
-      // Blank is meaningful: an unticked row still needs the gutter, or the
-      // labels jump sideways as things are selected.
+      // Blank is meaningful in a panel that has icons: an unticked row still
+      // needs the gutter, or the labels jump sideways as things are selected.
+      // A panel where no row has one drops it instead, see below.
       if (item.icon) setIcon(icon, item.icon);
       row.createDiv({ cls: "pg-menu-label", text: item.label });
 
       // Always made, even when empty: patching a row in place needs somewhere
       // to write, and :empty hides it until there is something to say.
-      const detail = row.createDiv({ cls: "pg-menu-detail", text: item.detail ?? "" });
+      const detail = row.createDiv({ cls: "pg-menu-detail" });
+      this.writeDetail(detail, item);
 
       // A parent row can carry both. A facet showing how many of its values
       // are picked still needs the arrow saying there is more inside.
@@ -167,6 +175,7 @@ export class ContextMenu {
       }
 
       const record: RowRecord = { item, root: row, icon, detail };
+      if (item.detailIcon) detail.addClass("is-marked");
       records.push(record);
 
       // Everything below reads record.item, never the item captured above.
@@ -203,7 +212,21 @@ export class ContextMenu {
       };
     }
 
+    // A panel of values carries no left icon on any row, so the gutter would
+    // sit there empty down the whole list. Computed once from the items rather
+    // than per row: it is a property of the panel, and patching swaps counts
+    // and marks but never introduces a left icon where there was none.
+    panel.toggleClass("is-iconless", !items.some((item) => item.icon));
+
     return records;
+  }
+
+  /** The trailing slot holds a count, a shortcut, or a mark. Never both. */
+  private writeDetail(slot: HTMLElement, item: MenuItem): void {
+    slot.empty();
+    slot.toggleClass("is-marked", Boolean(item.detailIcon));
+    if (item.detailIcon) setIcon(slot, item.detailIcon);
+    else slot.setText(item.detail ?? "");
   }
 
   /**
@@ -228,8 +251,14 @@ export class ContextMenu {
         if (item.icon) setIcon(record.icon, item.icon);
       }
 
-      const detail = item.detail ?? "";
-      if (record.detail.textContent !== detail) record.detail.setText(detail);
+      // Only touched when it actually changed, for the same reason as the
+      // icon above: this runs for every row on every click of a keepOpen row.
+      if (
+        record.item.detail !== item.detail ||
+        record.item.detailIcon !== item.detailIcon
+      ) {
+        this.writeDetail(record.detail, item);
+      }
 
       record.root.toggleClass("is-disabled", item.disabled === true);
       record.item = item;
