@@ -1,3 +1,4 @@
+import { isDateProperty } from "./dates";
 import type { ClippingRecord } from "./scan";
 
 /**
@@ -9,9 +10,6 @@ import type { ClippingRecord } from "./scan";
 /** Free text, or plugin plumbing. Never suggested, but the settings list
     still shows them, so a user who wants one can add it by hand. */
 const RESERVED = new Set(["title", "description", "source", "cover", "grid", "media"]);
-
-/** ISO date, with or without a time. */
-const DATE_SHAPED = /^\d{4}-\d{2}-\d{2}([T ]|$)/;
 
 const MIN_DISTINCT = 2;
 const MAX_DISTINCT = 50;
@@ -31,20 +29,6 @@ export interface PropertyStat {
   occurrences: number;
   distinct: number;
   suggested: boolean;
-}
-
-/**
- * A date field is the case that defeats repetition alone. In the reference
- * vault `created` holds three distinct values across 35 clippings, because
- * they were clipped on three days, which scores 11.67 and looks ideal. Judged
- * on the values rather than the key name, so a user's own `reviewed:` is
- * caught and a key that happens to be called `updated` while holding real
- * categories is not.
- */
-function dateShaped(values: Set<string>): boolean {
-  let dates = 0;
-  for (const value of values) if (DATE_SHAPED.test(value)) dates++;
-  return dates * 2 > values.size;
 }
 
 export function surveyProperties(records: ClippingRecord[]): PropertyStat[] {
@@ -70,12 +54,18 @@ export function surveyProperties(records: ClippingRecord[]): PropertyStat[] {
   for (const [key, seen] of values) {
     const distinct = seen.size;
     const total = occurrences.get(key) ?? 0;
-    const suggested =
-      !RESERVED.has(key) &&
-      !dateShaped(seen) &&
-      distinct >= MIN_DISTINCT &&
-      distinct <= MAX_DISTINCT &&
-      total / distinct >= MIN_REPETITION;
+    // A date is judged on distinct values alone. The rules below exist to
+    // reject properties whose values barely recur, because grouping by them
+    // puts almost every clipping in its own bucket; bucketing does that
+    // grouping for a date, so a published date that is unique per clipping
+    // still collapses to five groups and is worth offering.
+    const suggested = RESERVED.has(key)
+      ? false
+      : isDateProperty(seen)
+        ? distinct >= MIN_DISTINCT
+        : distinct >= MIN_DISTINCT &&
+          distinct <= MAX_DISTINCT &&
+          total / distinct >= MIN_REPETITION;
     stats.push({ key, notes: notes.get(key) ?? 0, occurrences: total, distinct, suggested });
   }
 

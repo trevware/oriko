@@ -9,6 +9,7 @@ import {
   matchesFilter,
   pruneFilter,
   toggleFacet,
+  typedFacets,
 } from "../src/filter";
 import type { FilterState } from "../src/filter";
 import type { TileModel } from "../src/tile";
@@ -228,5 +229,90 @@ describe("pruneFilter", () => {
   it("returns the same object when nothing is stale, so callers can skip work", () => {
     const filter: FilterState = { categories: ["design"] };
     expect(pruneFilter(filter, DEFS)).toBe(filter);
+  });
+});
+
+const NOW = Date.parse("2026-08-19T12:00:00Z");
+const daysAgo = (n: number): string =>
+  new Date(NOW - n * 86_400_000).toISOString().slice(0, 10);
+
+function dated(id: string, created: string): TileModel {
+  const t = tile(id);
+  t.record.properties.created = [created];
+  return t;
+}
+
+describe("typedFacets", () => {
+  it("marks a property holding dates as a date facet", () => {
+    const tiles = [dated("a", daysAgo(1)), dated("b", daysAgo(40))];
+    const defs = typedFacets(facetDefs(["created"]), tiles, NOW);
+    expect(defs.find((d) => d.id === "created")).toMatchObject({ shape: "date", now: NOW });
+  });
+
+  it("leaves a property holding words alone", () => {
+    const tiles = [tile("a", { categories: ["design"] })];
+    const defs = typedFacets(facetDefs(["categories"]), tiles, NOW);
+    expect(defs.find((d) => d.id === "categories")?.shape).toBe("text");
+  });
+
+  it("never types the derived facets as dates", () => {
+    const defs = typedFacets(facetDefs([]), [dated("a", daysAgo(1))], NOW);
+    expect(defs.every((d) => d.shape !== "date")).toBe(true);
+  });
+});
+
+describe("date facets", () => {
+  const tiles = [
+    dated("recent", daysAgo(2)),
+    dated("month", daysAgo(45)),
+    dated("ancient", daysAgo(500)),
+  ];
+  const defs = typedFacets(facetDefs(["created"]), tiles, NOW);
+
+  it("offers buckets newest first, not the raw dates and not by count", () => {
+    expect(facetsOf(tiles, defs).created.map((v) => v.value)).toEqual([
+      "Last 7 days",
+      "Last 30 days",
+      "Last 90 days",
+      "Last year",
+      "Older",
+    ]);
+  });
+
+  it("counts cumulatively, because the buckets nest", () => {
+    const counts = Object.fromEntries(
+      facetsOf(tiles, defs).created.map((v) => [v.value, v.count])
+    );
+    expect(counts["Last 7 days"]).toBe(1);
+    expect(counts["Last 90 days"]).toBe(2);
+    expect(counts["Older"]).toBe(1);
+  });
+
+  it("narrows to the clippings inside a chosen bucket", () => {
+    const f = toggleFacet(emptyFilter(), "created", "Last 90 days");
+    expect(tiles.filter((t) => matchesFilter(t, f, defs)).map((t) => t.id)).toEqual([
+      "recent",
+      "month",
+    ]);
+  });
+
+  it("widens when two nested buckets are picked, rather than narrowing to nothing", () => {
+    let f = toggleFacet(emptyFilter(), "created", "Last 7 days");
+    f = toggleFacet(f, "created", "Older");
+    expect(tiles.filter((t) => matchesFilter(t, f, defs)).map((t) => t.id)).toEqual([
+      "recent",
+      "ancient",
+    ]);
+  });
+
+  it("still narrows across facets", () => {
+    const withCategory = typedFacets(facetDefs(["categories", "created"]), tiles, NOW);
+    tiles[0].record.properties.categories = ["design"];
+    let f = toggleFacet(emptyFilter(), "created", "Last year");
+    f = toggleFacet(f, "categories", "design");
+    expect(tiles.filter((t) => matchesFilter(t, f, withCategory)).map((t) => t.id)).toEqual([
+      "recent",
+    ]);
+    tiles[0].record.properties.categories = [];
   });
 });

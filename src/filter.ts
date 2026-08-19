@@ -1,3 +1,4 @@
+import { BUCKET_LABELS, dateBuckets, isDateProperty } from "./dates";
 import { domainOf } from "./scan";
 import type { TileModel } from "./tile";
 
@@ -34,6 +35,12 @@ export interface FacetDef {
   source: FacetSource;
   /** The frontmatter key. Set only when source is "property". */
   key?: string;
+  /** How the values are read. Set by typedFacets, which is the only thing
+      that sees the wall and can therefore tell. */
+  shape?: "text" | "date";
+  /** Reference instant for date bucketing. Carried on the descriptor so the
+      per-tile calls below keep their signatures. */
+  now?: number;
 }
 
 /** Chosen values, by facet id. A facet with nothing chosen is absent rather
@@ -95,6 +102,42 @@ export function facetDefs(properties: string[]): FacetDef[] {
   return [...defs, KIND_FACET, DOMAIN_FACET];
 }
 
+/**
+ * How many tiles to look at when deciding a property holds dates.
+ *
+ * The whole wall would be exact and needless: this is a majority test, and
+ * defs are rebuilt on every read, several times per render. A sample settles
+ * it in a fixed cost no matter how large the vault gets.
+ */
+const TYPE_SAMPLE = 200;
+
+/**
+ * Fills in each property facet's shape by looking at what the wall actually
+ * carries, which the settings cannot know: they hold a property name, not what
+ * that property turned out to hold.
+ */
+export function typedFacets(
+  defs: FacetDef[],
+  tiles: TileModel[],
+  now: number
+): FacetDef[] {
+  const sample = tiles.length > TYPE_SAMPLE ? tiles.slice(0, TYPE_SAMPLE) : tiles;
+
+  return defs.map((def) => {
+    if (def.source !== "property" || !def.key) return def;
+
+    const values: string[] = [];
+    for (const tile of sample) {
+      const held = tile.record.properties[def.key];
+      if (held) values.push(...held);
+    }
+
+    return isDateProperty(values)
+      ? { ...def, shape: "date" as const, now }
+      : { ...def, shape: "text" as const };
+  });
+}
+
 export function emptyFilter(): FilterState {
   return {};
 }
@@ -122,8 +165,20 @@ export function toggleFacet(filter: FilterState, id: string, value: string): Fil
 
 function valuesFor(tile: TileModel, def: FacetDef): string[] {
   switch (def.source) {
-    case "property":
-      return def.key ? tile.record.properties[def.key] ?? [] : [];
+    case "property": {
+      if (!def.key) return [];
+      const held = tile.record.properties[def.key] ?? [];
+      if (def.shape !== "date") return held;
+      // A date expands to every bucket it still falls inside. Several values
+      // from one is exactly what a multi-valued property like categories
+      // already does, so nothing downstream has to know these are dates.
+      const now = def.now ?? 0;
+      const buckets = new Set<string>();
+      for (const value of held) {
+        for (const bucket of dateBuckets(value, now)) buckets.add(bucket);
+      }
+      return [...buckets];
+    }
     case "kind":
       return [tile.kind];
     case "domain": {
@@ -170,11 +225,21 @@ function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
       counts.set(value, (counts.get(value) ?? 0) + 1);
     }
   }
+
+  const values = [...counts.entries()].map(([value, count]) => ({ value, count }));
+
+  // Date buckets read newest to oldest, always. Sorting them by count would
+  // put the widest bucket first, which is the reverse of how a date list is
+  // read and moves the rows about as the wall changes.
+  if (def.shape === "date") {
+    return values.sort(
+      (a, b) => BUCKET_LABELS.indexOf(a.value) - BUCKET_LABELS.indexOf(b.value)
+    );
+  }
+
   // Most used first, then alphabetically, so the order is stable between
   // openings rather than shuffling as counts happen to tie.
-  return [...counts.entries()]
-    .map(([value, count]) => ({ value, count }))
-    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+  return values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
 }
 
 /**

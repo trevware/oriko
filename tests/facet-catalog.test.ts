@@ -53,16 +53,28 @@ describe("surveyProperties", () => {
     expect(statOf(spread("author", authors), "author")?.suggested).toBe(false);
   });
 
-  it("rejects a date-shaped property even when its values repeat heavily", () => {
-    // The case that motivates the rule: three clipping days across 36 notes
-    // looks like an ideal facet by repetition alone, and is useless.
+  it("suggests a date property, which buckets make worth filtering by", () => {
     const dates = ["2026-08-17", "2026-08-18", "2026-08-19"];
-    expect(statOf(spread("created", dates, 12), "created")?.suggested).toBe(false);
+    expect(statOf(spread("created", dates, 12), "created")?.suggested).toBe(true);
   });
 
-  it("rejects a timestamped date property too", () => {
+  it("suggests a timestamped date property too", () => {
     const stamps = ["2026-08-17T09:00:00", "2026-08-18T11:30:00"];
-    expect(statOf(spread("logged", stamps, 12), "logged")?.suggested).toBe(false);
+    expect(statOf(spread("logged", stamps, 12), "logged")?.suggested).toBe(true);
+  });
+
+  it("suggests a date property whose every value is unique", () => {
+    // A published date is one per clipping, so it fails the repetition rule
+    // that governs text. Bucketing collapses those into five groups, so the
+    // rule does not apply to it.
+    const dates = Array.from({ length: 30 }, (_, i) =>
+      `2026-${String(1 + (i % 12)).padStart(2, "0")}-${String(1 + i).padStart(2, "0")}`
+    );
+    expect(statOf(spread("published", dates), "published")?.suggested).toBe(true);
+  });
+
+  it("still rejects a date property with only one value", () => {
+    expect(statOf(spread("created", ["2026-08-19"], 10), "created")?.suggested).toBe(false);
   });
 
   it("never suggests a reserved key", () => {

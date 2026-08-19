@@ -32,6 +32,7 @@ import {
   matchesFilter,
   pruneFilter,
   toggleFacet,
+  typedFacets,
 } from "./filter";
 import type { FacetDef, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
@@ -624,11 +625,21 @@ export class PowerGridView extends ItemView {
   /** The grid's tiles before filtering, which is what the facets count. */
   private facets: TileModel[] = [];
 
-  /** The facets on offer, rebuilt from settings on each read. The list is
-      four or five items long, so caching it would cost more in staleness
-      than it saves. */
+  /**
+   * The facets on offer, rebuilt from settings on each read. The list is four
+   * or five items long, so caching it would cost more in staleness than it
+   * saves; typedFacets samples the wall rather than reading all of it, so the
+   * cost does not grow with the vault.
+   *
+   * Date.now() is read here rather than held, so a wall left open overnight
+   * buckets against today when you next touch the filter.
+   */
   private defs(): FacetDef[] {
-    return facetDefs(this.plugin.settings.filterProperties);
+    return typedFacets(
+      facetDefs(this.plugin.settings.filterProperties),
+      this.facets,
+      Date.now()
+    );
   }
 
   /** Pruned on the way out, so a property switched off in settings stops
@@ -753,14 +764,16 @@ export class PowerGridView extends ItemView {
    */
   private paletteContext(): PaletteContext {
     const selection = this.grid?.selectedIds() ?? [];
+    // Once, not twice: typing the facets walks a sample of the wall.
+    const defs = this.defs();
 
     return {
       selection,
       grids: this.allGrids(),
       activeGrid: this.activeGrid().name,
       homeGrid: this.plugin.settings.homeGridName,
-      facetDefs: this.defs(),
-      facets: facetsOf(this.facets, this.defs()),
+      facetDefs: defs,
+      facets: facetsOf(this.facets, defs),
       filter: this.activeFilter(),
       hasSystem: systemAvailable(),
       // Every row runs the method its context-menu equivalent runs. The two
