@@ -236,6 +236,9 @@ export default class PowerGridPlugin extends Plugin {
     // with no saved grids yet would push straight into DEFAULT_SETTINGS, and
     // the module-level default would start carrying real user data.
     this.settings.grids = [...(this.settings.grids ?? [])];
+    this.settings.filterProperties = [
+      ...(this.settings.filterProperties ?? DEFAULT_SETTINGS.filterProperties),
+    ];
   }
 
   async saveSettings(): Promise<void> {
