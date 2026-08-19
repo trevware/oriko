@@ -16,29 +16,91 @@ import type { TileModel } from "./tile";
  *
  * Filters run over tiles rather than records, so a facet only ever offers a
  * value that something renderable actually carries.
+ *
+ * Which facets exist is a setting, not a type. Everything below is driven by
+ * a FacetDef list, so a property the user starts filling in becomes filterable
+ * without any of this knowing its name.
  */
-export interface FilterState {
-  categories: string[];
-  statuses: string[];
-  kinds: string[];
-  domains: string[];
+
+export type FacetSource = "property" | "kind" | "domain";
+
+export interface FacetDef {
+  /** The FilterState key and the menu item id. For a property facet this is
+      the property's own name, so no id-to-key mapping is needed. */
+  id: string;
+  label: string;
+  icon: string;
+  keywords: string;
+  source: FacetSource;
+  /** The frontmatter key. Set only when source is "property". */
+  key?: string;
 }
 
-export type Facet = keyof FilterState;
-
-export const FACETS: Facet[] = ["categories", "statuses", "kinds", "domains"];
+/** Chosen values, by facet id. A facet with nothing chosen is absent rather
+    than present and empty, so isFilterEmpty is a key count. */
+export type FilterState = Record<string, string[]>;
 
 export interface FacetValue {
   value: string;
   count: number;
 }
 
+/** Icons for the keys the plugin ships knowing about. Anything else is a tag. */
+const PROPERTY_ICONS: Record<string, string> = {
+  categories: "tag",
+  status: "circle-dot",
+};
+
+const PROPERTY_KEYWORDS: Record<string, string> = {
+  categories: "tag topic category narrow",
+  status: "unread read archived status narrow",
+};
+
+const KIND_FACET: FacetDef = {
+  id: "kind",
+  label: "Media type",
+  icon: "image",
+  keywords: "image video media type narrow",
+  source: "kind",
+};
+
+const DOMAIN_FACET: FacetDef = {
+  id: "domain",
+  label: "Source",
+  icon: "globe",
+  keywords: "domain site host source narrow",
+  source: "domain",
+};
+
+/** A frontmatter key as a heading: sentence case, separators to spaces. */
+export function facetLabel(key: string): string {
+  const words = key.replace(/[_-]+/g, " ").trim();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+}
+
+/**
+ * The facets on offer: the user's chosen properties in their order, then the
+ * two the plugin derives. Properties lead so the default settings reproduce
+ * the menu this feature replaced, exactly.
+ */
+export function facetDefs(properties: string[]): FacetDef[] {
+  const defs: FacetDef[] = properties.map((key) => ({
+    id: key,
+    label: facetLabel(key),
+    icon: PROPERTY_ICONS[key] ?? "tag",
+    keywords: PROPERTY_KEYWORDS[key] ?? `${key} property narrow`,
+    source: "property",
+    key,
+  }));
+  return [...defs, KIND_FACET, DOMAIN_FACET];
+}
+
 export function emptyFilter(): FilterState {
-  return { categories: [], statuses: [], kinds: [], domains: [] };
+  return {};
 }
 
 export function activeCount(filter: FilterState): number {
-  return FACETS.reduce((total, facet) => total + filter[facet].length, 0);
+  return Object.values(filter).reduce((total, values) => total + values.length, 0);
 }
 
 export function isFilterEmpty(filter: FilterState): boolean {
@@ -46,42 +108,65 @@ export function isFilterEmpty(filter: FilterState): boolean {
 }
 
 /** Returns a new state; never edits the one it was given. */
-export function toggleFacet(filter: FilterState, facet: Facet, value: string): FilterState {
-  const current = filter[facet];
+export function toggleFacet(filter: FilterState, id: string, value: string): FilterState {
+  const current = filter[id] ?? [];
   const next = current.includes(value)
     ? current.filter((v) => v !== value)
     : [...current, value];
-  return { ...filter, [facet]: next };
+
+  const copy = { ...filter };
+  if (next.length === 0) delete copy[id];
+  else copy[id] = next;
+  return copy;
 }
 
-function valuesFor(tile: TileModel, facet: Facet): string[] {
-  switch (facet) {
-    case "categories":
-      return tile.record.categories;
-    case "statuses":
-      return tile.record.status ? [tile.record.status] : [];
-    case "kinds":
+function valuesFor(tile: TileModel, def: FacetDef): string[] {
+  switch (def.source) {
+    case "property":
+      return def.key ? tile.record.properties[def.key] ?? [] : [];
+    case "kind":
       return [tile.kind];
-    case "domains": {
+    case "domain": {
       const domain = domainOf(tile.record.source);
       return domain ? [domain] : [];
     }
   }
 }
 
-export function matchesFilter(tile: TileModel, filter: FilterState): boolean {
-  return FACETS.every((facet) => {
-    const wanted = filter[facet];
-    if (wanted.length === 0) return true;
-    const held = valuesFor(tile, facet);
+/**
+ * Iterates the defs and not the state, so a value still chosen for a facet
+ * that has since been switched off is ignored rather than matching nothing
+ * and emptying the wall.
+ */
+export function matchesFilter(
+  tile: TileModel,
+  filter: FilterState,
+  defs: FacetDef[]
+): boolean {
+  return defs.every((def) => {
+    const wanted = filter[def.id];
+    if (!wanted || wanted.length === 0) return true;
+    const held = valuesFor(tile, def);
     return held.some((value) => wanted.includes(value));
   });
 }
 
-function tally(tiles: TileModel[], facet: Facet): FacetValue[] {
+/** Drops state for facets no longer on offer, so the active count and the
+    button's badge cannot claim a narrowing that is not being applied. */
+export function pruneFilter(filter: FilterState, defs: FacetDef[]): FilterState {
+  const live = new Set(defs.map((def) => def.id));
+  const stale = Object.keys(filter).filter((id) => !live.has(id));
+  if (stale.length === 0) return filter;
+
+  const copy = { ...filter };
+  for (const id of stale) delete copy[id];
+  return copy;
+}
+
+function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   const counts = new Map<string, number>();
   for (const tile of tiles) {
-    for (const value of valuesFor(tile, facet)) {
+    for (const value of valuesFor(tile, def)) {
       counts.set(value, (counts.get(value) ?? 0) + 1);
     }
   }
@@ -97,11 +182,11 @@ function tally(tiles: TileModel[], facet: Facet): FacetValue[] {
  * filtering. Counting the filtered result instead would make options vanish
  * as soon as you used one, leaving no way back.
  */
-export function facetsOf(tiles: TileModel[]): Record<Facet, FacetValue[]> {
-  return {
-    categories: tally(tiles, "categories"),
-    statuses: tally(tiles, "statuses"),
-    kinds: tally(tiles, "kinds"),
-    domains: tally(tiles, "domains"),
-  };
+export function facetsOf(
+  tiles: TileModel[],
+  defs: FacetDef[]
+): Record<string, FacetValue[]> {
+  const out: Record<string, FacetValue[]> = {};
+  for (const def of defs) out[def.id] = tally(tiles, def);
+  return out;
 }
