@@ -196,6 +196,20 @@ export class PowerGridView extends ItemView {
       // The detail view registers in the capture phase too and owns its keys
       // while it is up.
       if (this.detail?.isOpen) return;
+      // Escape backs out one thing at a time, the same bargain the menus and
+      // the palette make. A selection is the innermost thing on the wall, so
+      // it goes first and the panel only closes once there is none: pressing
+      // Escape should never undo two decisions at once.
+      if (event.key === "Escape") {
+        if (this.palette?.isOpen) return;
+        if ((this.grid?.selectedIds().length ?? 0) > 0) return;
+        if (!this.panel?.isOpen) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.togglePanel();
+        return;
+      }
+
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
 
       // Fallback only. ⌘K is claimed by Obsidian's own dispatcher, so the
