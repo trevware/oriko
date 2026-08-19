@@ -563,7 +563,8 @@
 }
 
 .pg-actionbar-button:hover .pg-tip,
-.pg-detail-button:hover .pg-tip {
+.pg-detail-button:hover .pg-tip,
+.pg-detail-back:hover .pg-tip {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
@@ -817,49 +818,33 @@
   user-select: none;
 }
 
-.pg-detail-back {
+.pg-detail button.pg-detail-back {
   position: absolute;
   top: 20px;
   left: 20px;
   z-index: 2;
-  display: flex;
-  /* The same surface as the action bar, holding one button instead of four.
-     Padding is even rather than the bar's 7px 12px: that extra horizontal
-     room exists to give a row of buttons its end caps, and a single button
-     centred in it would sit in an oval.
-
-     Round, not the surface radius. That radius is 22px against a bar 52px
-     tall and several hundred wide, where it reads as a rounded rectangle; on
-     a 52px square it is nearly half the side and reads as a blob. A lone
-     button has no length to carry that shape, so it takes the circle. */
-  padding: 7px;
-  border-radius: 50%;
-  background-color: var(--pg-surface);
-  background-image: none;
-  backdrop-filter: var(--pg-surface-blur);
-  -webkit-backdrop-filter: var(--pg-surface-blur);
-  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   opacity: 0;
-  /* Leave transition. A rule that sets no transition of its own inherits
-     this one in both directions, which is why the staged entry delays used
-     to play back in reverse and leave the chrome hanging over the returning
-     card. The entry timing therefore lives on .is-open below, and this
-     declaration governs only the exit: gone well before the flight lands. */
-  transition: opacity 90ms ease;
+  /* The leave, plus the shared button transitions repeated. `transition` is
+     one property, so a rule that touches it at all has to restate the legs it
+     is not changing or they are dropped. */
+  transition:
+    opacity 90ms ease,
+    background-color 120ms ease,
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    box-shadow 180ms ease;
 }
 
-.pg-detail.is-open .pg-detail-back {
+.pg-detail.is-open button.pg-detail-back {
   opacity: 1;
   /* Delays here are measured against FLIGHT_MS. The chrome layers in over the
      last third of the flight and settles as the card lands, rather than
-     arriving while it is still travelling. */
-  transition: opacity 320ms ease 250ms;
-}
-
-/* Concentric with the surface around it, so the hover fill does not show its
-   corners inside a circle. */
-.pg-detail-back button.pg-detail-button {
-  border-radius: 50%;
+     arriving while it is still travelling. Only the opacity leg differs from
+     the rule above; the rest repeat for the reason given there. */
+  transition:
+    opacity 320ms ease 250ms,
+    background-color 120ms ease,
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    box-shadow 180ms ease;
 }
 
 /* The tip belongs under this one. Every other tip rises above its button,
@@ -1058,12 +1043,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pg-detail-backdrop,
-  .pg-detail-back,
   .pg-detail-meta,
   .pg-detail-actions,
-  .pg-detail.is-open .pg-detail-back,
   .pg-detail.is-open .pg-detail-meta,
-  .pg-detail.is-open .pg-detail-actions {
+  .pg-detail.is-open .pg-detail-actions,
+  /* Named with their element, to match the specificity of the rules that
+     set these transitions. A bare .pg-detail-back would lose to them and
+     the animation would survive the preference asking it to stop. */
+  .pg-detail button.pg-detail-back,
+  .pg-detail.is-open button.pg-detail-back {
     transition: none;
   }
 }
@@ -1096,7 +1084,8 @@
 }
 
 .pg-spacebar button,
-.power-grid-view button.pg-panel-toggle {
+.power-grid-view button.pg-panel-toggle,
+.pg-detail button.pg-detail-back {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -1118,7 +1107,8 @@
 }
 
 .pg-spacebar button:hover,
-.power-grid-view button.pg-panel-toggle:hover {
+.power-grid-view button.pg-panel-toggle:hover,
+.pg-detail button.pg-detail-back:hover {
   background-color: var(--pg-surface);
   box-shadow:
     var(--pg-surface-ring),
@@ -1127,7 +1117,8 @@
 }
 
 .pg-spacebar button:active,
-.power-grid-view button.pg-panel-toggle:active {
+.power-grid-view button.pg-panel-toggle:active,
+.pg-detail button.pg-detail-back:active {
   transform: scale(0.96);
 }
 
@@ -1136,7 +1127,8 @@
    dismissed, and you cannot tell it is clickable without finding it first. */
 .pg-space-manage,
 .pg-space-filter,
-.power-grid-view button.pg-panel-toggle {
+.power-grid-view button.pg-panel-toggle,
+.pg-detail button.pg-detail-back {
   width: 48px;
   height: 38px;
   border-radius: 19px;
@@ -1340,10 +1332,13 @@ button.pg-grid-row-button.is-disabled:hover {
     transition: none;
   }
 
+  /* Back shares the wall chrome's rules, so it shares their exemption. */
+
   /* The flex is motion, not decoration, so it goes entirely. */
   .pg-spacebar button:active,
   .pg-actionbar button.pg-actionbar-button:active,
-  .pg-detail button.pg-detail-button:active {
+  .pg-detail button.pg-detail-button:active,
+  .pg-detail button.pg-detail-back:active {
     transform: none;
   }
 }

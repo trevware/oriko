@@ -199,16 +199,15 @@ export class DetailView {
     backdrop.onclick = () => this.close();
     this.backdrop = backdrop;
 
-    // A bar holding one button, not a button of its own. The action bar at the
-    // bottom is the reference for every control over a clipping, so back is
-    // built from the same two pieces rather than being a lookalike that has to
-    // be kept in step by hand.
-    const back = this.root.createDiv({ cls: "pg-detail-back" });
-    const backButton = back.createEl("button", { cls: "pg-detail-button" });
-    setIcon(backButton, "arrow-left");
-    backButton.setAttribute("aria-label", tipLabel("Back", "\u238b"));
-    attachTip(backButton, "Back", "\u238b");
-    backButton.onclick = () => this.close();
+    // One of the wall's own chrome buttons, not a member of the detail view's
+    // action bar. The create, filter and panel controls are each a single
+    // button that is itself the floating surface, and back reads as one of
+    // that set, so it shares their rules rather than imitating them.
+    const back = this.root.createEl("button", { cls: "pg-detail-back" });
+    setIcon(back, "arrow-left");
+    back.setAttribute("aria-label", tipLabel("Back", "\u238b"));
+    attachTip(back, "Back", "\u238b");
+    back.onclick = () => this.close();
 
     this.stage = this.root.createDiv({ cls: "pg-detail-stage" });
     this.layer = this.stage.createDiv({ cls: "pg-detail-zoom" });
