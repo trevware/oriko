@@ -2,6 +2,7 @@ import { App, setIcon } from "obsidian";
 import { zoomAt } from "./camera";
 import { resourceUrl } from "./convert";
 import type { Camera } from "./camera";
+import { facetLabel } from "./filter";
 import { fitRect, flightMidpoint, flipTransform } from "./layout";
 import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
@@ -35,6 +36,12 @@ const PINCH_SENSITIVITY = 0.0022;
 /** One notch of the keyboard zoom. */
 const KEY_ZOOM_STEP = 1.25;
 const FIT: Camera = { x: 0, y: 0, zoom: 1 };
+/**
+ * Frontmatter keys the panel already reports in its own words, so enabling one
+ * as a filter property does not print it twice. Filename and Resolution are
+ * read off the media rather than the note, so no key can collide with them.
+ */
+const INTRINSIC = new Set(["title", "source", "created"]);
 /* One curve for the whole opening flight: a soft push off the card, then a
    long decelerating glide into place. Deliberately the only easing in play,
    see fly(). */
@@ -158,7 +165,10 @@ export class DetailView {
   constructor(
     private app: App,
     private container: HTMLElement,
-    private actions: DetailActions
+    private actions: DetailActions,
+    /** The filter properties, read fresh so the panel follows a settings
+        change without the view being rebuilt. */
+    private properties: () => string[]
   ) {}
 
   get isOpen(): boolean {
@@ -356,8 +366,16 @@ export class DetailView {
     field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
     field("Source", domainOf(model.record.source));
     field("Date", model.record.created ? `Clipped ${model.record.created}` : "");
-    field("Categories", model.record.categories.join(", "));
-    field("Status", model.record.status);
+
+    // The same list the filter menu offers, so what you can narrow by and what
+    // the panel tells you about a clipping cannot drift apart. Categories and
+    // Status were hardcoded here and are simply the two that ship enabled.
+    // A property the clipping does not carry prints nothing rather than an
+    // empty row: this panel is a description of one picture, not a form.
+    for (const key of this.properties()) {
+      if (INTRINSIC.has(key)) continue;
+      field(facetLabel(key), (model.record.properties[key] ?? []).join(", "));
+    }
 
     return panel;
   }

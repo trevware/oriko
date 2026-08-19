@@ -251,7 +251,7 @@ export class PowerGridView extends ItemView {
       onReveal: (id) => this.revealFirstFile(id),
       onDelete: (id) => this.confirmDelete([id]),
       onOpenNote: (id) => this.openNote(id),
-    });
+    }, () => this.plugin.settings.filterProperties);
     this.detail.onClosed = () => {
       this.grid?.focusTile(null);
       this.playback?.setEnabled(this.plugin.settings.autoplayVideo);
