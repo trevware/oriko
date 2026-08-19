@@ -17,7 +17,7 @@ import { hashUrl } from "./hash";
 import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
 import { supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
-import { extractPageImage, knownHostThumbnail } from "./page-cover";
+import { extractPageImage, knownHostThumbnail, needsPageCover } from "./page-cover";
 import type { ClippingRecord } from "./scan";
 import type { PowerGridSettings } from "./settings";
 
@@ -385,10 +385,7 @@ export class ArchiveService {
     if (existing?.file) return;
     if (existing?.failed && !retryFailed) return;
 
-    // Only clippings with nothing else to show reach here, so an inline hit
-    // means the page cover is unnecessary.
-    const hasInline = dedupeMedia(record.media).some((m) => this.cache.get(m.key)?.file);
-    if (hasInline) return;
+    if (!needsPageCover(record, (k) => this.cache.get(k)?.file || undefined)) return;
 
     const known = knownHostThumbnail(record.source);
     let candidate: CanonicalMedia | null = known

@@ -204,3 +204,43 @@ describe("describeFiles", () => {
     expect(describeFiles({ paths: ["a"], bytes: 165 * 1024 * 1024 })).toBe("1 file (165 MB)");
   });
 });
+
+describe("liveRefs and a post whose video was pulled", () => {
+  const source = "https://x.com/someone/status/2089473141126922435";
+  const pageKey = normalizeUrl(source);
+  const videoKey = sourceVideoKeyFor(source);
+  const record = clipping({ source });
+
+  const video = (file: string, thumb: string): CacheEntry => ({
+    ...entry(videoKey, file, thumb),
+    kind: "video",
+  });
+
+  it("keeps the page cover while no video has been pulled", () => {
+    expect(liveRefs([record], []).keys.has(pageKey)).toBe(true);
+  });
+
+  it("drops the page cover once a playable video stands in front of it", () => {
+    // tile.ts prefers the pulled video, so the still X published for the same
+    // post is downloaded and then never shown.
+    const cache = [video(`${FOLDER}/aaaaaaaaaaaa-video.mp4`, `${FOLDER}/aaaaaaaaaaaa-video.poster.webp`)];
+    expect(liveRefs([record], cache).keys.has(pageKey)).toBe(false);
+  });
+
+  it("still keeps the video's own key", () => {
+    const cache = [video(`${FOLDER}/aaaaaaaaaaaa-video.mp4`, "")];
+    expect(liveRefs([record], cache).keys.has(videoKey)).toBe(true);
+  });
+
+  it("keeps the page cover when the pulled video cannot be shown at all", () => {
+    // A container Chromium will not play, with no extracted frame either:
+    // the tile falls through to the page cover, so it is not spare.
+    const cache = [video(`${FOLDER}/aaaaaaaaaaaa-video.avi`, "")];
+    expect(liveRefs([record], cache).keys.has(pageKey)).toBe(true);
+  });
+
+  it("keeps the page cover when the video entry has no file, only a failure", () => {
+    const failed: CacheEntry = { ...video("", ""), failed: "404" };
+    expect(liveRefs([record], [failed]).keys.has(pageKey)).toBe(true);
+  });
+});

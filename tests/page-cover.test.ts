@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractPageImage, knownHostThumbnail } from "../src/page-cover";
+import { extractPageImage, knownHostThumbnail, needsPageCover } from "../src/page-cover";
 
 describe("knownHostThumbnail", () => {
   it("resolves a standard youtube watch url", () => {
@@ -123,5 +123,35 @@ describe("extractPageImage", () => {
   it("does not match a different og property", () => {
     const html = '<meta property="og:image:width" content="1200">';
     expect(extractPageImage(html, base)).toBeNull();
+  });
+});
+
+describe("needsPageCover", () => {
+  const source = "https://x.com/someone/status/2089473141126922435";
+
+  const record = {
+    source,
+    media: [{ url: "https://pbs.twimg.com/media/abc?format=jpg", kind: "image" as const, alt: "" }],
+  };
+
+  const nothingArchived = () => undefined;
+
+  it("wants one when the clipping has archived nothing at all", () => {
+    expect(needsPageCover(record, nothingArchived)).toBe(true);
+  });
+
+  it("wants nothing for a clipping with no source to ask about", () => {
+    expect(needsPageCover({ source: "", media: [] }, nothingArchived)).toBe(false);
+  });
+
+  it("skips it when an inline image of the clipping is already archived", () => {
+    const archived = (key: string) => (key.includes("pbs.twimg.com") ? "f.jpg" : undefined);
+    expect(needsPageCover(record, archived)).toBe(false);
+  });
+
+  it("skips it once the post's own video has been pulled", () => {
+    // tile.ts prefers that video, so the page's still would never be shown.
+    const archived = (key: string) => (key.startsWith("ytdlp:") ? "video.mp4" : undefined);
+    expect(needsPageCover(record, archived)).toBe(false);
   });
 });

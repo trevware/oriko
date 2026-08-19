@@ -43,9 +43,9 @@ export function orphansAfterDeleting(
   const going = records.filter((record) => doomed.has(record.path));
   const surviving = records.filter((record) => !doomed.has(record.path));
 
-  const theirs = new Set(filesForRefs(liveRefs(going), cache.entries()));
+  const theirs = new Set(filesForRefs(liveRefs(going, cache.entries()), cache.entries()));
   const orphans = orphanFiles({
-    live: liveRefs(surviving),
+    live: liveRefs(surviving, cache.entries()),
     cache: cache.entries(),
     // Only their own media is in question here. Debris from earlier
     // deletions is the sweep's business, not this deletion's.
@@ -66,7 +66,7 @@ export function findOrphans(
   const files = folderFiles(app, folder);
   const orphans = new Set(
     orphanFiles({
-      live: liveRefs(records),
+      live: liveRefs(records, cache.entries()),
       cache: cache.entries(),
       onDisk: files.map((file) => file.path),
     })

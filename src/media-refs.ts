@@ -1,4 +1,5 @@
 import type { CacheEntry } from "./cache";
+import { extensionOf, isRenderable } from "./formats";
 import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
 import type { ClippingRecord } from "./scan";
 
@@ -47,17 +48,39 @@ export function isPluginOwned(name: string): boolean {
   return ARCHIVED.test(name) || PASTED.test(name);
 }
 
-/** Every cache key and vault path the given clippings still need. */
-export function liveRefs(records: readonly ClippingRecord[]): LiveRefs {
+/**
+ * Whether a pulled video can actually be shown, which is the same question
+ * tile.ts asks: the file itself if the browser will play that container,
+ * otherwise the frame extracted from it, and nothing if there is neither.
+ */
+function videoCovers(entry: CacheEntry | undefined): boolean {
+  if (!entry?.file) return false;
+  return isRenderable(extensionOf(entry.file)) || Boolean(entry.thumb);
+}
+
+/**
+ * Every cache key and vault path the given clippings still need.
+ *
+ * @param cache lets one redundancy be spotted: a post whose video was pulled
+ * never shows the still the page publishes, because tile.ts prefers the
+ * video, so that download is spare. Without a cache the page cover is always
+ * counted live, which is the safe answer rather than the tidy one.
+ */
+export function liveRefs(
+  records: readonly ClippingRecord[],
+  cache: readonly CacheEntry[] = []
+): LiveRefs {
   const keys = new Set<string>();
   const paths = new Set<string>();
+  const byKey = new Map(cache.map((entry) => [entry.key, entry]));
 
   for (const record of records) {
     if (record.source) {
-      // Both fallbacks a tile can reach for: the page's own preview image,
-      // and a video pulled from the post rather than linked by it.
-      keys.add(normalizeUrl(record.source));
-      keys.add(sourceVideoKeyFor(record.source));
+      const videoKey = sourceVideoKeyFor(record.source);
+      keys.add(videoKey);
+      // The page's own preview image, needed only while nothing better has
+      // been archived for the same post.
+      if (!videoCovers(byKey.get(videoKey))) keys.add(normalizeUrl(record.source));
     }
 
     // Deduped through the same path the archiver used, so the keys match.

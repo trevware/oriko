@@ -1,3 +1,6 @@
+import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
+import type { MediaRef } from "./scan";
+
 export interface ThumbnailCandidate {
   url: string;
   /** Tried in order when `url` is unavailable. */
@@ -96,4 +99,26 @@ export function extractPageImage(html: string, baseUrl: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether a page cover is worth fetching for a clipping.
+ *
+ * The page cover is the last thing tile.ts reaches for, so it is only worth
+ * a request while nothing ahead of it has been archived. Two things get
+ * there first: an inline image from the clipping's own body, and a video
+ * pulled from the post. The second is the one that used to be missed, and
+ * on X it is the expensive miss, because the still a video post publishes
+ * is a frame of the very video already on disk.
+ *
+ * @param archivedFile the cache's answer for a key: a local file, or
+ * undefined. Passed as a function so this stays free of Obsidian imports.
+ */
+export function needsPageCover(
+  record: { source: string; media: MediaRef[] },
+  archivedFile: (key: string) => string | undefined
+): boolean {
+  if (!record.source) return false;
+  if (archivedFile(sourceVideoKeyFor(record.source))) return false;
+  return !dedupeMedia(record.media).some((media) => archivedFile(media.key));
 }
