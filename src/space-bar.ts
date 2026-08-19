@@ -1,5 +1,6 @@
 import { setIcon } from "obsidian";
 import type { GridSpace } from "./spaces";
+import { attachTip } from "./tip";
 
 /** Space left between a control and the menu it launches. */
 const LAUNCH_GAP = 10;
@@ -43,6 +44,7 @@ export class SpaceBar {
     this.filter = left.createEl("button", { cls: "pg-space-filter" });
     this.filter.setAttribute("aria-label", "Filter");
     setIcon(this.filter, "list-filter");
+    attachTip(this.filter, "Filter");
     this.filterCount = this.filter.createDiv({ cls: "pg-space-count" });
     this.filter.onclick = (event: MouseEvent) => {
       event.stopPropagation();
@@ -53,6 +55,7 @@ export class SpaceBar {
     this.manage = left.createEl("button", { cls: "pg-space-manage" });
     this.manage.setAttribute("aria-label", "Grid settings");
     setIcon(this.manage, "sliders-horizontal");
+    attachTip(this.manage, "Grid settings");
     this.manage.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       // Left edge, so the flip in placeMenu leaves it opening rightward and
@@ -65,6 +68,7 @@ export class SpaceBar {
 
     this.switcher = right.createEl("button", { cls: "pg-space-switch" });
     this.switcher.setAttribute("aria-label", "Switch grid");
+    attachTip(this.switcher, "Switch grid");
     this.icon = this.switcher.createDiv({ cls: "pg-space-icon" });
     this.label = this.switcher.createDiv({ cls: "pg-space-label" });
     const chevron = this.switcher.createDiv({ cls: "pg-space-chevron" });
@@ -83,6 +87,7 @@ export class SpaceBar {
     const create = right.createEl("button", { cls: "pg-space-create" });
     create.setAttribute("aria-label", "New");
     setIcon(create, "plus");
+    attachTip(create, "New");
     create.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       const rect = create.getBoundingClientRect();

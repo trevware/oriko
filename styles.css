@@ -564,9 +564,19 @@
 
 .pg-actionbar-button:hover .pg-tip,
 .pg-detail-button:hover .pg-tip,
-.pg-detail-back:hover .pg-tip {
+.pg-detail-back:hover .pg-tip,
+.pg-spacebar button:hover .pg-tip,
+.pg-panel-toggle:hover .pg-tip {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* The wall's own controls stand alone rather than inside a bar, so there is
+   no padding to clear and the offset above would leave a visible gap between
+   the label and the button it belongs to. */
+.pg-spacebar .pg-tip,
+.pg-panel-toggle .pg-tip {
+  bottom: calc(100% + 10px);
 }
 
 .pg-tip-key {
