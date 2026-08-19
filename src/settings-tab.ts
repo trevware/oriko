@@ -1,9 +1,128 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
+import { surveyProperties } from "./facet-catalog";
+import { facetLabel } from "./filter";
+import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 import type PowerGridPlugin from "./main";
 
 export class PowerGridSettingTab extends PluginSettingTab {
   constructor(app: App, private plugin: PowerGridPlugin) {
     super(app, plugin);
+  }
+
+  /**
+   * Saves, repaints any open wall so a new facet appears without a reload,
+   * and redraws this tab so a property moves between the enabled list and the
+   * one below it.
+   */
+  private async commit(properties: string[]): Promise<void> {
+    this.plugin.settings.filterProperties = properties;
+    await this.plugin.saveSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+      if (leaf.view instanceof PowerGridView) leaf.view.refreshFacets();
+    }
+    this.display();
+  }
+
+  private paintFilterProperties(containerEl: HTMLElement): void {
+    const enabled = this.plugin.settings.filterProperties;
+
+    new Setting(containerEl).setName("Filter properties").setHeading();
+
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Frontmatter properties the filter menu offers, in this order. " +
+        "Media type and Source are always available and are not listed here, " +
+        "because no property backs them.",
+    });
+
+    enabled.forEach((key, index) => {
+      new Setting(containerEl)
+        .setName(facetLabel(key))
+        .setDesc(key)
+        .addExtraButton((button) =>
+          button
+            .setIcon("chevron-up")
+            .setTooltip("Move up")
+            .setDisabled(index === 0)
+            .onClick(() => {
+              const next = [...enabled];
+              [next[index - 1], next[index]] = [next[index], next[index - 1]];
+              void this.commit(next);
+            })
+        )
+        .addExtraButton((button) =>
+          button
+            .setIcon("chevron-down")
+            .setTooltip("Move down")
+            .setDisabled(index === enabled.length - 1)
+            .onClick(() => {
+              const next = [...enabled];
+              [next[index], next[index + 1]] = [next[index + 1], next[index]];
+              void this.commit(next);
+            })
+        )
+        .addExtraButton((button) =>
+          button
+            .setIcon("x")
+            .setTooltip("Remove")
+            .onClick(() => void this.commit(enabled.filter((k) => k !== key)))
+        );
+    });
+
+    if (enabled.length === 0) {
+      containerEl.createEl("p", {
+        cls: "setting-item-description",
+        text: "No properties enabled. The menu still offers Media type and Source.",
+      });
+    }
+
+    const survey = surveyProperties(this.plugin.index.records()).filter(
+      (stat) => !enabled.includes(stat.key)
+    );
+
+    if (survey.length > 0) {
+      new Setting(containerEl).setName("Found in your clippings").setHeading();
+
+      for (const stat of survey) {
+        const notes = `${stat.notes} ${stat.notes === 1 ? "note" : "notes"}`;
+        const values = `${stat.distinct} ${stat.distinct === 1 ? "value" : "values"}`;
+        new Setting(containerEl)
+          .setName(facetLabel(stat.key))
+          // The counts are the whole reason this list is worth showing: they
+          // are what tells you a property is worth filtering by before you
+          // switch it on.
+          .setDesc(
+            stat.suggested
+              ? `${stat.key} · ${notes}, ${values} · recommended`
+              : `${stat.key} · ${notes}, ${values}`
+          )
+          .addButton((button) => {
+            // The recommended ones get the accent treatment, so the list reads
+            // as a recommendation rather than an undifferentiated dump.
+            if (stat.suggested) button.setCta();
+            button
+              .setButtonText("Add")
+              .onClick(() => void this.commit([...enabled, stat.key]));
+          });
+      }
+    }
+
+    let typed = "";
+    new Setting(containerEl)
+      .setName("Add a property")
+      .setDesc("For a property you have not started filling in yet.")
+      .addText((text) =>
+        text.setPlaceholder("property name").onChange((value) => {
+          typed = value.trim();
+        })
+      )
+      .addButton((button) =>
+        button.setButtonText("Add").onClick(() => {
+          if (!typed || enabled.includes(typed)) return;
+          void this.commit([...enabled, typed]);
+        })
+      );
   }
 
   display(): void {
@@ -93,5 +212,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
           }
         })
       );
+
+    this.paintFilterProperties(containerEl);
   }
 }
