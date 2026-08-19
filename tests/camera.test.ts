@@ -88,12 +88,32 @@ describe("clampCamera", () => {
     expect(clampCamera(inside, viewport, content)).toEqual(inside);
   });
 
-  it("keeps a band to move in when the content is smaller than the viewport", () => {
+  it("keeps a vertical band to move in when the content is shorter than the viewport", () => {
     const small = { width: 200, height: 200 };
-    const low = clampCamera({ x: -99999, y: -99999, zoom: 1 }, viewport, small);
-    const high = clampCamera({ x: 99999, y: 99999, zoom: 1 }, viewport, small);
-    expect(high.x).toBeGreaterThan(low.x);
+    const low = clampCamera({ x: 0, y: -99999, zoom: 1 }, viewport, small);
+    const high = clampCamera({ x: 0, y: 99999, zoom: 1 }, viewport, small);
     expect(high.y).toBeGreaterThan(low.y);
+  });
+
+  it("pins the wall to the centre horizontally when it is no wider than the viewport", () => {
+    // The wall is laid out at viewport width, so this is the normal case:
+    // panning sideways would only ever reveal empty canvas.
+    const left = clampCamera({ x: -99999, y: 0, zoom: 1 }, viewport, content);
+    const right = clampCamera({ x: 99999, y: 0, zoom: 1 }, viewport, content);
+    expect(left.x).toBe(0);
+    expect(right.x).toBe(0);
+  });
+
+  it("centres a wall that zooming out has made narrower than the viewport", () => {
+    const out = clampCamera({ x: 99999, y: 0, zoom: 0.5 }, viewport, content);
+    expect(out.x).toBe((viewport.width - content.width * 0.5) / 2);
+  });
+
+  it("allows horizontal panning once the wall is wider than the viewport", () => {
+    const left = clampCamera({ x: -99999, y: 0, zoom: 2 }, viewport, content);
+    const right = clampCamera({ x: 99999, y: 0, zoom: 2 }, viewport, content);
+    expect(right.x).toBe(PAN_MARGIN);
+    expect(left.x).toBe(viewport.width - content.width * 2 - PAN_MARGIN);
   });
 
   it("accounts for zoom when computing the bottom bound", () => {

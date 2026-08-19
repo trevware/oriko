@@ -56,7 +56,11 @@
   position: relative;
   height: 100%;
   padding: 0;
-  overflow: hidden;
+  /* clip, not hidden: hidden still leaves an element programmatically
+     scrollable, which is how focus, scrollIntoView and an overscrolling
+     child list kept dragging the whole stage around. clip makes it not a
+     scroll container at all, so the class of bug cannot recur. */
+  overflow: clip;
   background: var(--background-primary);
   display: flex;
   flex-direction: column;
@@ -302,6 +306,7 @@
   padding-left: 20px;
   max-height: 180px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--text-muted);
   font-size: 13px;
 }
@@ -818,6 +823,7 @@
      padding stays small for the same reason, the gap being positional. */
   padding: 0 40px 40px 4px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   opacity: 0;
   transform: translateX(10px);
   /* Cut, not faded. The panel is text pinned to the right edge, so any

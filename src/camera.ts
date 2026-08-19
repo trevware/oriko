@@ -37,8 +37,15 @@ export function clampZoom(zoom: number, min = MIN_ZOOM, max = MAX_ZOOM): number 
  * Keeps the camera within the content plus a margin of empty space, so a
  * pan can overshoot the wall a little but never lose it off screen.
  *
- * When the content is smaller than the viewport the two bounds invert; the
- * min/max pair is normalised so the allowed band is the same either way.
+ * Vertically the two bounds invert once the content is shorter than the
+ * viewport; the min/max pair is normalised so the allowed band is the same
+ * either way.
+ *
+ * Horizontally there is no band at all unless the wall is genuinely wider
+ * than the viewport. The wall is laid out at viewport width, so at rest it
+ * exactly fills it and sliding sideways only reveals blank canvas, which
+ * reads as the whole grid having drifted off-centre. Zoom in far enough that
+ * the columns really do run past both edges and panning comes back.
  */
 export function clampCamera(
   camera: Camera,
@@ -55,7 +62,10 @@ export function clampCamera(
 
   return {
     zoom,
-    x: clamp(camera.x, Math.min(margin, xEdge), Math.max(margin, xEdge)),
+    x:
+      scaledWidth > viewport.width
+        ? clamp(camera.x, Math.min(margin, xEdge), Math.max(margin, xEdge))
+        : (viewport.width - scaledWidth) / 2,
     y: clamp(camera.y, Math.min(margin, yEdge), Math.max(margin, yEdge)),
   };
 }
