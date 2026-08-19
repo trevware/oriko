@@ -826,9 +826,14 @@
   /* The same surface as the action bar, holding one button instead of four.
      Padding is even rather than the bar's 7px 12px: that extra horizontal
      room exists to give a row of buttons its end caps, and a single button
-     centred in it would sit in an oval. */
+     centred in it would sit in an oval.
+
+     Round, not the surface radius. That radius is 22px against a bar 52px
+     tall and several hundred wide, where it reads as a rounded rectangle; on
+     a 52px square it is nearly half the side and reads as a blob. A lone
+     button has no length to carry that shape, so it takes the circle. */
   padding: 7px;
-  border-radius: var(--pg-surface-radius);
+  border-radius: 50%;
   background-color: var(--pg-surface);
   background-image: none;
   backdrop-filter: var(--pg-surface-blur);
@@ -849,6 +854,12 @@
      last third of the flight and settles as the card lands, rather than
      arriving while it is still travelling. */
   transition: opacity 320ms ease 250ms;
+}
+
+/* Concentric with the surface around it, so the hover fill does not show its
+   corners inside a circle. */
+.pg-detail-back button.pg-detail-button {
+  border-radius: 50%;
 }
 
 /* The tip belongs under this one. Every other tip rises above its button,
