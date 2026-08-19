@@ -289,6 +289,14 @@ export class Palette {
       return;
     }
 
+    // A stage of values carries no left icon on any row, so the gutter would
+    // sit there empty down the whole list. Decided for the list rather than
+    // per row: it is a property of what is being shown.
+    const iconic = groups.some((group) =>
+      group.rows.some((row) => row.icon || row.clipping)
+    );
+    list.toggleClass("is-iconless", !iconic);
+
     for (const group of groups) {
       // Inside a stage every row is the same kind of thing, so a heading
       // over them says nothing.
@@ -325,13 +333,22 @@ export class Palette {
       image.decoding = "async";
       image.src = thumb;
     } else if (row.icon) {
-      // Blank is meaningful: an unticked facet still needs its gutter, or
-      // the labels jump sideways as values are toggled.
+      // Blank is meaningful in a list that has icons: an unticked row still
+      // needs its gutter, or the labels jump sideways as values are toggled.
+      // A list where no row has one drops it instead, see render().
       setIcon(icon, row.icon);
     }
 
     paintLabel(el.createDiv({ cls: "pg-palette-label" }), row.label, row.ranges);
-    el.createDiv({ cls: "pg-palette-detail", text: row.detail ?? "" });
+
+    // The trailing slot holds a count, a shortcut, or a mark. Never both.
+    const detail = el.createDiv({ cls: "pg-palette-detail" });
+    if (row.detailIcon) {
+      detail.addClass("is-marked");
+      setIcon(detail, row.detailIcon);
+    } else {
+      detail.setText(row.detail ?? "");
+    }
 
     if (row.command?.stage) {
       const arrow = el.createDiv({ cls: "pg-palette-arrow" });

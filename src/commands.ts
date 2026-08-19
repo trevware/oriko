@@ -34,6 +34,12 @@ export interface PaletteCommand {
   section: PaletteSection;
   /** Right-hand text: a shortcut hint, a count, or a tally. */
   detail?: string;
+  /**
+   * Right-hand icon, shown in place of `detail`. A row whose state is worth
+   * marking says so where its count was, rather than in a left-hand gutter
+   * every other row then reserves while saying nothing.
+   */
+  detailIcon?: string;
   /** Extra words to match on that the row never displays. */
   keywords?: string;
   destructive?: boolean;
@@ -261,10 +267,15 @@ function filterCommands(context: PaletteContext): PaletteCommand[] {
           (context.facets[def.id] ?? []).map((entry) => ({
             id: `filter:${def.id}:${entry.value}`,
             label: entry.value,
-            // Blank keeps the gutter, so labels do not jump as values tick.
-            icon: (context.filter[def.id] ?? []).includes(entry.value) ? "check" : "",
+            // No left icon at all, so the list drops the gutter. A chosen
+            // value marks itself where its count was: the count of a value
+            // you have already picked is not what you read that row for.
+            icon: "",
             section: "Filters" as const,
             detail: String(entry.count),
+            detailIcon: (context.filter[def.id] ?? []).includes(entry.value)
+              ? "check"
+              : undefined,
             keepOpen: true,
             run: () => actions.toggleFacet(def.id, entry.value),
           })),

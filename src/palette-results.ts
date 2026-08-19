@@ -21,6 +21,8 @@ export interface PaletteRow {
   label: string;
   icon: string;
   detail?: string;
+  /** Shown in place of `detail`, to mark the row's state. */
+  detailIcon?: string;
   destructive?: boolean;
   /** Runs of the label that matched, for highlighting. */
   ranges: MatchRange[];
@@ -85,6 +87,7 @@ export function searchPalette(
         label: command.label,
         icon: command.icon,
         detail: command.detail,
+        detailIcon: command.detailIcon,
         destructive: command.destructive,
         ranges: hit.ranges,
         command,

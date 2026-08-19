@@ -1543,6 +1543,24 @@ button.pg-grid-row-button.is-disabled:hover {
   display: none;
 }
 
+/* A mark reads as state, not as a footnote, so it comes up to full strength
+   where the count it replaced was deliberately quiet. */
+.pg-palette-detail.is-marked {
+  display: flex;
+  align-items: center;
+  color: var(--pg-surface-text);
+}
+
+.pg-palette-detail.is-marked .svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* No row in this list has a left icon, so nothing reserves the gutter. */
+.pg-palette-list.is-iconless .pg-palette-icon {
+  display: none;
+}
+
 .pg-palette-arrow {
   display: flex;
   align-items: center;

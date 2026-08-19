@@ -144,7 +144,7 @@ describe("buildCommands", () => {
     expect(values.every((v) => v.keepOpen)).toBe(true);
   });
 
-  it("ticks the facet values that are already filtering the wall", () => {
+  it("marks the facet values already filtering the wall, in the count's slot", () => {
     const ctx = context({
       facets: {
         categories: [
@@ -158,7 +158,37 @@ describe("buildCommands", () => {
       filter: { ...emptyFilter(), categories: ["ios"] },
     });
     const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
-    expect(values.map((v) => v.icon)).toEqual(["", "check"]);
+    expect(values.map((v) => v.detailIcon)).toEqual([undefined, "check"]);
+  });
+
+  it("leaves every facet value without a left icon, so the gutter goes", () => {
+    const ctx = context({
+      facets: {
+        categories: [
+          { value: "design", count: 2 },
+          { value: "ios", count: 1 },
+        ],
+        status: [],
+        kind: [],
+        domain: [],
+      },
+      filter: { ...emptyFilter(), categories: ["ios"] },
+    });
+    const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
+    expect(values.map((v) => v.icon)).toEqual(["", ""]);
+  });
+
+  it("keeps the count on a value that is not chosen", () => {
+    const ctx = context({
+      facets: {
+        categories: [{ value: "design", count: 2 }],
+        status: [],
+        kind: [],
+        domain: [],
+      },
+    });
+    const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
+    expect(values[0]).toMatchObject({ detail: "2", detailIcon: undefined });
   });
 
   it("offers to clear filters only while something is filtered", () => {
