@@ -199,10 +199,16 @@ export class DetailView {
     backdrop.onclick = () => this.close();
     this.backdrop = backdrop;
 
+    // A bar holding one button, not a button of its own. The action bar at the
+    // bottom is the reference for every control over a clipping, so back is
+    // built from the same two pieces rather than being a lookalike that has to
+    // be kept in step by hand.
     const back = this.root.createDiv({ cls: "pg-detail-back" });
-    setIcon(back, "arrow-left");
-    back.setAttribute("aria-label", "Back");
-    back.onclick = () => this.close();
+    const backButton = back.createEl("button", { cls: "pg-detail-button" });
+    setIcon(backButton, "arrow-left");
+    backButton.setAttribute("aria-label", tipLabel("Back", "\u238b"));
+    attachTip(backButton, "Back", "\u238b");
+    backButton.onclick = () => this.close();
 
     this.stage = this.root.createDiv({ cls: "pg-detail-stage" });
     this.layer = this.stage.createDiv({ cls: "pg-detail-zoom" });

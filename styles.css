@@ -805,23 +805,24 @@
   left: 20px;
   z-index: 2;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: var(--pg-inner-chip);
-  color: var(--text-normal);
-  cursor: pointer;
+  /* The same surface as the action bar, holding one button instead of four.
+     Padding is even rather than the bar's 7px 12px: that extra horizontal
+     room exists to give a row of buttons its end caps, and a single button
+     centred in it would sit in an oval. */
+  padding: 7px;
+  border-radius: var(--pg-surface-radius);
+  background-color: var(--pg-surface);
+  background-image: none;
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   opacity: 0;
   /* Leave transition. A rule that sets no transition of its own inherits
      this one in both directions, which is why the staged entry delays used
      to play back in reverse and leave the chrome hanging over the returning
      card. The entry timing therefore lives on .is-open below, and this
      declaration governs only the exit: gone well before the flight lands. */
-  transition:
-    opacity 90ms ease,
-    background 120ms ease;
+  transition: opacity 90ms ease;
 }
 
 .pg-detail.is-open .pg-detail-back {
@@ -829,13 +830,15 @@
   /* Delays here are measured against FLIGHT_MS. The chrome layers in over the
      last third of the flight and settles as the card lands, rather than
      arriving while it is still travelling. */
-  transition:
-    opacity 320ms ease 250ms,
-    background 120ms ease;
+  transition: opacity 320ms ease 250ms;
 }
 
-.pg-detail-back:hover {
-  background: var(--pg-inner-press);
+/* The tip belongs under this one. Every other tip rises above its button,
+   which from the top left corner would place it off the top of the pane. */
+.pg-detail-back .pg-tip {
+  top: calc(100% + 14px);
+  bottom: auto;
+  transform: translateX(-50%) translateY(-6px);
 }
 
 .pg-detail-meta {
