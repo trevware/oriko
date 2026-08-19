@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ZOOM, PAN_MARGIN, revealCamera } from "../src/camera";
+import { MAX_ZOOM, revealCamera } from "../src/camera";
 
 const viewport = { width: 1000, height: 800 };
 const content = { width: 1000, height: 5000 };
@@ -39,9 +39,10 @@ describe("revealCamera", () => {
 
   it("keeps the camera within the pannable bounds", () => {
     // Centring a short tile in the first row would push the wall's top edge
-    // to the middle of the screen; the pan clamp is what stops that.
+    // into the middle of the screen; the pan clamp is what stops that, so it
+    // lands against the top instead.
     const top = { x: 350, y: 0, w: 300, h: 100 };
     const camera = revealCamera({ x: 0, y: 0, zoom: 1 }, viewport, top, content);
-    expect(camera.y).toBeLessThanOrEqual(PAN_MARGIN);
+    expect(camera.y).toBe(0);
   });
 });

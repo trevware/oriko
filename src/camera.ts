@@ -20,9 +20,6 @@ export interface Point {
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 4;
 
-/** How far past the content edges the camera may travel, in screen pixels. */
-export const PAN_MARGIN = 240;
-
 function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
 }
@@ -34,39 +31,35 @@ export function clampZoom(zoom: number, min = MIN_ZOOM, max = MAX_ZOOM): number 
 }
 
 /**
- * Keeps the camera within the content plus a margin of empty space, so a
- * pan can overshoot the wall a little but never lose it off screen.
+ * Holds the wall against the edges of the viewport: the first row can reach
+ * the top and the last row the bottom, and neither goes past.
  *
- * Vertically the two bounds invert once the content is shorter than the
- * viewport; the min/max pair is normalised so the allowed band is the same
- * either way.
+ * There used to be 240px of overshoot in every direction, on the theory that
+ * a canvas should feel loose. On a wall it reads as slop: you flick, the
+ * content stops, and the canvas keeps going into blank space you have no
+ * reason to be looking at. An axis with nothing beyond the edge should not
+ * move at all.
  *
- * Horizontally there is no band at all unless the wall is genuinely wider
- * than the viewport. The wall is laid out at viewport width, so at rest it
- * exactly fills it and sliding sideways only reveals blank canvas, which
- * reads as the whole grid having drifted off-centre. Zoom in far enough that
- * the columns really do run past both edges and panning comes back.
+ * Horizontally that means no movement whatsoever until the wall is genuinely
+ * wider than the viewport, which happens only when zoom pushes the columns
+ * past both edges. The wall is laid out at viewport width, so at rest it
+ * fills the viewport exactly and any sideways travel is drift.
+ *
+ * Vertically a wall shorter than the viewport pins to the top, which is
+ * where initialCamera puts it and where a list of things belongs.
  */
-export function clampCamera(
-  camera: Camera,
-  viewport: Size,
-  content: Size,
-  margin = PAN_MARGIN
-): Camera {
+export function clampCamera(camera: Camera, viewport: Size, content: Size): Camera {
   const zoom = clampZoom(camera.zoom);
   const scaledWidth = content.width * zoom;
   const scaledHeight = content.height * zoom;
-
-  const xEdge = viewport.width - scaledWidth - margin;
-  const yEdge = viewport.height - scaledHeight - margin;
 
   return {
     zoom,
     x:
       scaledWidth > viewport.width
-        ? clamp(camera.x, Math.min(margin, xEdge), Math.max(margin, xEdge))
+        ? clamp(camera.x, viewport.width - scaledWidth, 0)
         : (viewport.width - scaledWidth) / 2,
-    y: clamp(camera.y, Math.min(margin, yEdge), Math.max(margin, yEdge)),
+    y: scaledHeight > viewport.height ? clamp(camera.y, viewport.height - scaledHeight, 0) : 0,
   };
 }
 

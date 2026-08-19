@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
-  PAN_MARGIN,
   clampCamera,
   clampZoom,
   initialCamera,
@@ -73,14 +72,14 @@ describe("zoomAt", () => {
 });
 
 describe("clampCamera", () => {
-  it("allows panning up to the margin past the top", () => {
+  it("stops with the first row against the top of the viewport", () => {
     const out = clampCamera({ x: 0, y: 9999, zoom: 1 }, viewport, content);
-    expect(out.y).toBe(PAN_MARGIN);
+    expect(out.y).toBe(0);
   });
 
-  it("allows panning up to the margin past the bottom", () => {
+  it("stops with the last row against the bottom of the viewport", () => {
     const out = clampCamera({ x: 0, y: -99999, zoom: 1 }, viewport, content);
-    expect(out.y).toBe(viewport.height - content.height - PAN_MARGIN);
+    expect(out.y).toBe(viewport.height - content.height);
   });
 
   it("leaves a camera inside the bounds untouched", () => {
@@ -88,11 +87,12 @@ describe("clampCamera", () => {
     expect(clampCamera(inside, viewport, content)).toEqual(inside);
   });
 
-  it("keeps a vertical band to move in when the content is shorter than the viewport", () => {
+  it("pins a wall shorter than the viewport to the top", () => {
     const small = { width: 200, height: 200 };
     const low = clampCamera({ x: 0, y: -99999, zoom: 1 }, viewport, small);
     const high = clampCamera({ x: 0, y: 99999, zoom: 1 }, viewport, small);
-    expect(high.y).toBeGreaterThan(low.y);
+    expect(low.y).toBe(0);
+    expect(high.y).toBe(0);
   });
 
   it("pins the wall to the centre horizontally when it is no wider than the viewport", () => {
@@ -112,13 +112,13 @@ describe("clampCamera", () => {
   it("allows horizontal panning once the wall is wider than the viewport", () => {
     const left = clampCamera({ x: -99999, y: 0, zoom: 2 }, viewport, content);
     const right = clampCamera({ x: 99999, y: 0, zoom: 2 }, viewport, content);
-    expect(right.x).toBe(PAN_MARGIN);
-    expect(left.x).toBe(viewport.width - content.width * 2 - PAN_MARGIN);
+    expect(right.x).toBe(0);
+    expect(left.x).toBe(viewport.width - content.width * 2);
   });
 
   it("accounts for zoom when computing the bottom bound", () => {
     const out = clampCamera({ x: 0, y: -99999, zoom: 0.5 }, viewport, content);
-    expect(out.y).toBe(viewport.height - content.height * 0.5 - PAN_MARGIN);
+    expect(out.y).toBe(viewport.height - content.height * 0.5);
   });
 
   it("clamps the zoom as well as the position", () => {
