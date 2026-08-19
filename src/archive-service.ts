@@ -22,6 +22,7 @@ import { supportsSourceDownload } from "./resolve";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail, needsPageCover } from "./page-cover";
 import { chooseEngine, cleanText } from "./ocr";
+import type { OcrSummary } from "./ocr";
 import type { ClippingRecord } from "./scan";
 import type { PowerGridSettings } from "./settings";
 
@@ -191,14 +192,14 @@ export class ArchiveService {
    * read stores nothing, which leaves it to be retried rather than recorded
    * as blank.
    */
-  async readText(): Promise<number> {
+  async readText(): Promise<OcrSummary> {
     const engine = chooseEngine({
       vision: visionAvailable(),
       tesseract: tesseractPath() !== null,
     });
-    if (!engine) return 0;
+    const summary: OcrSummary = { engine, pending: 0, attempted: 0, read: 0, failed: 0 };
+    if (!engine) return summary;
 
-    let read = 0;
     for (const entry of this.cache.entries()) {
       if (entry.text !== undefined || entry.failed) continue;
 
@@ -206,25 +207,32 @@ export class ArchiveService {
       // that was pulled out of it, and a terminal recording's text is there.
       const source = entry.kind === "video" ? entry.thumb : entry.file;
       if (!source) continue;
+      summary.pending++;
 
       const absolute = absolutePath(this.app.vault, normalizePath(source));
       if (!absolute) continue;
+      summary.attempted++;
 
       const raw = await readImageText(absolute, engine);
-      if (raw === null) continue;
+      // Nothing recorded on a failure, so it is retried rather than filed
+      // as a picture with no words in it.
+      if (raw === null) {
+        summary.failed++;
+        continue;
+      }
 
       this.cache.setText(entry.key, cleanText(raw));
-      read++;
+      summary.read++;
       // Saved as it goes: a pass over a large wall takes a while, and work
       // already done should survive a quit halfway through.
-      if (read % 20 === 0) await this.saveCache();
+      if (summary.read % 20 === 0) await this.saveCache();
     }
 
-    if (read > 0) {
+    if (summary.read > 0) {
       await this.saveCache();
       this.emit();
     }
-    return read;
+    return summary;
   }
 
   /** Reports archive progress for a single record, for the capture bar. */

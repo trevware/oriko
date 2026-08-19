@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TEXT, chooseEngine, cleanText, textForRecord } from "../src/ocr";
+import { MAX_TEXT, chooseEngine, cleanText, describeOcr, textForRecord } from "../src/ocr";
 import type { CacheEntry } from "../src/cache";
 import type { ClippingRecord } from "../src/scan";
 
@@ -104,5 +104,46 @@ describe("textForRecord", () => {
 
   it("says nothing when none of the media has been read yet", () => {
     expect(textForRecord(clipping({ media }), () => undefined)).toBe("");
+  });
+});
+
+describe("describeOcr", () => {
+  const base = { engine: "vision" as const, pending: 0, attempted: 0, read: 0, failed: 0 };
+
+  it("says so plainly when the machine has no engine", () => {
+    expect(describeOcr({ ...base, engine: null })).toMatch(/no OCR engine/i);
+  });
+
+  it("distinguishes nothing left to do from nothing working", () => {
+    expect(describeOcr(base)).toMatch(/already been read/i);
+  });
+
+  it("reports what it read", () => {
+    expect(describeOcr({ ...base, pending: 9, attempted: 9, read: 9 })).toBe(
+      "read text from 9 pictures"
+    );
+  });
+
+  it("counts a picture with no words in it as read, because it was", () => {
+    expect(describeOcr({ ...base, pending: 1, attempted: 1, read: 1 })).toBe(
+      "read text from 1 picture"
+    );
+  });
+
+  it("does not hide failures behind a success count", () => {
+    expect(describeOcr({ ...base, pending: 10, attempted: 10, read: 7, failed: 3 })).toBe(
+      "read text from 7 pictures, 3 could not be read"
+    );
+  });
+
+  it("names the engine as the problem when every read failed", () => {
+    // The difference that matters: an engine that is present but refusing.
+    expect(describeOcr({ ...base, pending: 5, attempted: 5, failed: 5 })).toMatch(
+      /vision failed on all 5/i
+    );
+  });
+
+  it("blames the files when none of them resolved on disk", () => {
+    expect(describeOcr({ ...base, pending: 5 })).toMatch(/could not be found on disk/i);
   });
 });

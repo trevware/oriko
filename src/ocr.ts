@@ -93,3 +93,31 @@ export function textForRecord(
 
   return parts.join(" ");
 }
+
+/**
+ * What a text pass actually did, rather than one number that cannot tell
+ * "nothing left to do" apart from "everything failed" or "no engine here".
+ */
+export interface OcrSummary {
+  engine: OcrEngine | null;
+  /** Entries wanting text. */
+  pending: number;
+  /** Of those, the ones whose file resolved to a real path on disk. */
+  attempted: number;
+  read: number;
+  failed: number;
+}
+
+const pictures = (n: number): string => `${n} picture${n === 1 ? "" : "s"}`;
+
+/** One line saying which of the ways this can go quiet actually happened. */
+export function describeOcr({ engine, pending, attempted, read, failed }: OcrSummary): string {
+  if (!engine) {
+    return "no OCR engine found. macOS reads with Vision automatically; elsewhere, install tesseract";
+  }
+  if (pending === 0) return "every picture has already been read";
+  if (attempted === 0) return `${pictures(pending)} could not be found on disk`;
+  if (read === 0) return `${engine} failed on all ${pictures(attempted)}`;
+  if (failed > 0) return `read text from ${pictures(read)}, ${failed} could not be read`;
+  return `read text from ${pictures(read)}`;
+}
