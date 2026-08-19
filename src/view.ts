@@ -1,4 +1,6 @@
 import { ItemView, Notice, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { todayISO } from "./dates";
+import { isEditable } from "./editable";
 import { absolutePath } from "./convert";
 import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
 import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
@@ -250,6 +252,10 @@ export class PowerGridView extends ItemView {
       onExport: (id) => void this.exportToDownloads([id]),
       onReveal: (id) => this.revealFirstFile(id),
       onDelete: (id) => this.confirmDelete([id]),
+      // Counted from the wall before filtering, so editing a clipping can
+      // offer a category that the filter currently happens to be hiding.
+      onSuggest: (key) => facetsOf(this.facets, facetDefs([key]))[key].map((v) => v.value),
+      onSetProperty: (id, key, values) => void this.setProperty(id, key, values),
       onOpenNote: (id) => this.openNote(id),
     });
     this.detail.onClosed = () => {
@@ -662,6 +668,40 @@ export class PowerGridView extends ItemView {
     this.applyFilter({ replace: true });
   }
 
+  /**
+   * Writes one property of one clipping, for the detail view's inline editing.
+   *
+   * Guarded by isEditable rather than trusted: the caller is UI, and the keys
+   * the Web Clipper owns are a contract this plugin does not get to break.
+   * Refusing here means a future caller cannot widen the licence by accident.
+   *
+   * `updated` is bumped alongside, because vault CLAUDE.md §9 lists it among
+   * the properties parsing maintains and every other tool in the vault keeps
+   * it current.
+   */
+  private async setProperty(path: string, key: string, values: string[]): Promise<void> {
+    if (!isEditable(key)) {
+      new Notice(`Power Grid: ${key} belongs to the clipper and is not editable`);
+      return;
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+    if (!(file instanceof TFile)) return;
+
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        // An emptied property is removed rather than written as an empty list,
+        // so a note reads the way one that never had the key reads.
+        if (values.length === 0) delete fm[key];
+        else if (values.length === 1 && key === "status") fm[key] = values[0];
+        else fm[key] = values;
+        fm.updated = todayISO();
+      });
+    } catch (error) {
+      new Notice(`Power Grid: could not update ${key} (${String(error)})`);
+    }
+  }
+
   private openFilter(x: number, y: number): void {
     const build = (): MenuItem[] => {
       const defs = this.defs();
@@ -876,9 +916,10 @@ export class PowerGridView extends ItemView {
   }
 
   /**
-   * The only place the plugin writes to a note it did not create, and it
+   * One of two places the plugin writes to a note it did not create, and it
    * writes exactly one key. processFrontMatter rewrites the frontmatter block
-   * alone, so the clipped body is never touched.
+   * alone, so the clipped body is never touched. See setProperty for the
+   * other, and the constraints section of CLAUDE.md for why there are two.
    */
   private async assign(paths: string[], target: string): Promise<number> {
     const home = this.plugin.settings.homeGridName;

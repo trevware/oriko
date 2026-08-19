@@ -7,6 +7,8 @@ import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { paintSwatchStrip, readSwatches } from "./swatch-strip";
+import { STATUSES, withValue, withoutValue } from "./editable";
+import { ListSuggest } from "./suggest";
 import { attachTip, tipLabel } from "./tip";
 import { clampPan, fitZoomRange } from "./viewer";
 
@@ -15,6 +17,11 @@ export interface DetailActions {
   onReveal: (id: string) => void;
   onDelete: (id: string) => void;
   onOpenNote: (id: string) => void;
+  /** Values already in use for a property, to suggest while editing. */
+  onSuggest: (key: string) => string[];
+  /** Writes one property back to the clipping. Refused for any key the Web
+      Clipper owns; the guard is in view.setProperty, not here. */
+  onSetProperty: (id: string, key: string, values: string[]) => void;
 }
 
 export interface DetailOrigin {
@@ -356,8 +363,8 @@ export class DetailView {
     field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
     field("Source", domainOf(model.record.source));
     field("Date", model.record.created ? `Clipped ${model.record.created}` : "");
-    field("Categories", model.record.categories.join(", "));
-    field("Status", model.record.status);
+    this.paintCategories(panel, model);
+    this.paintStatus(panel, model);
 
     return panel;
   }
@@ -378,6 +385,125 @@ export class DetailView {
     const swatches = await readSwatches(image);
     if (!panel.isConnected) return;
     paintSwatchStrip(panel, swatches);
+  }
+
+  /**
+   * Categories as chips you can remove, plus one field to add.
+   *
+   * Edited here and written through an action, so the detail view never
+   * touches the vault: the same split the export, reveal and delete rows
+   * already use. The local list is the source of truth while the panel is up,
+   * so a second edit builds on the first rather than on the record the view
+   * was opened with.
+   */
+  private paintCategories(panel: HTMLElement, model: TileModel): void {
+    const block = panel.createDiv({ cls: "pg-detail-field" });
+    block.createDiv({ cls: "pg-detail-label", text: "Categories" });
+    const row = block.createDiv({ cls: "pg-chips pg-detail-chips" });
+
+    let values = [...model.record.categories];
+    let adding = false;
+
+    const commit = (next: string[]): void => {
+      values = next;
+      adding = false;
+      paint();
+      this.actions.onSetProperty(model.id, "categories", next);
+    };
+
+    const paint = (): void => {
+      row.empty();
+
+      for (const value of values) {
+        const chip = row.createSpan({ cls: "pg-chip" });
+        chip.createSpan({ text: value });
+        const remove = chip.createEl("button", { cls: "pg-chip-remove", text: "\u00d7" });
+        remove.setAttribute("aria-label", `Remove ${value}`);
+        remove.onclick = (event: MouseEvent) => {
+          event.stopPropagation();
+          commit(withoutValue(values, value));
+        };
+      }
+
+      if (!adding) {
+        const add = row.createEl("button", { cls: "pg-chip-add", text: "+" });
+        add.setAttribute("aria-label", "Add a category");
+        add.onclick = (event: MouseEvent) => {
+          event.stopPropagation();
+          adding = true;
+          paint();
+        };
+        return;
+      }
+
+      const input = row.createEl("input", { cls: "pg-chip-input", type: "text" });
+      input.placeholder = "category";
+
+      const offered = this.actions
+        .onSuggest("categories")
+        .filter((value) => !values.includes(value));
+      new ListSuggest(this.app, input, offered, (picked) => commit(withValue(values, picked)));
+
+      input.onkeydown = (event: KeyboardEvent) => {
+        event.stopPropagation();
+        if (event.key === "Escape") {
+          adding = false;
+          paint();
+          return;
+        }
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        const typed = input.value.trim();
+        if (typed) commit(withValue(values, typed));
+        else {
+          adding = false;
+          paint();
+        }
+      };
+
+      // Deferred: clicking a suggestion blurs the input before the popover
+      // reports the pick, so closing immediately would throw the choice away.
+      input.onblur = () => {
+        window.setTimeout(() => {
+          if (!adding) return;
+          adding = false;
+          paint();
+        }, 150);
+      };
+
+      input.focus();
+    };
+
+    paint();
+  }
+
+  /**
+   * Status as three pills rather than a menu. It is a three-value progression,
+   * so a picker that costs a click to open is a click too many.
+   */
+  private paintStatus(panel: HTMLElement, model: TileModel): void {
+    const block = panel.createDiv({ cls: "pg-detail-field" });
+    block.createDiv({ cls: "pg-detail-label", text: "Status" });
+    const row = block.createDiv({ cls: "pg-detail-pills" });
+
+    let current = model.record.status;
+
+    const paint = (): void => {
+      row.empty();
+      for (const value of STATUSES) {
+        const pill = row.createEl("button", { cls: "pg-detail-pill", text: value });
+        pill.toggleClass("is-on", value === current);
+        pill.onclick = (event: MouseEvent) => {
+          event.stopPropagation();
+          if (value === current) return;
+          current = value;
+          paint();
+          this.actions.onSetProperty(model.id, "status", [value]);
+        };
+      }
+    };
+
+    paint();
   }
 
   private paintActions(model: TileModel): void {

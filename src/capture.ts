@@ -1,4 +1,5 @@
 import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
+import { todayISO as today } from "./dates";
 import type { ArchiveService } from "./archive-service";
 import { extensionForMime } from "./formats";
 import type { ClippingIndex } from "./index-store";
@@ -29,12 +30,6 @@ import type { PowerGridSettings } from "./settings";
 const USER_AGENT = "Mozilla/5.0 (compatible; PowerGrid/0.1; Obsidian link preview)";
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
-
-/** ISO date, matching what the Web Clipper writes to `created`. */
-function today(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-}
 
 /** Filename-safe stamp, unique to the second so two pastes cannot collide. */
 function todayStamp(): string {
