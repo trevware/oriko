@@ -53,6 +53,24 @@ export default class PowerGridPlugin extends Plugin {
       callback: () => void this.activateView(),
     });
 
+    // Registered as a command rather than left to the view's own key
+    // listener: ⌘K is a core default (Insert Markdown link), so Obsidian's
+    // dispatcher claims the chord before a DOM listener ever sees it. Going
+    // through the command system is what puts the wall's search on the key,
+    // and it makes the binding reassignable in Settings → Hotkeys like
+    // everything else.
+    this.addCommand({
+      id: "open-search",
+      name: "Search this grid",
+      hotkeys: [{ modifiers: ["Mod"], key: "K" }],
+      checkCallback: (checking: boolean) => {
+        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
+        if (!view) return false;
+        if (!checking) view.togglePalette();
+        return true;
+      },
+    });
+
     this.addCommand({
       id: "clip-url-from-clipboard",
       name: "Clip link from clipboard",

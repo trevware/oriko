@@ -160,10 +160,16 @@ export class PowerGridView extends ItemView {
       if (this.detail?.isOpen) return;
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
 
+      // Fallback only. ⌘K is claimed by Obsidian's own dispatcher, so the
+      // command in main.ts is what actually carries it; this catches ctrl+K
+      // and any platform where the chord does reach the document. Skipped
+      // when the command already ran, or the two would open and close it in
+      // the same keystroke.
       if (event.key.toLowerCase() === "k") {
+        if (event.defaultPrevented) return;
         event.preventDefault();
         event.stopPropagation();
-        this.palette?.toggle();
+        this.togglePalette();
         return;
       }
 
@@ -248,6 +254,12 @@ export class PowerGridView extends ItemView {
     });
 
     this.refresh();
+  }
+
+  /** Public: the ⌘K command in main.ts drives the palette through this. */
+  togglePalette(): void {
+    if (this.detail?.isOpen) return;
+    this.palette?.toggle();
   }
 
   async onClose(): Promise<void> {
