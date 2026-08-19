@@ -6,6 +6,7 @@ import { fitRect, flightMidpoint, flipTransform } from "./layout";
 import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
+import { paintSwatchStrip, readSwatches } from "./swatch-strip";
 import { attachTip, tipLabel } from "./tip";
 import { clampPan, fitZoomRange } from "./viewer";
 
@@ -228,9 +229,10 @@ export class DetailView {
     this.range = fitZoomRange(size, { width: target.w, height: target.h });
     this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
 
-    this.paintMedia(model);
-    this.paintMeta(model, bounds, target);
+    const image = this.paintMedia(model);
+    const panel = this.paintMeta(model, bounds, target);
     this.paintActions(model);
+    if (image) void this.paintSwatches(panel, image);
 
     this.onStageReady?.();
     this.zoomedNow = false;
@@ -240,7 +242,12 @@ export class DetailView {
 
     this.onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      // A focused swatch handles its own Enter and Space. Without it here,
+      // the view's own Enter binding would close the overlay and open the note
+      // rather than copying the colour the swatch is showing.
+      if (target?.closest("input, textarea, [contenteditable='true'], .pg-swatch")) {
+        return;
+      }
 
       // Registered in the capture phase, so stopping here also spares the
       // grid's own document-level handlers, which would otherwise act on a
@@ -267,9 +274,12 @@ export class DetailView {
     document.addEventListener("keydown", this.onKey, true);
   }
 
-  private paintMedia(model: TileModel): void {
+  /** Returns the image on the stage, or null when the stage holds a video.
+      The palette needs the decoded element, and this is the only place that
+      knows which of the two was built. */
+  private paintMedia(model: TileModel): HTMLImageElement | null {
     const host = this.layer;
-    if (!host) return;
+    if (!host) return null;
 
     if (model.kind === "video") {
       const video = host.createEl("video", { cls: "pg-detail-media" });
@@ -280,12 +290,13 @@ export class DetailView {
       video.playsInline = true;
       if (model.posterPath) video.poster = this.resource(model.posterPath);
       this.watchVisibility(video);
-      return;
+      return null;
     }
 
     const image = host.createEl("img", { cls: "pg-detail-media" });
     image.src = model.remote ? model.filePath : this.resource(model.filePath);
     image.decoding = "async";
+    return image;
   }
 
   /** Parity with the wall: nothing plays behind a window you cannot see. */
@@ -315,8 +326,8 @@ export class DetailView {
     this.suspended = false;
   }
 
-  private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): void {
-    if (!this.root) return;
+  private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): HTMLElement | null {
+    if (!this.root) return null;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
 
     // Sit against the image rather than in a fixed right-hand column. The
@@ -347,6 +358,26 @@ export class DetailView {
     field("Date", model.record.created ? `Clipped ${model.record.created}` : "");
     field("Categories", model.record.categories.join(", "));
     field("Status", model.record.status);
+
+    return panel;
+  }
+
+  /**
+   * Adds the palette once the picture has decoded.
+   *
+   * Not awaited before the flight: the colours are worth a moment's wait, the
+   * opening animation is not. A large picture can still be decoding when the
+   * view is closed and another opened, so the panel is only written to while
+   * it is still in the document.
+   */
+  private async paintSwatches(
+    panel: HTMLElement | null,
+    image: HTMLImageElement
+  ): Promise<void> {
+    if (!panel) return;
+    const swatches = await readSwatches(image);
+    if (!panel.isConnected) return;
+    paintSwatchStrip(panel, swatches);
   }
 
   private paintActions(model: TileModel): void {

@@ -33,8 +33,17 @@ const LIGHT_VALUE = 0.96;
     picture, it just should not take four of the eight places. */
 const STRUCTURE_PENALTY = 0.35;
 
-/** CIE76 distance below which two swatches read as the same colour. */
-const MIN_DISTANCE = 12;
+/**
+ * CIE76 distance below which two swatches read as the same colour.
+ *
+ * Set from real clippings rather than from the textbook figure for a "just
+ * noticeable" difference, which is far smaller and leaves the row full of
+ * near-duplicates. A UI screenshot is the case that settles it: at 12 it
+ * spent five of its eight places on shades of the same background grey and
+ * never reached the status pills, which are the only colours in the picture
+ * worth copying. At 20 the greys collapse to two and the pills all appear.
+ */
+const MIN_DISTANCE = 20;
 
 const DEFAULT_MAX = 8;
 

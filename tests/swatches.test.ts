@@ -50,6 +50,18 @@ describe("extractSwatches", () => {
     expect(swatches).toEqual(["#646464"]);
   });
 
+  it("collapses a ladder of greys that read as the same tone", () => {
+    // A UI screenshot is mostly one grey in several shades. Left alone these
+    // eat most of the row and the picture's actual accents never appear.
+    const swatches = extractSwatches(
+      pixels(
+        { color: opaque(238, 238, 238), count: 300 },
+        { color: opaque(201, 202, 202), count: 200 }
+      )
+    );
+    expect(swatches).toEqual(["#EEEEEE"]);
+  });
+
   it("orders by how much of the picture a colour covers", () => {
     const swatches = extractSwatches(
       pixels(
