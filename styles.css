@@ -767,6 +767,20 @@
   display: none;
 }
 
+/* What has been typed against a submenu. There is no field to type into, so
+   without this the narrowing would have no visible cause. */
+.pg-menu-query {
+  margin: 2px 6px 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: var(--pg-inner-well);
+  color: var(--pg-surface-text);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* The .is-open rules carry their own transition and outrank a bare
      .pg-menu here, so they have to be named or the entry animation survives

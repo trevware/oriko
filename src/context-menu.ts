@@ -22,6 +22,9 @@ export interface MenuItem {
    * the row stays lit, so the choice keeps the context it was made from.
    */
   submenu?: MenuItem[];
+  /** Survives type-to-filter. For a row that is an escape hatch rather than a
+      choice, such as one that adds the value you have just failed to find. */
+  alwaysShow?: boolean;
   /**
    * Leaves the menu up after selecting, for a row you are expected to use
    * several of in a row. Needs a rebuild passed to open(), or the menu would
@@ -73,6 +76,11 @@ export class ContextMenu {
   private subRows: RowRecord[] = [];
   /** Which submenu is showing, so a rebuild can put it back. */
   private openLabel: string | null = null;
+  /** The open submenu's rows before filtering, and the row it hangs off. */
+  private subSource: MenuItem[] = [];
+  private subAnchor: HTMLElement | null = null;
+  /** What has been typed against the open submenu. */
+  private query = "";
   /**
    * Panels still fading out. They are already detached from every field above,
    * so nothing can address them; this is only so a reopen can clear them at
@@ -124,13 +132,34 @@ export class ContextMenu {
     };
 
     this.onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      // Escape backs out one level at a time, rather than throwing away the
-      // parent menu along with the submenu you were only glancing at.
-      if (this.sub) this.closeSub();
-      else this.close();
+      const take = (run: () => void): void => {
+        event.preventDefault();
+        event.stopPropagation();
+        run();
+      };
+
+      if (event.key === "Escape") {
+        // Escape backs out one level at a time, rather than throwing away the
+        // parent menu along with the submenu you were only glancing at. A
+        // query counts as a level: clearing it is almost always what was
+        // meant, and the submenu is still one more Escape away.
+        if (this.query) return take(() => this.narrow(""));
+        if (this.sub) return take(() => this.closeSub());
+        return take(() => this.close());
+      }
+
+      // Typing narrows the open submenu. Only there: the top panel is a short
+      // list of actions, while a submenu is where a vault's worth of values
+      // ends up.
+      if (!this.sub) return;
+
+      if (event.key === "Backspace" && this.query) {
+        return take(() => this.narrow(this.query.slice(0, -1)));
+      }
+
+      const printable =
+        event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey;
+      if (printable) return take(() => this.narrow(this.query + event.key));
     };
     document.addEventListener("keydown", this.onKey, true);
 
@@ -289,18 +318,27 @@ export class ContextMenu {
     // submenu vanish and replay its entry animation on every single click,
     // which is what the blink was.
     const parent = reopen ? items.find((item) => item.label === reopen) : undefined;
+    // Patched against what is on screen, which is the narrowed list when
+    // something has been typed. The source is refreshed either way, so the
+    // next keystroke filters the new counts rather than the old ones.
+    if (parent?.submenu) this.subSource = parent.submenu;
     const patched =
       this.patch(this.rows, items) &&
-      (!parent?.submenu || this.patch(this.subRows, parent.submenu));
+      (!parent?.submenu || this.patch(this.subRows, this.matching(parent.submenu)));
     if (patched) return;
 
+    const typed = this.query;
     this.closeSub();
     this.panel.empty();
     this.rows = this.fill(this.panel, items);
 
     if (!parent?.submenu) return;
     const row = this.rows.find((record) => record.item.label === reopen)?.root;
-    if (row) this.openSub(row, parent.submenu, reopen ?? undefined);
+    if (!row) return;
+    this.openSub(row, parent.submenu, reopen ?? undefined);
+    // openSub starts clean, so a rebuild would otherwise drop what was typed
+    // and show the whole list again mid-search.
+    if (typed) this.narrow(typed);
   }
 
   /** Beside the parent, top aligned with the row that opened it. */
@@ -311,8 +349,61 @@ export class ContextMenu {
 
     this.openLabel = label ?? row.find(".pg-menu-label")?.textContent ?? null;
     row.addClass("is-open-parent");
+    this.subSource = items;
+    this.subAnchor = row;
+    this.query = "";
     this.sub = this.container.createDiv({ cls: "pg-menu pg-menu-sub" });
     this.subRows = this.fill(this.sub, items);
+    this.placeSub();
+
+    window.requestAnimationFrame(() => this.sub?.addClass("is-open"));
+  }
+
+  /**
+   * Narrows the open submenu to what has been typed.
+   *
+   * A plain case-insensitive substring, and the order is left alone. Ranking
+   * by score would move rows about as you type, which is exactly what makes a
+   * list you are aiming at hard to hit.
+   */
+  private matching(items: MenuItem[]): MenuItem[] {
+    const wanted = this.query.trim().toLowerCase();
+    if (!wanted) return items;
+    return items.filter(
+      (item) => item.alwaysShow || item.label.toLowerCase().includes(wanted)
+    );
+  }
+
+  /** Refills the open submenu in place, keeping the panel it is already in so
+      typing does not replay its entry animation on every keystroke. */
+  private paintSub(): void {
+    const panel = this.sub;
+    if (!panel) return;
+
+    panel.empty();
+    if (this.query) panel.createDiv({ cls: "pg-menu-query", text: this.query });
+
+    const items = this.matching(this.subSource);
+    const rows = items.filter((item) => !item.alwaysShow);
+    if (this.query && rows.length === 0) {
+      panel.createDiv({ cls: "pg-menu-item is-disabled" }).createDiv({
+        cls: "pg-menu-label",
+        text: "No matches",
+      });
+    }
+
+    this.subRows = this.fill(panel, items);
+    this.placeSub();
+  }
+
+  private narrow(query: string): void {
+    this.query = query;
+    this.paintSub();
+  }
+
+  private placeSub(): void {
+    const row = this.subAnchor;
+    if (!this.sub || !this.panel || !row) return;
 
     const bounds = this.container.getBoundingClientRect();
     const parent = this.panel.getBoundingClientRect();
@@ -336,11 +427,12 @@ export class ContextMenu {
     this.sub.style.transformOrigin = `${x < parent.left - bounds.left ? size.width : 0}px ${
       anchor.top - bounds.top - y
     }px`;
-
-    window.requestAnimationFrame(() => this.sub?.addClass("is-open"));
   }
 
   private closeSub(immediate = false): void {
+    this.subSource = [];
+    this.subAnchor = null;
+    this.query = "";
     // Animated even when one submenu replaces another: they sit at different
     // heights beside the parent, so the old one fading as the new one grows
     // reads as the panel moving rather than as two panels.

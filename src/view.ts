@@ -1035,6 +1035,9 @@ export class PowerGridView extends ItemView {
       // above already separates this row from the values.
       icon: "",
       label: "New value…",
+      // Survives typing, so a search that finds nothing still offers to add
+      // what was typed rather than leaving a dead end.
+      alwaysShow: true,
       divider: rows.length > 0,
       onSelect: () => this.promptPropertyValue(path, key, single, held),
     });
