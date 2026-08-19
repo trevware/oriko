@@ -32,6 +32,8 @@ import {
 } from "./filter";
 import type { Facet, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
+import { describeFiles } from "./media-refs";
+import { orphansAfterDeleting, removeMedia } from "./sweep";
 import {
   effectiveGrid,
   filterByGrid,
@@ -416,10 +418,32 @@ export class PowerGridView extends ItemView {
 
   private confirmDelete(ids: string[]): void {
     const titles = ids.map((id) => this.plugin.index.get(id)?.title ?? id);
-    new ConfirmDeleteModal(this.app, titles, () => void this.deleteClippings(ids)).open();
+    const media = this.doomedMedia(ids);
+    new ConfirmDeleteModal(
+      this.app,
+      titles,
+      () => void this.deleteClippings(ids, media.paths),
+      media.paths.length > 0 ? describeFiles(media) : undefined
+    ).open();
   }
 
-  private async deleteClippings(ids: string[]): Promise<void> {
+  /** The archived files these clippings would leave behind, and their size. */
+  private doomedMedia(ids: string[]) {
+    return orphansAfterDeleting(
+      this.app,
+      this.plugin.index.records(),
+      ids,
+      this.plugin.archiver.cache,
+      this.plugin.settings.attachmentFolder
+    );
+  }
+
+  /**
+   * @param media archived files worked out *before* the notes went, since
+   * afterwards the records they were derived from no longer exist. Already
+   * reference counted, so nothing a surviving clipping uses is in here.
+   */
+  private async deleteClippings(ids: string[], media: string[] = []): Promise<void> {
     let removed = 0;
     for (const id of ids) {
       const file = this.app.vault.getAbstractFileByPath(id);
@@ -432,9 +456,19 @@ export class PowerGridView extends ItemView {
         new Notice(`Power Grid: could not delete ${file.basename} (${String(error)})`);
       }
     }
+
+    // Only after the notes are gone: a failed trashFile leaves a clipping
+    // pointing at media, and that media should still be there.
+    const files = removed === ids.length ? media : [];
+    const swept = await removeMedia(this.app, this.plugin.archiver.cache, files);
+    if (swept > 0) await this.plugin.archiver.saveCache();
+
     this.grid?.clearSelection();
+    const notes = removed === 1 ? "1 note" : `${removed} notes`;
     new Notice(
-      removed === 1 ? "Power Grid: 1 note moved to trash" : `Power Grid: ${removed} notes moved to trash`
+      swept > 0
+        ? `Power Grid: ${notes} and ${swept} media file${swept === 1 ? "" : "s"} moved to trash`
+        : `Power Grid: ${notes} moved to trash`
     );
   }
 

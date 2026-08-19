@@ -95,3 +95,27 @@ describe("MediaCache", () => {
     expect(cache.get("k")).toMatchObject({ width: 886, height: 1920 });
   });
 });
+
+describe("delete", () => {
+  it("forgets an entry, so the URL is downloaded again next time", () => {
+    const cache = new MediaCache();
+    cache.set({
+      key: "https://cdn.example.com/one.jpg",
+      file: "Attachments/Clippings/aaaaaaaaaaaa-one.jpg",
+      thumb: "",
+      kind: "image",
+      width: 0,
+      height: 0,
+      bytes: 0,
+    });
+
+    cache.delete("https://cdn.example.com/one.jpg");
+
+    expect(cache.has("https://cdn.example.com/one.jpg")).toBe(false);
+  });
+
+  it("shrugs at a key it never held", () => {
+    const cache = new MediaCache();
+    expect(() => cache.delete("https://cdn.example.com/nothing.jpg")).not.toThrow();
+  });
+});

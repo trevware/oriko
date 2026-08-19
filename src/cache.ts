@@ -30,6 +30,11 @@ export class MediaCache {
     this.entriesByKey.set(entry.key, entry);
   }
 
+  /** Dropped when its file is removed, so the URL is fetched again if reused. */
+  delete(key: string): void {
+    this.entriesByKey.delete(key);
+  }
+
   entries(): CacheEntry[] {
     return [...this.entriesByKey.values()];
   }

@@ -3,7 +3,10 @@ import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
+import { describeFiles } from "./media-refs";
 import { installRepair } from "./repair";
+import { ConfirmSweepModal } from "./confirm";
+import { findOrphans, removeMedia, staleKeys } from "./sweep";
 import { PowerGridSettingTab } from "./settings-tab";
 import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 
@@ -84,6 +87,12 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "sweep-orphan-media",
+      name: "Remove orphaned media",
+      callback: () => this.sweepOrphanMedia(),
+    });
+
+    this.addCommand({
       id: "archive-clipping-media",
       name: "Archive all clipping media",
       callback: () => this.archiveAllMedia(),
@@ -133,6 +142,48 @@ export default class PowerGridPlugin extends Plugin {
         void this.index.handleModify(f);
       })
     );
+  }
+
+  /**
+   * Offers up everything in the attachment folder that no clipping points
+   * at any more: media left behind by deletions that predate reference
+   * counting, and captures whose note was removed before it was written.
+   *
+   * Asks first, always, and moves to Obsidian's trash rather than deleting,
+   * because the plugin is guessing about files it did not just create.
+   */
+  sweepOrphanMedia(): void {
+    const orphans = findOrphans(
+      this.app,
+      this.index.records(),
+      this.archiver.cache,
+      this.settings.attachmentFolder
+    );
+
+    // Rows pointing at files that are already gone cost nothing to keep but
+    // make the archiver skip a re-download it should do, so they go either
+    // way, sweep or no sweep.
+    const stale = staleKeys(this.app, this.archiver.cache);
+
+    if (orphans.paths.length === 0) {
+      if (stale.length > 0) {
+        for (const key of stale) this.archiver.cache.delete(key);
+        void this.archiver.saveCache();
+      }
+      new Notice("Power Grid: no orphaned media to remove");
+      return;
+    }
+
+    new ConfirmSweepModal(this.app, orphans, describeFiles(orphans), () => {
+      void (async () => {
+        const removed = await removeMedia(this.app, this.archiver.cache, orphans.paths);
+        for (const key of stale) this.archiver.cache.delete(key);
+        await this.archiver.saveCache();
+        new Notice(
+          `Power Grid: ${removed} media file${removed === 1 ? "" : "s"} moved to trash`
+        );
+      })();
+    }).open();
   }
 
   /** Lifted out of its command so the grid's palette can call it too. */

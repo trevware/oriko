@@ -9,7 +9,12 @@ export class ConfirmDeleteModal extends Modal {
   constructor(
     app: App,
     private titles: string[],
-    private onConfirm: () => void
+    private onConfirm: () => void,
+    /**
+     * The archived media that goes with them, already reference counted:
+     * anything a surviving clipping still points at is not in here.
+     */
+    private media?: string
   ) {
     super(app);
   }
@@ -22,11 +27,13 @@ export class ConfirmDeleteModal extends Modal {
       text: count === 1 ? "Delete this clipping?" : `Delete ${count} clippings?`,
     });
 
+    const noun = count === 1 ? "The note" : `${count} notes`;
     contentEl.createEl("p", {
-      text:
-        count === 1
-          ? "The note will be moved to trash. Its archived media stays in your vault."
-          : `${count} notes will be moved to trash. Their archived media stays in your vault.`,
+      text: this.media
+        ? `${noun} will be moved to trash, along with ${this.media} of archived media nothing else uses.`
+        : `${noun} will be moved to trash. No archived media is used only by ${
+            count === 1 ? "it" : "them"
+          }.`,
     });
 
     const list = contentEl.createEl("ul", { cls: "pg-confirm-list" });
@@ -44,6 +51,61 @@ export class ConfirmDeleteModal extends Modal {
       .addButton((button) =>
         button
           .setButtonText(count === 1 ? "Delete note" : `Delete ${count} notes`)
+          .setWarning()
+          .onClick(() => {
+            this.close();
+            this.onConfirm();
+          })
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
+/**
+ * Confirms a sweep of orphaned media.
+ *
+ * Separate from the note confirmation on purpose: this one is the plugin
+ * proposing to delete files nothing pointed it at, which is a bigger claim
+ * than removing what you just asked to remove. It names the folder, shows
+ * what it found, and never runs without an answer.
+ */
+export class ConfirmSweepModal extends Modal {
+  constructor(
+    app: App,
+    private found: { paths: string[] },
+    private summary: string,
+    private onConfirm: () => void
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+
+    contentEl.createEl("h3", { text: "Remove orphaned media?" });
+    contentEl.createEl("p", {
+      text: `${this.summary} in your attachment folder are no longer used by any clipping. They will be moved to trash.`,
+    });
+
+    const list = contentEl.createEl("ul", { cls: "pg-confirm-list" });
+    for (const path of this.found.paths.slice(0, 8)) {
+      list.createEl("li", { text: path.slice(path.lastIndexOf("/") + 1) });
+    }
+    if (this.found.paths.length > 8) {
+      list.createEl("li", {
+        text: `and ${this.found.paths.length - 8} more…`,
+        cls: "pg-confirm-more",
+      });
+    }
+
+    new Setting(contentEl)
+      .addButton((button) => button.setButtonText("Cancel").onClick(() => this.close()))
+      .addButton((button) =>
+        button
+          .setButtonText("Move to trash")
           .setWarning()
           .onClick(() => {
             this.close();
