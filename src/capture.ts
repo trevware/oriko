@@ -48,7 +48,11 @@ function todayStamp(): string {
 export class CaptureService {
   /** Set by the grid view so capture can drive its progress bar. */
   onProgress: ((state: ProgressState | null) => void) | null = null;
-  onFinished: ((label: string) => void) | null = null;
+  /**
+   * Carries the note's path as well as its label: the grid flies to what you
+   * just clipped, and a title is not enough to find a tile by.
+   */
+  onFinished: ((label: string, path: string) => void) | null = null;
 
   constructor(
     private app: App,
@@ -127,7 +131,7 @@ export class CaptureService {
       return;
     }
 
-    this.onFinished?.(title);
+    this.onFinished?.(title, notePath);
   }
 
   /** The grid a new clipping should carry, or "" when that is home. */
@@ -201,7 +205,7 @@ export class CaptureService {
     // handleModify, not ingest: ingest updates the index silently, so the
     // grid was never told the clipping had landed.
     await this.index.handleModify(file);
-    this.onFinished?.(link.title.slice(0, 40));
+    this.onFinished?.(link.title.slice(0, 40), file.path);
   }
 
   private async resolve(url: string): Promise<ResolvedLink | null> {

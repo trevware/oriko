@@ -53,6 +53,17 @@ export const VIEW_TYPE_GRID = "power-grid";
  */
 const PALETTE_CLIPPINGS = 8;
 
+/**
+ * How long a just-clipped note stays worth flying to.
+ *
+ * The flight waits for the tile rather than firing on the spot, because a
+ * fresh clipping often has no cover until the archiver resolves one. Some
+ * never get a renderable cover at all, and without a deadline that clipping
+ * would leave a reveal armed to go off on whatever unrelated repaint came
+ * next, minutes later.
+ */
+const REVEAL_WINDOW_MS = 20000;
+
 export class PowerGridView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
@@ -63,6 +74,8 @@ export class PowerGridView extends ItemView {
   private detail: DetailView | null = null;
   private spaceBar: SpaceBar | null = null;
   private palette: Palette | null = null;
+  /** A clipping just made here, to fly to as soon as it has a tile. */
+  private pendingReveal: { path: string; until: number } | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
   /**
@@ -105,7 +118,12 @@ export class PowerGridView extends ItemView {
 
     this.progress = new ProgressBar(this.contentEl);
     this.plugin.capture.onProgress = (state) => this.progress?.set(state);
-    this.plugin.capture.onFinished = (label) => this.progress?.finish(`Clipped ${label}`);
+    this.plugin.capture.onFinished = (label, path) => {
+      this.progress?.finish(`Clipped ${label}`);
+      // Armed, not flown: the tile does not exist until the index change
+      // this capture is about to cause has been painted.
+      this.pendingReveal = { path, until: performance.now() + REVEAL_WINDOW_MS };
+    };
 
     this.grid = new GridRenderer(this.app, this.contentEl);
     this.playback = new PlaybackController(
@@ -465,6 +483,30 @@ export class PowerGridView extends ItemView {
     // you used one, leaving no way back.
     this.facets = tiles;
     this.applyFilter(options);
+    this.flyToPending();
+  }
+
+  /**
+   * Moves to a clipping made from this wall, once it has a tile to move to.
+   *
+   * Left until after the tiles are set, so the layout it needs is the one
+   * just computed. A pending that finds no tile is kept rather than dropped:
+   * the cover may still be resolving, and the next repaint is the one that
+   * will have it.
+   */
+  private flyToPending(): void {
+    const pending = this.pendingReveal;
+    if (!pending) return;
+
+    if (performance.now() > pending.until) {
+      this.pendingReveal = null;
+      return;
+    }
+
+    // A filter can hide what was just clipped. Nothing is cleared for it:
+    // clipping something is not a request to undo the narrowing you set.
+    if (!this.grid?.reveal(pending.path)) return;
+    this.pendingReveal = null;
   }
 
   /**
