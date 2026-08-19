@@ -762,8 +762,11 @@
   height: 15px;
 }
 
-/* No row in this panel has a left icon, so nothing reserves the gutter. */
-.pg-menu.is-iconless .pg-menu-icon {
+/* No row here has a left icon, so nothing reserves the gutter. Both forms:
+   the top panel carries the class itself, while a submenu carries it on the
+   element its rows live in, beneath the search field. */
+.pg-menu.is-iconless .pg-menu-icon,
+.pg-menu .is-iconless .pg-menu-icon {
   display: none;
 }
 
@@ -778,21 +781,52 @@
   line-height: 1.5;
 }
 
-/* What has been typed against a submenu. There is no field to type into, so
-   without this the narrowing would have no visible cause. */
-.pg-menu-query {
+/* The submenu's search field.
+
+   A real input rather than a div a key handler writes into. Every global
+   shortcut in the plugin steps aside for a focused field, so this is what
+   suspends the wall's keys while you type, and it is why the shortcuts that
+   belong to a field work here at all. */
+.pg-menu input.pg-menu-query {
   /* Row metrics, so the text sits on the same left edge and at the same size
      as the labels it is narrowing. At its own smaller size it read as a
      caption about the list rather than as part of it. */
+  display: block;
+  width: 100%;
   margin: 0 0 4px;
   padding: 10px 13px;
+  border: 0;
   border-radius: var(--pg-inner-radius);
   background-color: var(--pg-inner-well);
+  background-image: none;
+  box-shadow: none;
   color: var(--pg-surface-text);
+  font-family: inherit;
   font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+  height: auto;
+}
+
+.pg-menu input.pg-menu-query:focus,
+.pg-menu input.pg-menu-query:focus-visible {
+  border: 0;
+  box-shadow: none;
+  outline: none;
+}
+
+.pg-menu input.pg-menu-query::placeholder {
+  color: var(--pg-surface-faint);
+}
+
+/* Collapsed while empty, so a submenu you are only pointing at looks the way
+   it always did and the field appears as you use it. It stays in the document
+   and keeps its focus, which is the whole point: zero height, not hidden. */
+.pg-menu input.pg-menu-query.is-empty {
+  height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

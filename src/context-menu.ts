@@ -79,8 +79,9 @@ export class ContextMenu {
   /** The open submenu's rows before filtering, and the row it hangs off. */
   private subSource: MenuItem[] = [];
   private subAnchor: HTMLElement | null = null;
-  /** What has been typed against the open submenu. */
-  private query = "";
+  /** The open submenu's search field, and the element its rows live in. */
+  private queryEl: HTMLInputElement | null = null;
+  private subRowsEl: HTMLElement | null = null;
   /**
    * Panels still fading out. They are already detached from every field above,
    * so nothing can address them; this is only so a reopen can clear them at
@@ -138,28 +139,20 @@ export class ContextMenu {
         run();
       };
 
-      if (event.key === "Escape") {
-        // Escape backs out one level at a time, rather than throwing away the
-        // parent menu along with the submenu you were only glancing at. A
-        // query counts as a level: clearing it is almost always what was
-        // meant, and the submenu is still one more Escape away.
-        if (this.query) return take(() => this.narrow(""));
-        if (this.sub) return take(() => this.closeSub());
-        return take(() => this.close());
+      if (event.key !== "Escape") return;
+
+      // Escape backs out one level at a time, rather than throwing away the
+      // parent menu along with the submenu you were only glancing at. A query
+      // counts as a level: clearing it is almost always what was meant, and
+      // the submenu is still one more Escape away.
+      if (this.query && this.queryEl) {
+        return take(() => {
+          if (this.queryEl) this.queryEl.value = "";
+          this.paintSub();
+        });
       }
-
-      // Typing narrows the open submenu. Only there: the top panel is a short
-      // list of actions, while a submenu is where a vault's worth of values
-      // ends up.
-      if (!this.sub) return;
-
-      if (event.key === "Backspace" && this.query) {
-        return take(() => this.narrow(this.query.slice(0, -1)));
-      }
-
-      const printable =
-        event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey;
-      if (printable) return take(() => this.narrow(this.query + event.key));
+      if (this.sub) return take(() => this.closeSub());
+      return take(() => this.close());
     };
     document.addEventListener("keydown", this.onKey, true);
 
@@ -336,9 +329,12 @@ export class ContextMenu {
     const row = this.rows.find((record) => record.item.label === reopen)?.root;
     if (!row) return;
     this.openSub(row, parent.submenu, reopen ?? undefined);
-    // openSub starts clean, so a rebuild would otherwise drop what was typed
-    // and show the whole list again mid-search.
-    if (typed) this.narrow(typed);
+    // openSub builds a fresh field, so a rebuild would otherwise drop what was
+    // typed and show the whole list again mid-search.
+    if (typed && this.queryEl) {
+      this.queryEl.value = typed;
+      this.paintSub();
+    }
   }
 
   /** Beside the parent, top aligned with the row that opened it. */
@@ -351,10 +347,22 @@ export class ContextMenu {
     row.addClass("is-open-parent");
     this.subSource = items;
     this.subAnchor = row;
-    this.query = "";
     this.sub = this.container.createDiv({ cls: "pg-menu pg-menu-sub" });
-    this.subRows = this.fill(this.sub, items);
+
+    // A real input, not a key handler writing into a div. Every global
+    // shortcut in the plugin already steps aside for a focused field, so
+    // typing here suspends the wall's own keys for free, and the text
+    // shortcuts that belong to a field, ⌘A above all, work because they are
+    // being handled by a field.
+    this.queryEl = this.sub.createEl("input", { cls: "pg-menu-query", type: "text" });
+    this.queryEl.placeholder = "Search…";
+    this.queryEl.oninput = () => this.paintSub();
+
+    this.subRowsEl = this.sub.createDiv({ cls: "pg-menu-rows" });
+    this.subRows = this.fill(this.subRowsEl, items);
+    this.syncQuery();
     this.placeSub();
+    this.queryEl.focus({ preventScroll: true });
 
     window.requestAnimationFrame(() => this.sub?.addClass("is-open"));
   }
@@ -366,6 +374,16 @@ export class ContextMenu {
    * by score would move rows about as you type, which is exactly what makes a
    * list you are aiming at hard to hit.
    */
+  private get query(): string {
+    return this.queryEl?.value ?? "";
+  }
+
+  /** Collapsed while empty, so a submenu you are only pointing at looks the
+      way it always did and the field appears as you use it. */
+  private syncQuery(): void {
+    this.queryEl?.toggleClass("is-empty", this.query.length === 0);
+  }
+
   private matching(items: MenuItem[]): MenuItem[] {
     const wanted = this.query.trim().toLowerCase();
     if (!wanted) return items;
@@ -377,11 +395,11 @@ export class ContextMenu {
   /** Refills the open submenu in place, keeping the panel it is already in so
       typing does not replay its entry animation on every keystroke. */
   private paintSub(): void {
-    const panel = this.sub;
+    const panel = this.subRowsEl;
     if (!panel) return;
 
     panel.empty();
-    if (this.query) panel.createDiv({ cls: "pg-menu-query", text: this.query });
+    this.syncQuery();
 
     const items = this.matching(this.subSource);
     const rows = items.filter((item) => !item.alwaysShow);
@@ -394,11 +412,10 @@ export class ContextMenu {
 
     this.subRows = this.fill(panel, items);
     this.placeSub();
-  }
-
-  private narrow(query: string): void {
-    this.query = query;
-    this.paintSub();
+    // Clicking a row takes focus off the field, and a keepOpen row leaves the
+    // menu up to be used again, so it has to come back or the next keystroke
+    // would go to the wall.
+    this.queryEl?.focus({ preventScroll: true });
   }
 
   private placeSub(): void {
@@ -432,7 +449,8 @@ export class ContextMenu {
   private closeSub(immediate = false): void {
     this.subSource = [];
     this.subAnchor = null;
-    this.query = "";
+    this.queryEl = null;
+    this.subRowsEl = null;
     // Animated even when one submenu replaces another: they sit at different
     // heights beside the parent, so the old one fading as the new one grows
     // reads as the panel moving rather than as two panels.
