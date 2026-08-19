@@ -139,7 +139,9 @@ One section, "Filter properties", in the existing settings tab. It has to stay s
 
 **Enabled properties are chips**, in menu order, each with a remove control. Removing is not destructive; the property returns to the suggestions.
 
-**One "Add a property" row**, a text field backed by a `<datalist>`. That single control does both jobs: it type-aheads the keys already in the clippings, suggested ones first, and it still accepts a property that has been decided on but not yet filled in, which no survey can find. Enter or the Add button commits.
+**One "Add a property" row**, a text field with an Obsidian `AbstractInputSuggest` attached. That single control does both jobs: it type-aheads the keys already in the clippings, suggested ones first, and it still accepts a property that has been decided on but not yet filled in, which no survey can find. Enter, the Add button, or picking a suggestion all commit.
+
+A `<datalist>` was the obvious way to get type-ahead out of one input and is the wrong one: Chromium draws that popup itself and it takes no styling, so it lands on the settings pane as a black box in a bold serif stack matching neither the theme nor the page. `AbstractInputSuggest` renders in the same popover the file and folder suggesters use. It costs a `minAppVersion` bump to 1.6.6, which is when `selectSuggestion` became public API.
 
 **Counts are not shown.** `surveyProperties` still computes notes, occurrences and distinct values, because that is how the suggestion order is decided, but the numbers are working out rather than something to read.
 

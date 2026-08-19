@@ -1,8 +1,43 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import { surveyProperties } from "./facet-catalog";
 import { facetLabel } from "./filter";
 import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 import type PowerGridPlugin from "./main";
+
+/**
+ * Type-ahead over the property names already in the vault.
+ *
+ * Obsidian's own suggester rather than a <datalist>: that is drawn by Chromium
+ * and takes no styling at all, so it lands on the settings pane as a black box
+ * in a bold serif stack, matching neither the theme nor anything else on the
+ * page. This renders in the same popover the file and folder suggesters use.
+ */
+class PropertySuggest extends AbstractInputSuggest<string> {
+  constructor(
+    app: App,
+    input: HTMLInputElement,
+    private options: string[],
+    private pick: (key: string) => void
+  ) {
+    super(app, input);
+  }
+
+  protected getSuggestions(query: string): string[] {
+    const wanted = query.trim().toLowerCase();
+    if (!wanted) return this.options;
+    return this.options.filter((key) => key.toLowerCase().includes(wanted));
+  }
+
+  renderSuggestion(value: string, el: HTMLElement): void {
+    el.setText(value);
+  }
+
+  selectSuggestion(value: string): void {
+    this.setValue(value);
+    this.close();
+    this.pick(value);
+  }
+}
 
 export class PowerGridSettingTab extends PluginSettingTab {
   /** Set while the text control is built, so the Add button beside it can
@@ -68,25 +103,25 @@ export class PowerGridSettingTab extends PluginSettingTab {
       .addText((text) => {
         text.setPlaceholder("property name");
 
-        // A datalist is one control doing both jobs: it type-aheads the keys
-        // already in the vault, and still accepts a property that has been
-        // decided on but not yet filled in, which no survey can find.
-        const list = containerEl.createEl("datalist");
-        list.id = "pg-property-suggestions";
-        for (const key of available) list.createEl("option", { value: key });
-        text.inputEl.setAttribute("list", list.id);
-
-        const add = (): void => {
-          const key = text.getValue().trim();
-          if (!key || enabled.includes(key)) return;
-          void this.commit([...enabled, key]);
+        // One shot: commit re-renders the tab and rebuilds these closures, so
+        // a suggester pick and the Enter key both landing would otherwise add
+        // against a list that is already stale.
+        let done = false;
+        const add = (key: string): void => {
+          const name = key.trim();
+          if (done || !name || enabled.includes(name)) return;
+          done = true;
+          void this.commit([...enabled, name]);
         };
+
+        new PropertySuggest(this.app, text.inputEl, available, add);
+
         text.inputEl.onkeydown = (event: KeyboardEvent) => {
           if (event.key !== "Enter") return;
           event.preventDefault();
-          add();
+          add(text.getValue());
         };
-        this.addProperty = add;
+        this.addProperty = () => add(text.getValue());
       })
       .addButton((button) =>
         button.setButtonText("Add").onClick(() => this.addProperty?.())
