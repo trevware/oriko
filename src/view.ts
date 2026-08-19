@@ -6,7 +6,7 @@ import { ActionBar } from "./action-bar";
 import { buildCommands } from "./commands";
 import type { PaletteContext } from "./commands";
 import { ConfirmDeleteModal } from "./confirm";
-import { todayISO } from "./dates";
+import { isDateToken, todayISO, tokenLabel } from "./dates";
 import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
 import { isEditable, withValue, withoutValue } from "./editable";
@@ -678,7 +678,7 @@ export class PowerGridView extends ItemView {
    */
   private defs(): FacetDef[] {
     return typedFacets(
-      facetDefs(this.plugin.settings.filterProperties),
+      facetDefs(this.plugin.settings.filterProperties, this.plugin.settings.dateWindows),
       this.facets,
       Date.now()
     );
@@ -713,24 +713,52 @@ export class PowerGridView extends ItemView {
       const items: MenuItem[] = defs.map((def) => {
         const values = available[def.id] ?? [];
         const chosen = filter[def.id] ?? [];
+
+        const row = (value: string, count: number): MenuItem => ({
+          // No left icon at all, so the panel drops the gutter. A chosen value
+          // marks itself where its count was: the count of a value you have
+          // already picked is not what you are looking at the row for.
+          icon: "",
+          // A date facet's values are groups and comparisons rather than words
+          // a clipping carries, so they are read back as words here. Any other
+          // facet's value is already the word.
+          label: def.shape === "date" ? tokenLabel(value) : value,
+          detail: String(count),
+          detailIcon: chosen.includes(value) ? "check" : undefined,
+          keepOpen: true,
+          onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), def.id, value)),
+        });
+
+        const submenu = values.map((entry) => row(entry.value, entry.count));
+
+        if (def.shape === "date") {
+          // A comparison is not a value any clipping reports, so it never
+          // shows up in the tally and would have no row to switch it off with.
+          for (const value of chosen) {
+            if (!isDateToken(value) || values.some((entry) => entry.value === value)) continue;
+            const hit = this.facets.filter((tile) =>
+              matchesFilter(tile, { [def.id]: [value] }, defs)
+            ).length;
+            submenu.push(row(value, hit));
+          }
+
+          submenu.push({
+            icon: "",
+            label: "Custom…",
+            alwaysShow: true,
+            divider: true,
+            onSelect: () => this.promptDateFilter(def),
+          });
+        }
+
         return {
           icon: def.icon,
           label: def.label,
           // Nothing to offer is still worth showing: an absent row reads as a
           // missing feature, a disabled one reads as an empty shelf.
-          disabled: values.length === 0,
+          disabled: submenu.length === 0,
           detail: values.length === 0 ? "none" : chosen.length > 0 ? `${chosen.length}` : undefined,
-          submenu: values.map((entry) => ({
-            // No left icon at all, so the panel drops the gutter. A chosen
-            // value marks itself where its count was: the count of a value you
-            // have already picked is not what you are looking at the row for.
-            icon: "",
-            label: entry.value,
-            detail: String(entry.count),
-            detailIcon: chosen.includes(entry.value) ? "check" : undefined,
-            keepOpen: true,
-            onSelect: () => this.setFilter(toggleFacet(this.activeFilter(), def.id, entry.value)),
-          })),
+          submenu,
         };
       });
 
@@ -1041,6 +1069,57 @@ export class PowerGridView extends ItemView {
     });
 
     return rows;
+  }
+
+  /** Picks an operator, then a date, and adds the comparison as a value. */
+  private promptDateFilter(def: FacetDef): void {
+    const sheet = this.sheet;
+    if (!sheet) return;
+
+    const askDate = (op: "before" | "since", label: string): void => {
+      sheet.push({
+        title: label,
+        placeholder: "yyyy-mm-dd",
+        value: todayISO(),
+        filters: false,
+        hints: [
+          ["\u21b5", "apply"],
+          ["esc", "back"],
+        ],
+        rows: () => [],
+        onSubmit: (typed) => {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(typed)) {
+            new Notice("Power Grid: a date reads yyyy-mm-dd");
+            return;
+          }
+          sheet.close();
+          this.setFilter(toggleFacet(this.activeFilter(), def.id, `${op}:${typed}`));
+        },
+      });
+    };
+
+    sheet.open({
+      title: def.label,
+      placeholder: "Search…",
+      filters: true,
+      hints: [
+        ["\u2191\u2193", "navigate"],
+        ["\u21b5", "select"],
+        ["esc", "close"],
+      ],
+      rows: () => [
+        {
+          label: "Before",
+          icon: "chevron-left",
+          onChoose: () => askDate("before", "Before"),
+        },
+        {
+          label: "On or after",
+          icon: "chevron-right",
+          onChoose: () => askDate("since", "On or after"),
+        },
+      ],
+    });
   }
 
   private promptPropertyValue(

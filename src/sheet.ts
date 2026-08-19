@@ -183,8 +183,10 @@ export class Sheet {
       ? this.narrow(screen.rows(query), query)
       : screen.rows(query).map((row) => ({ row, at: -1 }));
 
+    // A form with no rows is a field and nothing else, not a search that found
+    // nothing, so it says nothing rather than "No matches".
     if (found.length === 0) {
-      list.createDiv({ cls: "pg-palette-empty", text: "No matches" });
+      if (screen.filters) list.createDiv({ cls: "pg-palette-empty", text: "No matches" });
       return;
     }
 

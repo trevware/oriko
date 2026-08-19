@@ -1,5 +1,7 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import { surveyProperties } from "./facet-catalog";
+import type { DateUnit, DateWindow } from "./dates";
+import { windowLabel } from "./dates";
 import { facetLabel } from "./filter";
 import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 import type PowerGridPlugin from "./main";
@@ -217,5 +219,78 @@ export class PowerGridSettingTab extends PluginSettingTab {
       );
 
     this.paintFilterProperties(containerEl);
+    this.paintDateWindows(containerEl);
+  }
+
+  private async commitWindows(windows: DateWindow[]): Promise<void> {
+    this.plugin.settings.dateWindows = windows;
+    await this.plugin.saveSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+      if (leaf.view instanceof PowerGridView) leaf.view.refreshFacets();
+    }
+    this.display();
+  }
+
+  private paintDateWindows(containerEl: HTMLElement): void {
+    const windows = this.plugin.settings.dateWindows;
+
+    new Setting(containerEl).setName("Date windows").setHeading();
+
+    containerEl.createEl("p", {
+      cls: "setting-item-description",
+      text:
+        "Extra spans offered by every date property, alongside Today, This week, " +
+        "Last 7, 30 and 90 days, and Last year.",
+    });
+
+    const chips = containerEl.createDiv({ cls: "pg-props" });
+    windows.forEach((window, index) => {
+      const chip = chips.createSpan({ cls: "pg-prop" });
+      chip.createSpan({ text: windowLabel(window) });
+      const remove = chip.createEl("button", { cls: "pg-prop-remove", text: "\u00d7" });
+      remove.setAttribute("aria-label", `Remove ${windowLabel(window)}`);
+      remove.onclick = () => void this.commitWindows(windows.filter((_, i) => i !== index));
+    });
+    if (windows.length === 0) {
+      chips.createSpan({
+        cls: "pg-props-empty",
+        text: "None. The built-in spans are always offered.",
+      });
+    }
+
+    let amount = 14;
+    let unit: DateUnit = "day";
+
+    new Setting(containerEl)
+      .setName("Add a window")
+      .setDesc("Counted back from now, like the built-in spans.")
+      .addText((text) => {
+        text.setPlaceholder("14");
+        text.setValue("14");
+        text.inputEl.type = "number";
+        text.inputEl.min = "1";
+        text.onChange((value) => {
+          amount = Number(value);
+        });
+      })
+      .addDropdown((drop) => {
+        for (const name of ["day", "week", "month", "year"]) {
+          drop.addOption(name, `${name}s`);
+        }
+        drop.setValue(unit);
+        drop.onChange((value) => {
+          unit = value as DateUnit;
+        });
+      })
+      .addButton((button) =>
+        button.setButtonText("Add").onClick(() => {
+          if (!Number.isFinite(amount) || amount < 1) return;
+          const next = { amount: Math.round(amount), unit };
+          // A window that names one already on offer would be dropped when the
+          // list is resolved, so it is refused here where it can be explained.
+          if (windows.some((w) => windowLabel(w) === windowLabel(next))) return;
+          void this.commitWindows([...windows, next]);
+        })
+      );
   }
 }
