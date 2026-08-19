@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildCommands } from "../src/commands";
 import type { PaletteContext } from "../src/commands";
-import { emptyFilter } from "../src/filter";
+import { emptyFilter, facetDefs } from "../src/filter";
+
+const DEFS = facetDefs(["categories", "status"]);
 
 const noop = (): void => {};
 
@@ -34,7 +36,8 @@ function context(over: Partial<PaletteContext> = {}): PaletteContext {
     ],
     activeGrid: "Clippings",
     homeGrid: "Clippings",
-    facets: { categories: [], statuses: [], kinds: [], domains: [] },
+    facetDefs: DEFS,
+    facets: { categories: [], status: [], kind: [], domain: [] },
     filter: emptyFilter(),
     hasSystem: true,
     actions,
@@ -111,14 +114,14 @@ describe("buildCommands", () => {
     const ctx = context({
       facets: {
         categories: [{ value: "design", count: 2 }],
-        statuses: [],
-        kinds: [],
-        domains: [],
+        status: [],
+        kind: [],
+        domain: [],
       },
     });
     const list = ids(ctx);
     expect(list).toContain("filter:categories");
-    expect(list).not.toContain("filter:statuses");
+    expect(list).not.toContain("filter:status");
   });
 
   it("lists a facet's values with their counts, and keeps the palette open", () => {
@@ -128,9 +131,9 @@ describe("buildCommands", () => {
           { value: "design", count: 2 },
           { value: "ios", count: 1 },
         ],
-        statuses: [],
-        kinds: [],
-        domains: [],
+        status: [],
+        kind: [],
+        domain: [],
       },
     });
     const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
@@ -148,9 +151,9 @@ describe("buildCommands", () => {
           { value: "design", count: 2 },
           { value: "ios", count: 1 },
         ],
-        statuses: [],
-        kinds: [],
-        domains: [],
+        status: [],
+        kind: [],
+        domain: [],
       },
       filter: { ...emptyFilter(), categories: ["ios"] },
     });
@@ -185,5 +188,23 @@ describe("buildCommands", () => {
     });
     find(ctx, "selection:move")?.stage?.items()[0].run?.();
     expect(moved).toEqual([["a.md"], "Demo"]);
+  });
+});
+
+describe("filters over user-defined properties", () => {
+  it("offers a user-defined property as a filter", () => {
+    const ctx = context({
+      facetDefs: facetDefs(["medium"]),
+      facets: { medium: [{ value: "photo", count: 3 }], kind: [], domain: [] },
+    });
+    expect(buildCommands(ctx).map((c) => c.id)).toContain("filter:medium");
+  });
+
+  it("labels a property facet from its key", () => {
+    const ctx = context({
+      facetDefs: facetDefs(["publish_date"]),
+      facets: { publish_date: [{ value: "2026", count: 2 }], kind: [], domain: [] },
+    });
+    expect(find(ctx, "filter:publish_date")?.label).toBe("Filter by publish date");
   });
 });

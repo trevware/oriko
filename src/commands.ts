@@ -1,5 +1,4 @@
-import { FACETS } from "./filter";
-import type { Facet, FacetValue, FilterState } from "./filter";
+import type { FacetDef, FacetValue, FilterState } from "./filter";
 import { hotkeyPosition } from "./spaces";
 import type { GridSpace } from "./spaces";
 
@@ -57,7 +56,7 @@ export interface PaletteActions {
   editGrid(): void;
   deleteGrid(): void;
   manageGrids(): void;
-  toggleFacet(facet: Facet, value: string): void;
+  toggleFacet(id: string, value: string): void;
   clearFilters(): void;
   clipLink(): void;
   clipImage(): void;
@@ -73,33 +72,14 @@ export interface PaletteContext {
   grids: GridSpace[];
   activeGrid: string;
   homeGrid: string;
-  facets: Record<Facet, FacetValue[]>;
+  /** The facets on offer, in menu order. */
+  facetDefs: FacetDef[];
+  facets: Record<string, FacetValue[]>;
   filter: FilterState;
   /** False off desktop, where there is no Finder and no Downloads folder. */
   hasSystem: boolean;
   actions: PaletteActions;
 }
-
-const FACET_LABELS: Record<Facet, string> = {
-  categories: "Filter by category",
-  statuses: "Filter by status",
-  kinds: "Filter by media type",
-  domains: "Filter by source",
-};
-
-const FACET_ICONS: Record<Facet, string> = {
-  categories: "tag",
-  statuses: "circle-dot",
-  kinds: "image",
-  domains: "globe",
-};
-
-const FACET_KEYWORDS: Record<Facet, string> = {
-  categories: "tag topic category narrow",
-  statuses: "unread read archived status narrow",
-  kinds: "image video media type narrow",
-  domains: "domain site host source narrow",
-};
 
 /** Grid hotkeys are ⌘1..⌘9 by position, so only the first nine have one. */
 function gridHotkey(position: number): string | undefined {
@@ -257,39 +237,42 @@ function filterCommands(context: PaletteContext): PaletteCommand[] {
   const { actions } = context;
   const items: PaletteCommand[] = [];
 
-  for (const facet of FACETS) {
-    const values = context.facets[facet];
+  for (const def of context.facetDefs) {
+    const values = context.facets[def.id] ?? [];
     // A facet nothing on the wall carries has nothing to offer. The menu
     // shows it disabled so its set reads whole; a search result cannot.
     if (values.length === 0) continue;
 
-    const chosen = context.filter[facet];
+    const chosen = context.filter[def.id] ?? [];
+    // Built from the label rather than stored alongside it, so a property the
+    // user adds reads the same as one the plugin ships knowing about.
+    const label = `Filter by ${def.label.toLowerCase()}`;
     items.push({
-      id: `filter:${facet}`,
-      label: FACET_LABELS[facet],
-      icon: FACET_ICONS[facet],
+      id: `filter:${def.id}`,
+      label,
+      icon: def.icon,
       section: "Filters",
       detail: chosen.length > 0 ? `${chosen.length}` : undefined,
-      keywords: FACET_KEYWORDS[facet],
+      keywords: def.keywords,
       stage: {
-        title: FACET_LABELS[facet],
-        placeholder: `${FACET_LABELS[facet]}…`,
+        title: label,
+        placeholder: `${label}…`,
         items: () =>
-          context.facets[facet].map((entry) => ({
-            id: `filter:${facet}:${entry.value}`,
+          (context.facets[def.id] ?? []).map((entry) => ({
+            id: `filter:${def.id}:${entry.value}`,
             label: entry.value,
             // Blank keeps the gutter, so labels do not jump as values tick.
-            icon: context.filter[facet].includes(entry.value) ? "check" : "",
+            icon: (context.filter[def.id] ?? []).includes(entry.value) ? "check" : "",
             section: "Filters" as const,
             detail: String(entry.count),
             keepOpen: true,
-            run: () => actions.toggleFacet(facet, entry.value),
+            run: () => actions.toggleFacet(def.id, entry.value),
           })),
       },
     });
   }
 
-  const active = FACETS.reduce((total, facet) => total + context.filter[facet].length, 0);
+  const active = Object.values(context.filter).reduce((total, values) => total + values.length, 0);
   if (active > 0) {
     items.push({
       id: "filter:clear",
