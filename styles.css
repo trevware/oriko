@@ -770,12 +770,15 @@
 /* What has been typed against a submenu. There is no field to type into, so
    without this the narrowing would have no visible cause. */
 .pg-menu-query {
-  margin: 2px 6px 6px;
-  padding: 4px 10px;
-  border-radius: 999px;
+  /* Row metrics, so the text sits on the same left edge and at the same size
+     as the labels it is narrowing. At its own smaller size it read as a
+     caption about the list rather than as part of it. */
+  margin: 0 0 4px;
+  padding: 10px 13px;
+  border-radius: var(--pg-inner-radius);
   background-color: var(--pg-inner-well);
   color: var(--pg-surface-text);
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
