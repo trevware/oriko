@@ -143,3 +143,46 @@ describe("rank with a third tier", () => {
     expect(rank("focus", items, fields)[0].ranges).toEqual([]);
   });
 });
+
+describe("matching against long read-out text", () => {
+  // Both of these were read out of real screenshots. The letters of
+  // "coffees on shelf" appear in order in the first one, so a subsequence
+  // match returns a bag of coffee as a hit for a weather widget. Once the
+  // haystack is a page of text, words have to be words.
+  const unrelated =
+    "MILD • •••• WILD ADV WASHED CO-FERMENT NET WT 13 OZ (369 G) OF AWESOME COFFEE " +
+    "Coffee Cups Origin Colombia Process Co-Fermented ° Tastes like Orange Cake, " +
+    "Bubblegum Freshness Peak Resting Peak Roasted Jul 15, 2026 • day 32 Still Good " +
+    "Character Roast level Light • Tvpe Single Oriain y for Filter & Esp";
+  const real = "9:41 Good Afternoon 10 coffees on shelf tropical weather ONYX Onyx Coffee Lab";
+
+  const items = [
+    { label: "Bag of coffee", text: unrelated },
+    { label: "Post by @luoyyisvic on X", text: real },
+  ];
+  const fields = (i: (typeof items)[number]) => ({ primary: i.label, tertiary: i.text });
+
+  it("finds only the picture that actually says it", () => {
+    expect(rank("coffees on shelf", items, fields).map((r) => r.item.label)).toEqual([
+      "Post by @luoyyisvic on X",
+    ]);
+  });
+
+  it("still matches words that are all present but not together", () => {
+    expect(rank("onyx afternoon", items, fields).map((r) => r.item.label)).toEqual([
+      "Post by @luoyyisvic on X",
+    ]);
+  });
+
+  it("wants every word, not just one of them", () => {
+    expect(rank("coffees on submarine", items, fields)).toEqual([]);
+  });
+
+  it("scores a whole phrase above the same words scattered", () => {
+    const together = [{ label: "A", text: "10 coffees on shelf" }];
+    const apart = [{ label: "B", text: "coffees are on the top shelf" }];
+    const score = (list: typeof together) =>
+      rank("coffees on shelf", list, (i) => ({ primary: i.label, tertiary: i.text }))[0].score;
+    expect(score(together)).toBeGreaterThan(score(apart));
+  });
+});

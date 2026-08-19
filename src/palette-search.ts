@@ -62,6 +62,8 @@ const MAX_SPREAD_PENALTY = 30;
 
 const SECONDARY_PENALTY = 500;
 const TERTIARY_PENALTY = 900;
+/** Paid to a phrase found whole, over the same words found scattered. */
+const PHRASE_BONUS = 200;
 
 const BOUNDARY = /[\s\-_/.,:;!?'"()[\]{}|#@+&]/;
 
@@ -147,6 +149,39 @@ function subsequenceMatch(query: string, text: string, lower: string): Match | n
 }
 
 /**
+ * Every word of the query present, none of them fuzzy, ranked highest when
+ * they were found together.
+ *
+ * This is how the text you cannot see is matched: a clipping's description
+ * and categories, and the words read out of its pictures. A subsequence is
+ * a reasonable guess across a twenty-character label, and nonsense across a
+ * page of text, where the letters of "coffees on shelf" appear in order in
+ * a bag of coffee's roast notes. Anything found this way highlights
+ * nothing, so there is no reason to track where the words landed.
+ */
+export function phraseMatch(query: string, text: string): Match | null {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return { score: 0, ranges: [] };
+
+  const lower = text.toLowerCase();
+  const whole = substringMatch(needle, text, lower);
+  if (whole) return { score: whole.score + PHRASE_BONUS, ranges: [] };
+
+  const terms = needle.split(/\s+/);
+  if (terms.length < 2) return null;
+
+  let total = 0;
+  for (const term of terms) {
+    const hit = substringMatch(term, text, lower);
+    if (!hit) return null;
+    total += hit.score;
+  }
+
+  // Averaged, so a long query does not outscore a short one for free.
+  return { score: total / terms.length, ranges: [] };
+}
+
+/**
  * How well text answers query, or null if it does not. An empty query
  * matches everything at zero, which is what leaves the palette's opening
  * list in its natural order.
@@ -182,13 +217,13 @@ export function rank<T>(
     // No ranges past this point: they would index into text the row does not
     // show. The penalties are wide enough that a whole tier sits below the
     // one above it, whatever the two matches scored on their own.
-    const fallback = secondary ? fuzzyMatch(query, secondary) : null;
+    const fallback = secondary ? phraseMatch(query, secondary) : null;
     if (fallback) {
       results.push({ item, score: fallback.score - SECONDARY_PENALTY, ranges: [] });
       continue;
     }
 
-    const read = tertiary ? fuzzyMatch(query, tertiary) : null;
+    const read = tertiary ? phraseMatch(query, tertiary) : null;
     if (read) results.push({ item, score: read.score - TERTIARY_PENALTY, ranges: [] });
   }
 
