@@ -3,7 +3,7 @@ import { resourceUrl } from "./convert";
 import { windowRange } from "./layout";
 import { domainOf } from "./scan";
 import { previewOf } from "./tile";
-import { attachTip, tipLabel } from "./tip";
+import { attachTip } from "./tip";
 import type { TileModel } from "./tile";
 
 /**
@@ -252,7 +252,6 @@ export class PanelToggle {
     // Re-attached rather than built once: empty() above takes the tip with
     // the icon, and the label has to follow the state in any case.
     const label = open ? "Hide list" : "Show list";
-    this.root.setAttribute("aria-label", tipLabel(label, "\u2318L"));
     attachTip(this.root, label, "\u2318L");
     this.root.toggleClass("is-open", open);
   }

@@ -8,7 +8,7 @@ import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { paintSwatchStrip, readSwatches } from "./swatch-strip";
-import { attachTip, tipLabel } from "./tip";
+import { attachTip } from "./tip";
 import { clampPan, fitZoomRange } from "./viewer";
 
 export interface DetailActions {
@@ -205,7 +205,6 @@ export class DetailView {
     // that set, so it shares their rules rather than imitating them.
     const back = this.root.createEl("button", { cls: "pg-detail-back" });
     setIcon(back, "arrow-left");
-    back.setAttribute("aria-label", tipLabel("Back", "\u238b"));
     attachTip(back, "Back", "\u238b");
     back.onclick = () => this.close();
 
@@ -417,7 +416,6 @@ export class DetailView {
       run: () => void
     ): void => {
       const button = bar.createEl("button", { cls: "pg-detail-button" });
-      button.setAttribute("aria-label", tipLabel(label, shortcut));
       setIcon(button, icon);
       attachTip(button, label, shortcut);
       button.onclick = (event: MouseEvent) => {

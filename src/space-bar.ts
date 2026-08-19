@@ -42,7 +42,6 @@ export class SpaceBar {
     const left = this.root.createDiv({ cls: "pg-space-left" });
 
     this.filter = left.createEl("button", { cls: "pg-space-filter" });
-    this.filter.setAttribute("aria-label", "Filter");
     setIcon(this.filter, "list-filter");
     attachTip(this.filter, "Filter");
     this.filterCount = this.filter.createDiv({ cls: "pg-space-count" });
@@ -53,7 +52,6 @@ export class SpaceBar {
     };
 
     this.manage = left.createEl("button", { cls: "pg-space-manage" });
-    this.manage.setAttribute("aria-label", "Grid settings");
     setIcon(this.manage, "sliders-horizontal");
     attachTip(this.manage, "Grid settings");
     this.manage.onclick = (event: MouseEvent) => {
@@ -67,7 +65,6 @@ export class SpaceBar {
     const right = this.root.createDiv({ cls: "pg-space-right" });
 
     this.switcher = right.createEl("button", { cls: "pg-space-switch" });
-    this.switcher.setAttribute("aria-label", "Switch grid");
     attachTip(this.switcher, "Switch grid");
     this.icon = this.switcher.createDiv({ cls: "pg-space-icon" });
     this.label = this.switcher.createDiv({ cls: "pg-space-label" });
@@ -85,7 +82,6 @@ export class SpaceBar {
     };
 
     const create = right.createEl("button", { cls: "pg-space-create" });
-    create.setAttribute("aria-label", "New");
     setIcon(create, "plus");
     attachTip(create, "New");
     create.onclick = (event: MouseEvent) => {

@@ -574,9 +574,31 @@
 /* The wall's own controls stand alone rather than inside a bar, so there is
    no padding to clear and the offset above would leave a visible gap between
    the label and the button it belongs to. */
-.pg-spacebar .pg-tip,
-.pg-panel-toggle .pg-tip {
+.pg-spacebar .pg-tip {
   bottom: calc(100% + 10px);
+}
+
+/* This one sits at the top of the pane, not the bottom with the space bar, so
+   its label belongs underneath. Above, it opened straight off the top edge and
+   over Obsidian's own tab bar. */
+.pg-panel-toggle .pg-tip {
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translateX(-50%) translateY(-6px);
+}
+
+/* Read, never drawn. Carries a control's accessible name where an aria-label
+   would otherwise make Obsidian draw a second tooltip beside our own. */
+.pg-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .pg-tip-key {
