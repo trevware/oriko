@@ -37,6 +37,12 @@ const SUBMENU_GAP = 6;
 /** Panel padding, so a submenu's first row lines up with its parent row. */
 const PANEL_PADDING = 10;
 const EDGE = 8;
+/**
+ * How long a dismissed panel is left in the document to fade. Must match the
+ * exit transition in styles.css; a value shorter than the CSS cuts the fade
+ * off mid-way, and a longer one leaves an invisible panel lying about.
+ */
+const EXIT_MS = 110;
 
 /**
  * Floating menu for the grid, dimming the wall behind it so the choice is
@@ -54,6 +60,12 @@ export class ContextMenu {
   private subRows: RowRecord[] = [];
   /** Which submenu is showing, so a rebuild can put it back. */
   private openLabel: string | null = null;
+  /**
+   * Panels still fading out. They are already detached from every field above,
+   * so nothing can address them; this is only so a reopen can clear them at
+   * once rather than letting a stack of ghosts build up.
+   */
+  private leaving: HTMLElement[] = [];
 
   constructor(private container: HTMLElement) {}
 
@@ -67,7 +79,10 @@ export class ContextMenu {
     clientY: number,
     rebuild?: () => MenuItem[]
   ): void {
-    this.close();
+    // Immediate: the old panel is being replaced right now, so fading it out
+    // underneath its replacement would only show two menus at once.
+    this.close(true);
+    this.clearLeaving();
     if (items.length === 0) return;
     this.rebuild = rebuild ?? null;
 
@@ -288,23 +303,55 @@ export class ContextMenu {
     window.requestAnimationFrame(() => this.sub?.addClass("is-open"));
   }
 
-  private closeSub(): void {
-    this.sub?.remove();
+  private closeSub(immediate = false): void {
+    // Animated even when one submenu replaces another: they sit at different
+    // heights beside the parent, so the old one fading as the new one grows
+    // reads as the panel moving rather than as two panels.
+    this.dismiss([this.sub], immediate);
     this.sub = null;
     this.subRows = [];
     this.openLabel = null;
     this.panel?.findAll(".is-open-parent").forEach((row) => row.removeClass("is-open-parent"));
   }
 
-  close(): void {
+  /**
+   * @param immediate skips the leave transition, for when the panel is being
+   * replaced rather than dismissed.
+   */
+  close(immediate = false): void {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
-    this.closeSub();
+    this.closeSub(immediate);
     this.rows = [];
     this.rebuild = null;
-    this.backdrop?.remove();
-    this.panel?.remove();
+    // Detached from the fields before the transition starts, so the menu is
+    // inert the instant it is dismissed rather than a hundred milliseconds
+    // later: isOpen reads false and no handler can reach a leaving panel.
+    this.dismiss([this.backdrop, this.panel], immediate);
     this.backdrop = null;
     this.panel = null;
+  }
+
+  /** Drops is-open so CSS runs the leave, then removes the nodes. */
+  private dismiss(nodes: Array<HTMLElement | null>, immediate: boolean): void {
+    const going = nodes.filter((node): node is HTMLElement => node !== null);
+    if (going.length === 0) return;
+
+    if (immediate) {
+      for (const node of going) node.remove();
+      return;
+    }
+
+    for (const node of going) node.removeClass("is-open");
+    this.leaving.push(...going);
+    window.setTimeout(() => {
+      for (const node of going) node.remove();
+      this.leaving = this.leaving.filter((node) => !going.includes(node));
+    }, EXIT_MS);
+  }
+
+  private clearLeaving(): void {
+    for (const node of this.leaving) node.remove();
+    this.leaving = [];
   }
 }

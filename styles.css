@@ -588,11 +588,20 @@
   z-index: 40;
   background: var(--pg-scrim);
   opacity: 0;
-  transition: opacity 140ms ease;
+  /* Exit: quicker than the entry, so a dismissed menu is gone by the time you
+     have looked away, while arriving still has time to read as a movement. */
+  transition: opacity 100ms ease;
+}
+
+/* Inert while arriving and while leaving. A backdrop still fading would
+   otherwise swallow the click that opens whatever you turned to next. */
+.pg-menu-backdrop:not(.is-open) {
+  pointer-events: none;
 }
 
 .pg-menu-backdrop.is-open {
   opacity: 1;
+  transition: opacity 140ms ease;
 }
 
 .pg-menu {
@@ -608,14 +617,25 @@
   box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
   opacity: 0;
   transform: scale(0.94);
+  /* Exit. Shorter than the entry and with no overshoot: a menu should spring
+     open and then simply be gone, not bounce on the way out. */
   transition:
-    opacity 130ms ease,
-    transform 160ms cubic-bezier(0.22, 0.9, 0.28, 1);
+    opacity 100ms ease,
+    transform 100ms ease;
+}
+
+/* Inert while arriving and while leaving, so a panel on its way out cannot
+   take a click meant for the wall or for the menu replacing it. */
+.pg-menu:not(.is-open) {
+  pointer-events: none;
 }
 
 .pg-menu.is-open {
   opacity: 1;
   transform: scale(1);
+  transition:
+    opacity 130ms ease,
+    transform 160ms cubic-bezier(0.22, 0.9, 0.28, 1);
 }
 
 .pg-menu-item {
@@ -697,8 +717,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The .is-open rules carry their own transition and outrank a bare
+     .pg-menu here, so they have to be named or the entry animation survives
+     the preference that asked for it to stop. */
   .pg-menu,
-  .pg-menu-backdrop {
+  .pg-menu.is-open,
+  .pg-menu-backdrop,
+  .pg-menu-backdrop.is-open {
     transition: none;
   }
 }
