@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BUCKETS, dateBuckets, isDateProperty, looksLikeDate } from "../src/dates";
+import { BUCKETS, dateBuckets, isDateProperty, looksLikeDate, todayISO } from "../src/dates";
 
 const NOW = Date.parse("2026-08-19T12:00:00Z");
 const daysAgo = (n: number): string =>
@@ -79,5 +79,22 @@ describe("dateBuckets", () => {
   it("returns buckets in the order BUCKETS declares, oldest last", () => {
     const order = dateBuckets(daysAgo(1), NOW);
     expect(order).toEqual(BUCKETS.map((b) => b.label));
+  });
+});
+
+describe("todayISO", () => {
+  it("formats a date the way the Web Clipper writes created", () => {
+    expect(todayISO(new Date(2026, 7, 19))).toBe("2026-08-19");
+  });
+
+  it("pads a single-digit month and day", () => {
+    expect(todayISO(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("reads the local calendar, not UTC", () => {
+    // toISOString converts first, so late evening east of Greenwich would
+    // stamp tomorrow and early morning west of it would stamp yesterday.
+    const late = new Date(2026, 7, 19, 23, 30);
+    expect(todayISO(late)).toBe("2026-08-19");
   });
 });

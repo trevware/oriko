@@ -6,6 +6,9 @@ import { ActionBar } from "./action-bar";
 import { buildCommands } from "./commands";
 import type { PaletteContext } from "./commands";
 import { ConfirmDeleteModal } from "./confirm";
+import { todayISO } from "./dates";
+import { ValuePromptModal } from "./value-prompt";
+import { isEditable, withValue, withoutValue } from "./editable";
 import { ContextMenu } from "./context-menu";
 import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
@@ -27,9 +30,11 @@ import {
   activeCount,
   emptyFilter,
   facetDefs,
+  facetLabel,
   facetsOf,
   isFilterEmpty,
   matchesFilter,
+  propertyVocabulary,
   pruneFilter,
   toggleFacet,
   typedFacets,
@@ -158,7 +163,10 @@ export class PowerGridView extends ItemView {
 
     this.menu = new ContextMenu(this.contentEl);
     this.grid.onContextRequested = (ids, x, y) =>
-      this.menu?.open(this.menuItems(ids), x, y);
+      // Rebuilt on each tick: the property rows are keepOpen, so without this
+      // the menu would go on showing the values the clipping had when it
+      // opened. Same reason the filter menu passes one.
+      this.menu?.open(this.menuItems(ids), x, y, () => this.menuItems(ids));
 
     this.spaceBar = new SpaceBar(this.contentEl, {
       onSwitcher: (x, y) => this.openSwitcher(x, y),
@@ -413,6 +421,20 @@ export class PowerGridView extends ItemView {
           icon: "folder",
           label: "Reveal in Finder",
           onSelect: () => this.revealFirstFile(ids[0]),
+        });
+      }
+    }
+
+    // One clipping only. Across a selection a value is held by some and not
+    // others, and a tick that means "some of these" is a different control
+    // than this one, not a wider version of it.
+    if (n === 1) {
+      for (const def of this.defs()) {
+        if (def.source !== "property" || !def.key || !isEditable(def.key)) continue;
+        items.push({
+          icon: def.icon,
+          label: def.label,
+          submenu: this.propertyMenu(ids[0], def.key),
         });
       }
     }
@@ -884,6 +906,98 @@ export class PowerGridView extends ItemView {
    * writes exactly one key. processFrontMatter rewrites the frontmatter block
    * alone, so the clipped body is never touched.
    */
+  /**
+   * Writes one property of one clipping.
+   *
+   * Guarded by isEditable rather than trusted: the caller is UI, and the keys
+   * the Web Clipper owns are a contract this plugin does not get to break.
+   * Refusing here means a future caller cannot widen the licence by accident.
+   *
+   * `updated` is bumped alongside, because vault CLAUDE.md §9 lists it among
+   * the properties parsing maintains and every other tool there keeps it
+   * current.
+   */
+  private async setProperty(path: string, key: string, values: string[]): Promise<void> {
+    if (!isEditable(key)) {
+      new Notice(`Power Grid: ${key} belongs to the clipper and is not editable`);
+      return;
+    }
+
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(path));
+    if (!(file instanceof TFile)) return;
+
+    try {
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        // An emptied property is removed rather than written as an empty
+        // list, so the note reads the way one that never had the key reads.
+        if (values.length === 0) delete fm[key];
+        else if (values.length === 1 && !Array.isArray(fm[key])) fm[key] = values[0];
+        else fm[key] = values;
+        fm.updated = todayISO();
+      });
+    } catch (error) {
+      new Notice(`Power Grid: could not update ${key} (${String(error)})`);
+    }
+  }
+
+  /**
+   * The rows for editing one property of one clipping.
+   *
+   * Values come from the wall rather than from a fixed vocabulary, so the
+   * menu offers what the vault already uses and spelling stays consistent
+   * without anything having to enforce it.
+   */
+  private propertyMenu(path: string, key: string): MenuItem[] {
+    const record = this.plugin.index.get(path);
+    const held = record?.properties[key] ?? [];
+    const { values, single } = propertyVocabulary(this.facets, key);
+
+    const rows: MenuItem[] = values.map((entry) => {
+      const on = held.includes(entry.value);
+      return {
+        icon: "",
+        label: entry.value,
+        detail: String(entry.count),
+        detailIcon: on ? "check" : undefined,
+        keepOpen: true,
+        onSelect: () => {
+          // A property no clipping holds more than one of reads as a choice,
+          // so picking replaces rather than adds. Picking the one already set
+          // clears it, which is the only way to unset from a list of values.
+          const next = single
+            ? on
+              ? []
+              : [entry.value]
+            : on
+              ? withoutValue(held, entry.value)
+              : withValue(held, entry.value);
+          void this.setProperty(path, key, next);
+        },
+      };
+    });
+
+    rows.push({
+      icon: "plus",
+      label: "New value…",
+      divider: rows.length > 0,
+      onSelect: () => this.promptPropertyValue(path, key, single, held),
+    });
+
+    return rows;
+  }
+
+  private promptPropertyValue(
+    path: string,
+    key: string,
+    single: boolean,
+    held: string[]
+  ): void {
+    const options = propertyVocabulary(this.facets, key).values.map((v) => v.value);
+    new ValuePromptModal(this.app, `New ${facetLabel(key).toLowerCase()}`, options, (value) => {
+      void this.setProperty(path, key, single ? [value] : withValue(held, value));
+    }).open();
+  }
+
   private async assign(paths: string[], target: string): Promise<number> {
     const home = this.plugin.settings.homeGridName;
     let written = 0;

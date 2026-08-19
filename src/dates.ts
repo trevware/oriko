@@ -87,3 +87,18 @@ export function dateBuckets(value: string, now: number): string[] {
   const labels = BUCKETS.filter((bucket) => age < bucket.within).map((b) => b.label);
   return labels.length > 0 ? labels : [OLDER];
 }
+
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+/**
+ * A date as ISO, matching what the Web Clipper writes to `created`.
+ *
+ * Built from the local calendar rather than toISOString, which converts to UTC
+ * first and so stamps tomorrow's date for anyone east of Greenwich in the
+ * evening, and yesterday's for anyone west of it in the morning.
+ *
+ * @param now injectable so the format is testable without a fixed clock.
+ */
+export function todayISO(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}

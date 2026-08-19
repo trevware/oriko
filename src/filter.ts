@@ -218,6 +218,43 @@ export function pruneFilter(filter: FilterState, defs: FacetDef[]): FilterState 
   return copy;
 }
 
+export interface PropertyVocabulary {
+  /** The values in use, most used first. */
+  values: FacetValue[];
+  /**
+   * True when no clipping on the wall holds more than one, so the property
+   * reads as a choice rather than a set. Editing a choice replaces; editing a
+   * set adds and removes.
+   */
+  single: boolean;
+}
+
+/**
+ * Every value a property actually holds across the wall, for a picker that
+ * writes one.
+ *
+ * Raw, unlike the facets above: a date facet offers the buckets its values
+ * fall into, and those are groupings rather than anything you could write back
+ * to a note. Counted before filtering, so editing a clipping can still offer a
+ * value the filter currently happens to be hiding.
+ */
+export function propertyVocabulary(tiles: TileModel[], key: string): PropertyVocabulary {
+  const counts = new Map<string, number>();
+  let single = true;
+
+  for (const tile of tiles) {
+    const held = tile.record.properties[key] ?? [];
+    if (held.length > 1) single = false;
+    for (const value of held) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+
+  const values = [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+
+  return { values, single };
+}
+
 function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   const counts = new Map<string, number>();
   for (const tile of tiles) {

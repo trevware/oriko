@@ -7,6 +7,7 @@ import {
   facetsOf,
   isFilterEmpty,
   matchesFilter,
+  propertyVocabulary,
   pruneFilter,
   toggleFacet,
   typedFacets,
@@ -314,5 +315,47 @@ describe("date facets", () => {
       "recent",
     ]);
     tiles[0].record.properties.categories = [];
+  });
+});
+
+describe("propertyVocabulary", () => {
+  function holding(id: string, key: string, values: string[]): TileModel {
+    const t = tile(id);
+    t.record.properties[key] = values;
+    return t;
+  }
+
+  it("lists the raw values, most used first", () => {
+    const tiles = [
+      holding("a", "medium", ["photo", "video"]),
+      holding("b", "medium", ["photo"]),
+    ];
+    expect(propertyVocabulary(tiles, "medium").values).toEqual([
+      { value: "photo", count: 2 },
+      { value: "video", count: 1 },
+    ]);
+  });
+
+  it("reads as a set when any clipping holds more than one", () => {
+    const tiles = [holding("a", "medium", ["photo", "video"])];
+    expect(propertyVocabulary(tiles, "medium").single).toBe(false);
+  });
+
+  it("reads as a choice when no clipping holds more than one", () => {
+    const tiles = [holding("a", "status", ["unread"]), holding("b", "status", ["read"])];
+    expect(propertyVocabulary(tiles, "status").single).toBe(true);
+  });
+
+  it("gives raw dates, not the buckets a date facet would offer", () => {
+    // Editing sets a value, so the vocabulary has to be values you could
+    // actually write, not the groups they happen to fall into.
+    const tiles = [holding("a", "reviewed", ["2026-08-19"])];
+    expect(propertyVocabulary(tiles, "reviewed").values).toEqual([
+      { value: "2026-08-19", count: 1 },
+    ]);
+  });
+
+  it("offers nothing for a key no clipping carries", () => {
+    expect(propertyVocabulary([tile("a")], "nothing")).toEqual({ values: [], single: true });
   });
 });
