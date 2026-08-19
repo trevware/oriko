@@ -29,9 +29,11 @@ export interface MenuItem {
    */
   keepOpen?: boolean;
   /**
-   * May return a promise. A keepOpen row that writes to a note has to finish
-   * before the menu re-reads, or the rebuild shows the state from before the
-   * click and the row appears not to have worked.
+   * A keepOpen row that returns a promise has the rebuild deferred until it
+   * settles. Prefer not needing it: a row whose work is slow should show its
+   * result at once and let the work catch up, which is what the property rows
+   * do. This exists so one that cannot do that races visibly rather than
+   * silently.
    */
   onSelect?: () => void | Promise<void>;
 }

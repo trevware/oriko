@@ -26,6 +26,7 @@ import { LayerPanel, PanelToggle } from "./panel";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
+import type { PropertyVocabulary } from "./filter";
 import {
   activeCount,
   emptyFilter,
@@ -108,6 +109,24 @@ export class PowerGridView extends ItemView {
    * archiving gives it a different, working cover.
    */
   private unloadable = new Map<string, string>();
+  /**
+   * Values set from the open menu, before the vault has confirmed them.
+   *
+   * The tick has to land on the click that caused it, and a write is a disk
+   * round trip and a metadata event away. The menu therefore reads this first
+   * and the note second. Dropped when a menu opens, and on a failed write, so
+   * it can never disagree with the vault for longer than one menu.
+   */
+  private edited = new Map<string, string[]>();
+  /**
+   * One property's values, frozen for the life of an open menu.
+   *
+   * Recounting on every tick reordered the rows under the pointer, because
+   * the list is ordered by how many clippings carry each value and ticking
+   * one changes that. What a menu offers should not move while you are using
+   * it.
+   */
+  private vocabularies = new Map<string, PropertyVocabulary>();
 
   constructor(leaf: WorkspaceLeaf, private plugin: PowerGridPlugin) {
     super(leaf);
@@ -162,11 +181,14 @@ export class PowerGridView extends ItemView {
     };
 
     this.menu = new ContextMenu(this.contentEl);
-    this.grid.onContextRequested = (ids, x, y) =>
+    this.grid.onContextRequested = (ids, x, y) => {
+      this.edited.clear();
+      this.vocabularies.clear();
       // Rebuilt on each tick: the property rows are keepOpen, so without this
       // the menu would go on showing the values the clipping had when it
       // opened. Same reason the filter menu passes one.
       this.menu?.open(this.menuItems(ids), x, y, () => this.menuItems(ids));
+    };
 
     this.spaceBar = new SpaceBar(this.contentEl, {
       onSwitcher: (x, y) => this.openSwitcher(x, y),
@@ -937,16 +959,13 @@ export class PowerGridView extends ItemView {
       });
     } catch (error) {
       new Notice(`Power Grid: could not update ${key} (${String(error)})`);
-      return;
+      // The menu is showing a value the note does not have. Drop it so the
+      // next rebuild tells the truth.
+      this.edited.delete(this.editKey(path, key));
     }
-
-    // Re-read now rather than waiting for the vault's own modify event, and
-    // paint now rather than on the next frame. Both are what make the tick
-    // appear on the click that caused it: the menu rebuilds as soon as this
-    // resolves, and it reads the index for what a clipping holds and the wall
-    // for how many carry each value.
-    await this.plugin.index.handleModify(file);
-    this.refresh({ replace: true });
+    // Nothing is refreshed from here. The vault's own modify event reaches
+    // the index and the wall by the path every other edit uses, and forcing
+    // it rebuilt the whole grid on every tick.
   }
 
   /**
@@ -956,10 +975,31 @@ export class PowerGridView extends ItemView {
    * menu offers what the vault already uses and spelling stays consistent
    * without anything having to enforce it.
    */
+  private editKey(path: string, key: string): string {
+    return `${path}\u0000${key}`;
+  }
+
+  /** What the menu should show as set: this session's edit if there is one,
+      otherwise what the note actually says. */
+  private heldValues(path: string, key: string): string[] {
+    return (
+      this.edited.get(this.editKey(path, key)) ??
+      this.plugin.index.get(path)?.properties[key] ??
+      []
+    );
+  }
+
+  private vocabularyFor(key: string): PropertyVocabulary {
+    const cached = this.vocabularies.get(key);
+    if (cached) return cached;
+    const fresh = propertyVocabulary(this.facets, key);
+    this.vocabularies.set(key, fresh);
+    return fresh;
+  }
+
   private propertyMenu(path: string, key: string): MenuItem[] {
-    const record = this.plugin.index.get(path);
-    const held = record?.properties[key] ?? [];
-    const { values, single } = propertyVocabulary(this.facets, key);
+    const held = this.heldValues(path, key);
+    const { values, single } = this.vocabularyFor(key);
 
     const rows: MenuItem[] = values.map((entry) => {
       const on = held.includes(entry.value);
@@ -980,9 +1020,11 @@ export class PowerGridView extends ItemView {
             : on
               ? withoutValue(held, entry.value)
               : withValue(held, entry.value);
-          // Returned, not discarded: the menu waits on it before rebuilding,
-          // which is what puts the tick on screen with the click.
-          return this.setProperty(path, key, next);
+          // Recorded before the write, and the write is not waited on. The
+          // menu rebuilds from this on the same tick as the click; the note
+          // catches up on its own.
+          this.edited.set(this.editKey(path, key), next);
+          void this.setProperty(path, key, next);
         },
       };
     });
