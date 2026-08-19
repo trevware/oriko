@@ -158,7 +158,7 @@ export function dateBuckets(value: string, now: number, custom: DateWindow[] = [
  *
  * Encoded as strings so filter state stays a list of chosen values and needs
  * no second shape for predicates: `before:2020-01-01`, `since:2020-01-01`,
- * `empty`, `present`.
+ * `empty`.
  */
 const TOKEN = /^(before|since):(\d{4}-\d{2}-\d{2})$/;
 
@@ -182,7 +182,7 @@ export function parseDate(value: string): number {
 }
 
 export function isDateToken(value: string): boolean {
-  return value === "empty" || value === "present" || TOKEN.test(value);
+  return value === "empty" || TOKEN.test(value);
 }
 
 /**
@@ -191,7 +191,6 @@ export function isDateToken(value: string): boolean {
  */
 export function dateTokenMatches(value: string, held: string[], now: number): boolean | null {
   if (value === "empty") return held.length === 0;
-  if (value === "present") return held.length > 0;
 
   const parts = TOKEN.exec(value);
   if (!parts) return null;
@@ -211,7 +210,6 @@ export function dateTokenMatches(value: string, held: string[], now: number): bo
 
 export function tokenLabel(value: string): string {
   if (value === "empty") return "Is empty";
-  if (value === "present") return "Is not empty";
   const parts = TOKEN.exec(value);
   if (!parts) return value;
   return parts[1] === "before" ? `Before ${parts[2]}` : `On or after ${parts[2]}`;

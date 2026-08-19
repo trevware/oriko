@@ -284,7 +284,6 @@ describe("date facets", () => {
       "Last 90 days",
       "Last year",
       "Older",
-      "present",
     ]);
   });
 
@@ -294,7 +293,11 @@ describe("date facets", () => {
       facetsOf(withNone, defs).created.map((v) => [v.value, v.count])
     );
     expect(counts["empty"]).toBe(1);
-    expect(counts["present"]).toBe(3);
+  });
+
+  it("offers no row for the opposite, which would name nearly the whole wall", () => {
+    const labels = facetsOf(tiles, defs).created.map((v) => v.value);
+    expect(labels).not.toContain("present");
   });
 
   it("narrows to the clippings a comparison covers", () => {

@@ -191,11 +191,9 @@ describe("date tokens", () => {
     expect(dateTokenMatches("since:2026-08-19", ["2026-08-18"], NOW)).toBe(false);
   });
 
-  it("knows an absent value from a present one", () => {
+  it("knows an absent value from one that is there", () => {
     expect(dateTokenMatches("empty", [], NOW)).toBe(true);
     expect(dateTokenMatches("empty", ["2026-08-19"], NOW)).toBe(false);
-    expect(dateTokenMatches("present", ["2026-08-19"], NOW)).toBe(true);
-    expect(dateTokenMatches("present", [], NOW)).toBe(false);
   });
 
   it("is not a token at all for a bucket label", () => {
@@ -206,6 +204,5 @@ describe("date tokens", () => {
     expect(tokenLabel("before:2026-08-19")).toBe("Before 2026-08-19");
     expect(tokenLabel("since:2026-08-19")).toBe("On or after 2026-08-19");
     expect(tokenLabel("empty")).toBe("Is empty");
-    expect(tokenLabel("present")).toBe("Is not empty");
   });
 });

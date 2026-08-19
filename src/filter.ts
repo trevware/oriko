@@ -178,12 +178,13 @@ function valuesFor(tile: TileModel, def: FacetDef): string[] {
       // already does, so nothing downstream has to know these are dates.
       // Absence is a value of its own here, so "is empty" can be offered and
       // counted like any other row rather than needing a predicate beside the
-      // list. Everything else reports present alongside its windows, which is
-      // what makes "is not empty" the complement rather than a second rule.
+      // list. There is no row for the opposite: almost every clipping has a
+      // date, so "is not empty" named nearly the whole wall and narrowed
+      // nothing worth the row it took.
       if (held.length === 0) return ["empty"];
 
       const now = def.now ?? 0;
-      const buckets = new Set<string>(["present"]);
+      const buckets = new Set<string>();
       for (const value of held) {
         for (const bucket of dateBuckets(value, now, def.windows)) buckets.add(bucket);
       }
@@ -286,7 +287,7 @@ function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   // put the widest bucket first, which is the reverse of how a date list is
   // read and moves the rows about as the wall changes.
   if (def.shape === "date") {
-    const order = [...bucketLabels(def.windows), "present", "empty"];
+    const order = [...bucketLabels(def.windows), "empty"];
     return values.sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
   }
 
