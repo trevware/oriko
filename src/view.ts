@@ -19,7 +19,7 @@ import type { GridsController } from "./grid-modals";
 import { GridRenderer } from "./grid";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
-import { LayerPanel } from "./panel";
+import { LayerPanel, PanelToggle } from "./panel";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./playback";
 import { ProgressBar } from "./progress";
@@ -79,6 +79,7 @@ export class PowerGridView extends ItemView {
   private spaceBar: SpaceBar | null = null;
   private palette: Palette | null = null;
   private panel: LayerPanel | null = null;
+  private panelToggle: PanelToggle | null = null;
   /** A clipping just made here, to fly to as soon as it has a tile. */
   private pendingReveal: { path: string; until: number } | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
@@ -162,7 +163,6 @@ export class PowerGridView extends ItemView {
       onCreate: (x, y) => this.openCreate(x, y),
       onSettings: (x, y) => this.openSettings(x, y),
       onFilter: (x, y) => this.openFilter(x, y),
-      onPanel: () => this.togglePanel(),
     });
     this.spaceBar.setActive(this.activeGrid());
 
@@ -171,10 +171,10 @@ export class PowerGridView extends ItemView {
       // than deciding what a shift-click means.
       onPick: (id, mode) => this.grid?.pick(id, mode),
       onHover: (id) => this.grid?.highlightTile(id),
-      onClose: () => this.togglePanel(),
     });
+    this.panelToggle = new PanelToggle(this.contentEl, () => this.togglePanel());
     if (this.plugin.settings.panelOpen) this.panel.open();
-    this.spaceBar.setPanelOpen(this.plugin.settings.panelOpen);
+    this.panelToggle.setOpen(this.plugin.settings.panelOpen);
 
     this.palette = new Palette(this.contentEl, {
       commands: () => buildCommands(this.paletteContext()),
@@ -308,6 +308,8 @@ export class PowerGridView extends ItemView {
     this.palette = null;
     this.panel?.close();
     this.panel = null;
+    this.panelToggle?.destroy();
+    this.panelToggle = null;
     this.spaceBar?.destroy();
     this.spaceBar = null;
     this.observer?.disconnect();
@@ -666,7 +668,7 @@ export class PowerGridView extends ItemView {
     else panel.open();
 
     this.plugin.settings.panelOpen = panel.isOpen;
-    this.spaceBar?.setPanelOpen(panel.isOpen);
+    this.panelToggle?.setOpen(panel.isOpen);
     if (panel.isOpen) {
       this.panel?.setTiles(this.shownTiles(), this.activeGrid().name);
       this.panel?.setSelection(this.grid?.selectedIds() ?? []);

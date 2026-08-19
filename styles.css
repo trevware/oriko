@@ -905,7 +905,8 @@
   gap: 10px;
 }
 
-.pg-spacebar button {
+.pg-spacebar button,
+.pg-panel-toggle {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -926,7 +927,8 @@
     box-shadow 180ms ease;
 }
 
-.pg-spacebar button:hover {
+.pg-spacebar button:hover,
+.pg-panel-toggle:hover {
   background-color: var(--pg-surface);
   box-shadow:
     var(--pg-surface-ring),
@@ -934,7 +936,8 @@
     inset 0 0 0 999px var(--pg-inner-hover);
 }
 
-.pg-spacebar button:active {
+.pg-spacebar button:active,
+.pg-panel-toggle:active {
   transform: scale(0.96);
 }
 
@@ -942,7 +945,8 @@
    a permanent control that fades out at rest reads as one that has been
    dismissed, and you cannot tell it is clickable without finding it first. */
 .pg-space-manage,
-.pg-space-filter {
+.pg-space-filter,
+.pg-panel-toggle {
   width: 48px;
   height: 38px;
   border-radius: 19px;
@@ -1459,28 +1463,6 @@ button.pg-grid-row-button.is-disabled:hover {
   font-weight: 400;
 }
 
-.pg-panel button.pg-panel-close {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  color: var(--pg-surface-text);
-  opacity: 0.55;
-  cursor: pointer;
-}
-
-.pg-panel button.pg-panel-close:hover {
-  background: var(--pg-inner-hover);
-  opacity: 1;
-}
-
 .pg-panel-list {
   position: relative;
   flex: 1 1 auto;
@@ -1588,9 +1570,32 @@ button.pg-grid-row-button.is-disabled:hover {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
 }
 
-.pg-space-panel.is-active {
-  color: var(--pg-surface-text);
-  background: var(--pg-inner-hover);
+/* Its own corner, at the edge it moves. Travels with the panel so it never
+   ends up sitting on top of the list it opened. */
+.pg-panel-toggle {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  z-index: 28;
+  transition:
+    background-color 120ms ease,
+    left 160ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    box-shadow 180ms ease;
+}
+
+.power-grid-view.has-panel .pg-panel-toggle {
+  left: calc(var(--pg-panel-width) + 22px);
+}
+
+.pg-panel-head {
+  padding-right: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-panel-toggle {
+    transition: none;
+  }
 }
 
 /* A clipping is a picture, so the palette shows the picture rather than a

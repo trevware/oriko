@@ -31,7 +31,6 @@ export interface PanelHandlers {
   onPick: (id: string, mode: "replace" | "toggle" | "range") => void;
   /** Rings the tile under the cursor, so the list connects to the canvas. */
   onHover: (id: string | null) => void;
-  onClose: () => void;
 }
 
 interface Row {
@@ -73,11 +72,9 @@ export class LayerPanel {
     this.root = this.container.createDiv({ cls: "pg-panel" });
 
     const head = this.root.createDiv({ cls: "pg-panel-head" });
+    // No close button of its own: the floating handle outside is the one
+    // control, and it is where the panel was opened from.
     this.heading = head.createDiv({ cls: "pg-panel-title" });
-    const close = head.createEl("button", { cls: "pg-panel-close" });
-    close.setAttribute("aria-label", "Hide list");
-    setIcon(close, "panel-left-close");
-    close.onclick = () => this.handlers.onClose();
 
     this.scroller = this.root.createDiv({ cls: "pg-panel-list" });
     this.spacer = this.scroller.createDiv({ cls: "pg-panel-spacer" });
@@ -226,5 +223,38 @@ export class LayerPanel {
     else if (bottom > scroller.scrollTop + scroller.clientHeight) {
       scroller.scrollTop = bottom - scroller.clientHeight;
     }
+  }
+}
+
+/**
+ * The handle that shows the panel, floating in the top-left corner of the
+ * wall on the same surface as every other control.
+ *
+ * Kept out of the space bar deliberately. That bar speaks about the grid you
+ * are in: which one, what is filtering it, what to add. This one changes the
+ * shape of the pane itself, and it belongs at the edge it moves.
+ */
+export class PanelToggle {
+  private root: HTMLElement;
+
+  constructor(container: HTMLElement, private onToggle: () => void) {
+    this.root = container.createEl("button", { cls: "pg-panel-toggle" });
+    this.root.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      this.onToggle();
+    };
+    this.setOpen(false);
+  }
+
+  /** The icon carries the state; the panel being on screen says the rest. */
+  setOpen(open: boolean): void {
+    this.root.empty();
+    setIcon(this.root, open ? "panel-left-close" : "panel-left");
+    this.root.setAttribute("aria-label", open ? "Hide list" : "Show list");
+    this.root.toggleClass("is-open", open);
+  }
+
+  destroy(): void {
+    this.root.remove();
   }
 }
