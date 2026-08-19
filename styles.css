@@ -1728,7 +1728,7 @@ button.pg-grid-row-button.is-disabled:hover {
 }
 
 /* ---------------------------------------------------------------------------
-   Chips: the settings tab's filter properties, and the detail view's categories.
+   Settings tab: the filter-property chips.
 
    These live in Obsidian's own settings pane, outside .power-grid-view, so the
    plugin's surface tokens are out of scope here and would resolve to nothing.
@@ -1736,14 +1736,14 @@ button.pg-grid-row-button.is-disabled:hover {
    like the rest of the settings rather than like the wall.
 --------------------------------------------------------------------------- */
 
-.pg-chips {
+.pg-props {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 0 0 18px;
 }
 
-.pg-chip {
+.pg-prop {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1754,7 +1754,7 @@ button.pg-grid-row-button.is-disabled:hover {
   font-size: var(--font-ui-smaller);
 }
 
-.pg-chip button.pg-chip-remove {
+.pg-prop button.pg-prop-remove {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1772,103 +1772,12 @@ button.pg-grid-row-button.is-disabled:hover {
   cursor: pointer;
 }
 
-.pg-chip button.pg-chip-remove:hover {
+.pg-prop button.pg-prop-remove:hover {
   background-color: var(--background-modifier-border);
   color: var(--text-normal);
 }
 
-.pg-chips-empty {
+.pg-props-empty {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
-}
-
-/* The add control on a chip row: a "+" that swaps itself for a field, so the
-   row costs nothing until you use it. */
-.pg-chip-add,
-.pg-detail button.pg-chip-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background-color: var(--background-modifier-hover);
-  background-image: none;
-  box-shadow: none;
-  color: var(--text-muted);
-  font-size: 15px;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.pg-chip-add:hover,
-.pg-detail button.pg-chip-add:hover {
-  background-color: var(--background-modifier-border);
-  color: var(--text-normal);
-}
-
-.pg-chip-input,
-.pg-detail input.pg-chip-input {
-  width: 130px;
-  height: 24px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 999px;
-  background-color: var(--background-modifier-hover);
-  color: var(--text-normal);
-  font-family: var(--font-monospace);
-  font-size: 11px;
-}
-
-/* Categories sit under a mono label in a 300px column, so the chips run
-   smaller here than the same chips do in the settings pane. */
-.pg-detail-chips {
-  margin: 6px 0 0;
-}
-
-.pg-detail-chips .pg-chip {
-  font-family: var(--font-monospace);
-  font-size: 11px;
-}
-
-/* Status is a three-value progression, so it is three pills rather than a
-   menu: the current one lit, one click to change it. */
-.pg-detail-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.pg-detail button.pg-detail-pill {
-  padding: 3px 10px;
-  border: 0;
-  border-radius: 999px;
-  background-color: var(--background-modifier-hover);
-  background-image: none;
-  box-shadow: none;
-  color: var(--text-muted);
-  font-family: var(--font-monospace);
-  font-size: 11px;
-  line-height: 1.5;
-  cursor: pointer;
-  transition: background-color 120ms ease, color 120ms ease;
-}
-
-.pg-detail button.pg-detail-pill:hover {
-  background-color: var(--background-modifier-border);
-  color: var(--text-normal);
-}
-
-.pg-detail button.pg-detail-pill.is-on {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pg-detail button.pg-detail-pill {
-    transition: none;
-  }
 }
