@@ -239,7 +239,6 @@ export default class PowerGridPlugin extends Plugin {
     this.settings.filterProperties = [
       ...(this.settings.filterProperties ?? DEFAULT_SETTINGS.filterProperties),
     ];
-    this.settings.dateWindows = [...(this.settings.dateWindows ?? [])];
   }
 
   async saveSettings(): Promise<void> {

@@ -1,4 +1,3 @@
-import type { DateWindow } from "./dates";
 import type { GridSpace } from "./spaces";
 
 export interface PowerGridSettings {
@@ -21,13 +20,6 @@ export interface PowerGridSettings {
    * menu. The default reproduces the four-facet menu this replaced.
    */
   filterProperties: string[];
-
-  /**
-   * Relative windows offered by every date facet, on top of the built-in ones.
-   * Empty by default: the built-ins cover the common spans, and this is for
-   * the one span a particular vault keeps reaching for.
-   */
-  dateWindows: DateWindow[];
 
   /**
    * Grids the user created, in the order they appear in the switcher, which
@@ -53,7 +45,6 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   thumbnailWidth: 400,
   useResolvers: true,
   filterProperties: ["categories", "status"],
-  dateWindows: [],
   grids: [],
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",

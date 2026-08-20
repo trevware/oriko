@@ -7,7 +7,6 @@ import {
   looksLikeDate,
   todayISO,
   tokenLabel,
-  windowLabel,
 } from "../src/dates";
 
 // Built locally, not from a UTC string: these assert on windows measured from
@@ -111,18 +110,7 @@ describe("todayISO", () => {
   });
 });
 
-describe("windowLabel", () => {
-  it("names a window in the units it was given", () => {
-    expect(windowLabel({ amount: 14, unit: "day" })).toBe("Last 14 days");
-    expect(windowLabel({ amount: 6, unit: "month" })).toBe("Last 6 months");
-  });
-
-  it("does not pluralise one", () => {
-    expect(windowLabel({ amount: 1, unit: "week" })).toBe("Last 1 week");
-  });
-});
-
-describe("dateBuckets with the built-in windows", () => {
+describe("dateBuckets across the built-in windows", () => {
   // A Wednesday, so "this week" is a partial week and distinguishable from
   // the rolling seven days.
   const WED = new Date(2026, 7, 19, 12, 0, 0).getTime();
@@ -152,29 +140,6 @@ describe("dateBuckets with the built-in windows", () => {
 
   it("still calls anything past a year old older", () => {
     expect(dateBuckets(ago(400), WED)).toEqual(["Older"]);
-  });
-});
-
-describe("dateBuckets with a custom window", () => {
-  const NOW = new Date(2026, 7, 19, 12, 0, 0).getTime();
-  const ago = (days: number): string => {
-    const d = new Date(NOW - days * 86_400_000);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  };
-
-  it("offers the window, ordered by how far back it reaches", () => {
-    const windows = [{ amount: 14, unit: "day" as const }];
-    expect(dateBuckets(ago(10), NOW, windows)).toEqual([
-      "Last 14 days",
-      "Last 30 days",
-      "Last 90 days",
-      "Last year",
-    ]);
-  });
-
-  it("ignores one that duplicates a built-in", () => {
-    const windows = [{ amount: 30, unit: "day" as const }];
-    expect(dateBuckets(ago(10), NOW, windows).filter((l) => l === "Last 30 days")).toHaveLength(1);
   });
 });
 

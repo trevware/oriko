@@ -15,24 +15,6 @@
 
 const DAY = 86_400_000;
 
-export type DateUnit = "day" | "week" | "month" | "year";
-
-/** A relative window the user asked for, kept in the units they wrote rather
-    than as a day count, so it reads back the way it was described. */
-export interface DateWindow {
-  amount: number;
-  unit: DateUnit;
-}
-
-const UNIT_DAYS: Record<DateUnit, number> = { day: 1, week: 7, month: 30, year: 365 };
-
-export function windowLabel(window: DateWindow): string {
-  // One is not folded into "Last week": that names a different span, the week
-  // just gone, while this one reaches back seven days from now.
-  const unit = window.amount === 1 ? window.unit : `${window.unit}s`;
-  return `Last ${window.amount} ${unit}`;
-}
-
 /** Local midnight, which is what a person means by the start of a day. */
 function startOfDay(now: number): number {
   const d = new Date(now);
@@ -70,28 +52,9 @@ export const BUCKETS: ReadonlyArray<Bucket> = [
 /** Everything that has fallen out of every window above. */
 export const OLDER = "Older";
 
-/** The windows on offer: the built-ins plus the user's own, narrowest first.
-    A custom window naming an existing one is dropped rather than shown twice. */
-export function windowsFor(custom: DateWindow[] = []): Bucket[] {
-  const seen = new Set(BUCKETS.map((bucket) => bucket.label));
-  const extra: Bucket[] = [];
-
-  for (const window of custom) {
-    const label = windowLabel(window);
-    if (window.amount <= 0 || seen.has(label)) continue;
-    seen.add(label);
-    const days = window.amount * UNIT_DAYS[window.unit];
-    extra.push({ label, since: (now) => now - days * DAY });
-  }
-
-  // Ordered by how far back each reaches at a fixed instant, so a custom
-  // window lands among the built-ins rather than after them.
-  return [...BUCKETS, ...extra].sort((a, b) => b.since(0) - a.since(0));
-}
-
 /** Every window label, narrowest first, then Older. */
-export function bucketLabels(custom: DateWindow[] = []): string[] {
-  return [...windowsFor(custom).map((bucket) => bucket.label), OLDER];
+export function bucketLabels(): string[] {
+  return [...BUCKETS.map((bucket) => bucket.label), OLDER];
 }
 
 /**
@@ -137,7 +100,7 @@ export function isDateProperty(values: Iterable<string>): boolean {
  * is not a date at all, which contributes nothing rather than inventing a
  * group for it.
  */
-export function dateBuckets(value: string, now: number, custom: DateWindow[] = []): string[] {
+export function dateBuckets(value: string, now: number): string[] {
   if (!looksLikeDate(value)) return [];
   const at = parseDate(value);
   if (Number.isNaN(at)) return [];
@@ -147,9 +110,9 @@ export function dateBuckets(value: string, now: number, custom: DateWindow[] = [
   // in the newest window instead of stranding it in Older.
   const when = Math.min(at, now);
 
-  const labels = windowsFor(custom)
-    .filter((bucket) => when >= bucket.since(now))
-    .map((bucket) => bucket.label);
+  const labels = BUCKETS.filter((bucket) => when >= bucket.since(now)).map(
+    (bucket) => bucket.label
+  );
   return labels.length > 0 ? labels : [OLDER];
 }
 

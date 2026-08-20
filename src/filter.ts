@@ -1,5 +1,4 @@
 import { bucketLabels, dateBuckets, dateTokenMatches, isDateProperty } from "./dates";
-import type { DateWindow } from "./dates";
 import { domainOf } from "./scan";
 import type { TileModel } from "./tile";
 
@@ -42,8 +41,6 @@ export interface FacetDef {
   /** Reference instant for date bucketing. Carried on the descriptor so the
       per-tile calls below keep their signatures. */
   now?: number;
-  /** The user's own relative windows, offered alongside the built-in ones. */
-  windows?: DateWindow[];
 }
 
 /** Chosen values, by facet id. A facet with nothing chosen is absent rather
@@ -93,7 +90,7 @@ export function facetLabel(key: string): string {
  * two the plugin derives. Properties lead so the default settings reproduce
  * the menu this feature replaced, exactly.
  */
-export function facetDefs(properties: string[], windows: DateWindow[] = []): FacetDef[] {
+export function facetDefs(properties: string[]): FacetDef[] {
   const defs: FacetDef[] = properties.map((key) => ({
     id: key,
     label: facetLabel(key),
@@ -101,7 +98,6 @@ export function facetDefs(properties: string[], windows: DateWindow[] = []): Fac
     keywords: PROPERTY_KEYWORDS[key] ?? `${key} property narrow`,
     source: "property",
     key,
-    windows,
   }));
   return [...defs, KIND_FACET, DOMAIN_FACET];
 }
@@ -186,7 +182,7 @@ function valuesFor(tile: TileModel, def: FacetDef): string[] {
       const now = def.now ?? 0;
       const buckets = new Set<string>();
       for (const value of held) {
-        for (const bucket of dateBuckets(value, now, def.windows)) buckets.add(bucket);
+        for (const bucket of dateBuckets(value, now)) buckets.add(bucket);
       }
       return [...buckets];
     }
@@ -287,7 +283,7 @@ function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   // put the widest bucket first, which is the reverse of how a date list is
   // read and moves the rows about as the wall changes.
   if (def.shape === "date") {
-    const order = [...bucketLabels(def.windows), "empty"];
+    const order = [...bucketLabels(), "empty"];
     return values.sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
   }
 

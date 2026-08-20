@@ -678,7 +678,7 @@ export class PowerGridView extends ItemView {
    */
   private defs(): FacetDef[] {
     return typedFacets(
-      facetDefs(this.plugin.settings.filterProperties, this.plugin.settings.dateWindows),
+      facetDefs(this.plugin.settings.filterProperties),
       this.facets,
       Date.now()
     );

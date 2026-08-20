@@ -315,18 +315,13 @@ describe("date facets", () => {
     ]);
   });
 
-  it("offers a custom window among the built-in ones", () => {
-    const custom = typedFacets(
-      facetDefs(["created"], [{ amount: 60, unit: "day" }]),
-      tiles,
-      NOW
-    );
-    const labels = facetsOf(tiles, custom).created.map((v) => v.value);
-    expect(labels.slice(0, 5)).toEqual([
+  it("offers the built-in windows, narrowest first", () => {
+    const defs = typedFacets(facetDefs(["created"]), tiles, NOW);
+    const labels = facetsOf(tiles, defs).created.map((v) => v.value);
+    expect(labels.slice(0, 4)).toEqual([
       "This week",
       "Last 7 days",
       "Last 30 days",
-      "Last 60 days",
       "Last 90 days",
     ]);
   });
