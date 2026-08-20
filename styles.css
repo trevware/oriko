@@ -1600,13 +1600,104 @@ buttonbuttonbutton/* The management panel's rows. */
   text-align: center;
 }
 
+/* Swatches: one value being picked, drawn as a wrapped grid of round buttons
+   rather than a column of rows. Twelve icons as twelve full-width rows was a
+   scrolling list for a choice of one, and gave the chosen icon nowhere to
+   show itself. The column count is the layout's own business: the keyboard
+   steps one swatch in reading order regardless, so nothing outside this rule
+   needs to agree with it. */
+.pg-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  padding: 8px 13px 12px;
+  justify-items: center;
+}
+
+.pg-swatch-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background-color: var(--pg-inner-well);
+  box-shadow: inset 0 0 0 1px var(--pg-rule);
+  color: var(--pg-surface-mid);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1);
+}
+
+.pg-swatch-option .svg-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Pointer feedback only, deliberately weaker than the chosen state and
+   deliberately CSS. A swatch is a value that has to survive the pointer
+   leaving on its way back to the field, so hover must not be able to move
+   what will be saved; only a click or an arrow key does that. */
+.pg-swatch-option:hover {
+  background-color: var(--pg-inner-active);
+  color: var(--pg-surface-text);
+}
+
+.pg-swatch-option:active {
+  transform: scale(0.93);
+}
+
+/* Chosen: filled and knocked out, not merely tinted. Anything subtler reads
+   as another hover, which is the whole reason the old list had no sense of a
+   selection. */
+.pg-swatch-option.is-active {
+  background-color: var(--color-accent);
+  box-shadow: none;
+  color: var(--background-primary);
+}
+
+.pg-swatch-option.is-active:hover {
+  background-color: var(--color-accent);
+  color: var(--background-primary);
+}
+
 .pg-palette-foot {
   display: flex;
+  align-items: center;
   gap: 16px;
   padding: 9px 13px 3px;
   border-top: 1px solid var(--background-modifier-border);
   color: var(--pg-surface-faint);
   font-size: 11.5px;
+}
+
+/* Pushed to the far end, so the hints keep reading as a row of keys and the
+   commit is plainly the one thing you press. Selector carries the panel, for
+   the same reason every other control here does: Obsidian styles buttons. */
+.pg-palette .pg-palette-foot button.pg-sheet-cta {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 7px;
+  background-color: var(--color-accent);
+  background-image: none;
+  box-shadow: none;
+  color: var(--background-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+
+.pg-palette .pg-palette-foot button.pg-sheet-cta:hover {
+  filter: brightness(1.08);
+}
+
+.pg-palette .pg-palette-foot button.pg-sheet-cta:active {
+  filter: brightness(0.94);
 }
 
 .pg-palette-hint {

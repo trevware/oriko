@@ -54,7 +54,19 @@ export interface SheetScreen {
    */
   onSubmit?: (value: string, active: SheetRow | null) => void;
   hints: Array<[string, string]>;
+  /**
+   * How the rows are drawn. "swatches" is a wrapped grid of icon buttons for a
+   * screen whose rows are one value being picked rather than a list of things
+   * to run: twelve icons as twelve full-width rows is a scrolling list for
+   * what is really a choice of one, and it gives the chosen one nowhere to
+   * show itself. Defaults to the list every other screen wants.
+   */
+  layout?: "list" | "swatches";
+  /** Label for the footer's commit button. Without one there is no button, and
+      the screen is driven by Enter alone as a list is. */
+  cta?: string;
 }
+
 
 export class Sheet {
   private backdrop: HTMLElement | null = null;
@@ -143,6 +155,18 @@ export class Sheet {
     if (this.footEl) {
       this.footEl.empty();
       for (const [key, text] of screen.hints) hint(this.footEl, key, text);
+      // A form's commit, beside the keys rather than instead of them. Enter
+      // still does it; this is so the screen does not require knowing that.
+      if (screen.cta) {
+        const cta = this.footEl.createEl("button", {
+          cls: "pg-sheet-cta",
+          text: screen.cta,
+        });
+        cta.onclick = (event: MouseEvent) => {
+          event.stopPropagation();
+          this.submit();
+        };
+      }
     }
 
     this.render();
@@ -190,10 +214,16 @@ export class Sheet {
       return;
     }
 
+    const swatches = screen.layout === "swatches";
+    const host = swatches ? list.createDiv({ cls: "pg-swatch-grid" }) : list;
+    if (swatches) host.setAttribute("role", "radiogroup");
+
     const width = query.trim().length;
     for (const { row, at } of found) {
       this.rows.push(row);
-      this.rowEls.push(this.paintRow(list, row, at, width));
+      this.rowEls.push(
+        swatches ? this.paintSwatch(host, row) : this.paintRow(host, row, at, width)
+      );
     }
 
     if (this.active >= this.rows.length) this.active = Math.max(0, this.rows.length - 1);
@@ -232,11 +262,46 @@ export class Sheet {
     return el;
   }
 
+  /**
+   * One icon as a round button.
+   *
+   * No hover handler, unlike a row. In a list the cursor is the answer, so
+   * following the pointer is right; here it is a value that has to survive the
+   * pointer leaving on its way to the field, so hover is left to CSS and only
+   * a click or an arrow key moves it.
+   */
+  private paintSwatch(host: HTMLElement, row: SheetRow): HTMLElement {
+    const el = host.createDiv({ cls: "pg-swatch-option" });
+    el.setAttribute("role", "radio");
+    // The label is the icon's name, which is the only description there is.
+    el.setAttribute("aria-label", row.label);
+    setIcon(el, row.icon ?? "");
+    el.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      this.choose(row);
+    };
+    return el;
+  }
+
   private paintActive(): void {
-    this.rowEls.forEach((el, index) => el.toggleClass("is-active", index === this.active));
+    this.rowEls.forEach((el, index) => {
+      const on = index === this.active;
+      el.toggleClass("is-active", on);
+      el.setAttribute("aria-checked", String(on));
+    });
     this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
   }
 
+  /**
+   * Steps one, in reading order, whatever the rows are drawn as.
+   *
+   * A swatch grid is tempting to navigate with all four arrows, a row at a
+   * time vertically. It cannot have them: this panel's field is focused for
+   * its whole life, so claiming Left and Right would take them from the caret
+   * inside the name being typed, and arrow keys in a text field are not
+   * something to spend. Up and Down alone therefore have to reach every
+   * swatch, which means stepping one rather than a row.
+   */
   private move(delta: number): void {
     if (this.rows.length === 0) return;
     this.active = (this.active + delta + this.rows.length) % this.rows.length;

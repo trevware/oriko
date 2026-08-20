@@ -117,6 +117,10 @@ function gridEditorScreen(
     filters: false,
     active: Math.max(0, GRID_ICONS.indexOf(grid.icon)),
     hints: EDIT_HINTS,
+    // A grid of swatches, not a list: the icons are one value being chosen,
+    // and as rows the chosen one had nowhere to show itself.
+    layout: "swatches",
+    cta: creating ? "Create grid" : "Save",
     rows: () =>
       GRID_ICONS.map((name) => ({
         label: name.replace(/-/g, " "),
