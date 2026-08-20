@@ -1256,7 +1256,9 @@ export class PowerGridView extends ItemView {
   private editActiveGrid(): void {
     if (!this.sheet) return;
     const index = this.activeGridIndex();
-    this.sheet.close();
+    // Not closed first: openGridEditor opens the sheet itself when none is up,
+    // and Sheet.open closes whatever was. Closing here left the editor pushing
+    // onto a sheet that no longer existed, which push declines to do.
     openGridEditor(
       this.sheet,
       this.gridsController(),

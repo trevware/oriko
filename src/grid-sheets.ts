@@ -170,7 +170,14 @@ export function openGridEditor(
   index: number | undefined,
   after: () => void = () => undefined
 ): void {
-  sheet.push(gridEditorScreen(sheet, grids, grid, index, after));
+  const screen = gridEditorScreen(sheet, grids, grid, index, after);
+  // Pushed onto a sheet that is already up, so Escape backs out to whatever
+  // opened this rather than throwing the whole stack away; opened outright
+  // when there is none, which is how the wall's settings menu arrives. Pushing
+  // unconditionally is what made that route do nothing at all: push refuses on
+  // a closed sheet, and refuses silently.
+  if (sheet.isOpen) sheet.push(screen);
+  else sheet.open(screen);
 }
 
 function confirmDelete(
