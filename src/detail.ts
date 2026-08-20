@@ -444,7 +444,7 @@ export class DetailView {
     /* Groups the bar by what a button acts on, matching the rules in the
        wall's context menu so the two surfaces read the same way round. */
     const rule = (): void => {
-      bar.createDiv({ cls: "pg-detail-divider" });
+      bar.createDiv({ cls: "pg-bar-divider" });
     };
 
     const mod = (event: KeyboardEvent): boolean => event.metaKey || event.ctrlKey;

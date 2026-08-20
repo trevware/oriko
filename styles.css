@@ -454,7 +454,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 7px 14px;
+  padding: 7px 12px;
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-surface);
   background-image: none;
@@ -477,17 +477,20 @@
 }
 
 .pg-actionbar-count {
-  padding: 0 10px 0 4px;
+  padding: 0 0 0 4px;
   font-size: 12px;
   font-weight: 500;
   color: var(--pg-surface-mid);
   white-space: nowrap;
 }
 
-.pg-actionbar-divider {
+/* Rules a bar into groups. One definition for both bars: they are the same
+   control in two places, and two rules meaning one thing is how they came to
+   differ by two pixels in the first place. */
+.pg-bar-divider {
   width: 1px;
   align-self: stretch;
-  margin: 2px 4px 2px 0;
+  margin: 3px 2px;
   background: var(--pg-rule);
 }
 
@@ -1122,16 +1125,6 @@
   transition:
     opacity 320ms ease 320ms,
     transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 320ms;
-}
-
-/* Rules the bar into groups on the same lines as the context menu, so the two
-   surfaces read the same way round. Inset vertically: it separates controls,
-   it is not a wall across the bar. */
-.pg-detail-divider {
-  width: 1px;
-  align-self: stretch;
-  margin: 3px 2px;
-  background: var(--pg-rule);
 }
 
 .pg-detail button.pg-detail-button {

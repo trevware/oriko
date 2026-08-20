@@ -19,7 +19,7 @@ export class ActionBar {
 
     this.count = this.root.createDiv({ cls: "pg-actionbar-count" });
 
-    this.root.createDiv({ cls: "pg-actionbar-divider" });
+    this.root.createDiv({ cls: "pg-bar-divider" });
 
     this.button("trash-2", "Delete", "⌫", handlers.onDelete);
   }
