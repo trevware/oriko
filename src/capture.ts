@@ -67,14 +67,26 @@ export class CaptureService {
     await this.capture(text);
   }
 
-  /** Saves an image pasted straight from the clipboard as its own clipping. */
-  async captureImage(blob: Blob): Promise<void> {
-    if (!blob.type.startsWith("image/")) {
-      new Notice("Power Grid: that clipboard item is not an image");
+/**
+   * Saves a picture or a video straight into the vault as its own clipping,
+   * whether it was pasted from the clipboard or dropped onto the wall.
+   *
+   * `label` is the title to give it. A drop passes the file's own name, which
+   * is worth far more than the stamp a paste has to settle for; without one
+   * the stamp is used, because a paste genuinely has nothing else to go on.
+   */
+  async captureMedia(blob: Blob, label = ""): Promise<void> {
+    const kind = blob.type.startsWith("video/")
+      ? "video"
+      : blob.type.startsWith("image/")
+        ? "image"
+        : null;
+    if (!kind) {
+      new Notice("Power Grid: that is not a picture or a video");
       return;
     }
 
-    this.report(0.3, "Saving pasted image…");
+    this.report(0.3, `Saving ${kind}…`);
 
     const folder = normalizePath(this.settings().attachmentFolder);
     if (!(await this.app.vault.adapter.exists(folder))) {
@@ -83,6 +95,10 @@ export class CaptureService {
 
     const stamp = todayStamp();
     const ext = extensionForMime(blob.type);
+    // The name always carries the pasted- prefix, whichever way the file
+    // arrived. sweep.ts will only remove media it can prove the plugin made,
+    // and that prefix is half of the proof; a differently named drop would be
+    // orphaned in the attachments folder forever.
     let attachment = normalizePath(`${folder}/pasted-${stamp}.${ext}`);
     let n = 2;
     while (await this.app.vault.adapter.exists(attachment)) {
@@ -100,7 +116,10 @@ export class CaptureService {
 
     this.report(0.7, "Creating clipping…");
 
-    const title = `Pasted image ${stamp}`;
+    // Guarded rather than || chained: noteNameFor answers "Untitled clipping"
+    // for an empty title, never "", so a fallback behind it would never run and
+    // every paste would come out untitled.
+    const title = label.trim() ? noteNameFor(label, "") : `Pasted ${kind} ${stamp}`;
     const clippings = normalizePath(this.settings().clippingsFolder);
     if (!(await this.app.vault.adapter.exists(clippings))) {
       await this.app.vault.createFolder(clippings);

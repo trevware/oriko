@@ -211,7 +211,7 @@ export default class PowerGridPlugin extends Plugin {
       for (const item of items) {
         const type = item.types.find((t) => t.startsWith("image/"));
         if (!type) continue;
-        await this.capture.captureImage(await item.getType(type));
+        await this.capture.captureMedia(await item.getType(type));
         return;
       }
       new Notice("Power Grid: no image on the clipboard");

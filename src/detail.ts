@@ -9,6 +9,7 @@ import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { paintSwatchStrip, readSwatches } from "./swatch-strip";
 import { attachTip } from "./tip";
+import { systemAvailable } from "./system";
 import { clampPan, fitZoomRange } from "./viewer";
 
 export interface DetailActions {
@@ -459,20 +460,26 @@ export class DetailView {
         this.close();
       }
     );
-    add(
-      "download",
-      "Export to Downloads",
-      "\u2318E",
-      (event) => mod(event) && !event.shiftKey && event.key.toLowerCase() === "e",
-      () => this.actions.onExport(model.id)
-    );
-    add(
-      "folder",
-      "Reveal in Finder",
-      "\u2318\u21e7R",
-      (event) => mod(event) && event.shiftKey && event.key.toLowerCase() === "r",
-      () => this.actions.onReveal(model.id)
-    );
+    // Both reach for the filesystem, which mobile does not have. Gated the way
+    // the wall's context menu already gates them: without this the bar shows
+    // two controls that cannot work, and Export answers a tap by claiming
+    // nothing has been archived, when the truth is there is nowhere to put it.
+    if (systemAvailable()) {
+      add(
+        "download",
+        "Export to Downloads",
+        "\u2318E",
+        (event) => mod(event) && !event.shiftKey && event.key.toLowerCase() === "e",
+        () => this.actions.onExport(model.id)
+      );
+      add(
+        "folder",
+        "Reveal in Finder",
+        "\u2318\u21e7R",
+        (event) => mod(event) && event.shiftKey && event.key.toLowerCase() === "r",
+        () => this.actions.onReveal(model.id)
+      );
+    }
 
     rule();
 

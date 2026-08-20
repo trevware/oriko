@@ -13,6 +13,7 @@ import { isEditable, withValue, withoutValue } from "./editable";
 import { ContextMenu } from "./context-menu";
 import { openGridEditor, openGridsManager, openNewGrid } from "./grid-sheets";
 import { DetailView } from "./detail";
+import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./drop";
 import type { MenuItem } from "./context-menu";
 import type { GridsController } from "./grid-sheets";
 import { GridRenderer } from "./grid";
@@ -333,12 +334,14 @@ export class PowerGridView extends ItemView {
       const data = event.clipboardData;
       if (!data) return;
 
-      // Image data first: copying an image from a browser also puts its URL
+      // Media data first: copying an image from a browser also puts its URL
       // on the clipboard, and the bytes in hand beat a link to fetch.
-      const file = Array.from(data.files).find((f) => f.type.startsWith("image/"));
+      const file = Array.from(data.files).find(
+        (f) => f.type.startsWith("image/") || f.type.startsWith("video/")
+      );
       if (file) {
         event.preventDefault();
-        void this.plugin.capture.captureImage(file);
+        void this.plugin.capture.captureMedia(file);
         return;
       }
 
@@ -348,7 +351,103 @@ export class PowerGridView extends ItemView {
       void this.plugin.capture.capture(text);
     });
 
+    this.installDropTarget();
+
     this.refresh();
+  }
+
+  /**
+   * Dropping pictures, videos or a web link onto the wall clips them, the same
+   * three things a paste can carry.
+   *
+   * dragover has to cancel the event on every single move, not merely once on
+   * entry: the drop event never fires otherwise, and Obsidian takes the file
+   * instead and imports it as an attachment beside the note you last had open.
+   */
+  private installDropTarget(): void {
+    const el = this.contentEl;
+
+    // dragleave fires again every time the pointer crosses into a child, and
+    // the wall is nothing but children. Counting entries against leaves is
+    // what stops the target strobing the whole way across the grid.
+    let depth = 0;
+    const show = (on: boolean): void => {
+      if (!on) depth = 0;
+      el.toggleClass("is-drop-target", on);
+    };
+
+    this.registerDomEvent(el, "dragenter", (event: DragEvent) => {
+      const types = Array.from(event.dataTransfer?.types ?? []);
+      // Files are sealed until the drop, so the list of types is the whole of
+      // what can be known while there is still time to show a target.
+      if (!wantsDrop(types)) return;
+      event.preventDefault();
+      depth++;
+      show(true);
+    });
+
+    this.registerDomEvent(el, "dragover", (event: DragEvent) => {
+      if (!wantsDrop(Array.from(event.dataTransfer?.types ?? []))) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+    });
+
+    this.registerDomEvent(el, "dragleave", () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) show(false);
+    });
+
+    this.registerDomEvent(el, "drop", (event: DragEvent) => {
+      const data = event.dataTransfer;
+      if (!data) return;
+
+      const plan = classifyDrop(
+        Array.from(data.files).map((file) => ({ name: file.name, type: file.type })),
+        data.getData("text/uri-list") || data.getData("text/plain") || ""
+      );
+      // Left alone deliberately, so Obsidian's own drags still do what they
+      // have always done rather than dying against a preventDefault.
+      if (plan.kind === "ignore") return;
+
+      event.preventDefault();
+      show(false);
+
+      if (plan.kind === "unsupported") {
+        new Notice(`Power Grid: ${describeSkipped(plan.skipped)}`);
+        return;
+      }
+
+      if (plan.kind === "url") {
+        void this.plugin.capture.capture(plan.url);
+        return;
+      }
+
+      if (plan.skipped.length > 0) {
+        new Notice(`Power Grid: ${describeSkipped(plan.skipped)}`);
+      }
+      void this.captureDropped(data.files, plan.files.map((file) => file.name));
+    });
+
+    // A drag that ends outside the window never sends a leave, so the target
+    // would stay lit over a wall that is no longer expecting anything.
+    this.registerDomEvent(window, "dragend", () => show(false));
+    this.registerDomEvent(window, "blur", () => show(false));
+  }
+
+  /**
+   * Saves dropped files one at a time.
+   *
+   * Sequential rather than in parallel: each capture writes an attachment and
+   * a note and drives the one progress bar, and several racing each other
+   * would fight over the bar and over the unique-name check that keeps two
+   * files landing in the same second from overwriting one another.
+   */
+  private async captureDropped(files: FileList, wanted: string[]): Promise<void> {
+    const taking = new Set(wanted);
+    for (const file of Array.from(files)) {
+      if (!taking.has(file.name)) continue;
+      await this.plugin.capture.captureMedia(file, titleForDropped(file.name));
+    }
   }
 
   /**
