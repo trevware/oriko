@@ -6,21 +6,51 @@ import type { GridSpace } from "./spaces";
 /**
  * Icons offered when naming a grid. A fixed palette rather than a free-text
  * lucide id: a mistyped id renders nothing at all, and the user would have no
- * way to tell that from an icon that simply looks blank.
+ * way to tell that from an icon that simply looks blank. Sheet's swatch
+ * painter now refuses to draw an empty one, so a bad name here shows up as a
+ * missing swatch during review rather than shipping as a hole in the grid.
+ *
+ * Six a row, grouped by what they suggest: marks, containers, media, making,
+ * ideas. Order is presentation only, since a grid stores the icon's name.
+ * Nothing may be removed, though: a grid already carrying an icon that left
+ * the list would find no match, and be silently resaved as the first one.
  */
 export const GRID_ICONS = [
+  // Marks
   "layout-grid",
   "star",
   "heart",
-  "flask-conical",
   "bookmark",
-  "folder",
-  "image",
-  "film",
-  "compass",
-  "sparkles",
-  "archive",
+  "pin",
   "tag",
+  // Containers
+  "folder",
+  "archive",
+  "package-open",
+  "layers",
+  "library",
+  "sticky-note",
+  // Media
+  "image",
+  "camera",
+  "film",
+  "music",
+  "palette",
+  "paintbrush",
+  // Making
+  "code",
+  "terminal",
+  "monitor",
+  "flask-conical",
+  "wrench",
+  "scissors",
+  // Ideas
+  "lightbulb",
+  "sparkles",
+  "zap",
+  "flame",
+  "compass",
+  "book-open",
 ];
 
 /** Everything the grid UI needs from the view that owns the settings. */
@@ -43,6 +73,10 @@ export interface GridsController {
  * wall, so the modals were the one place that looked borrowed from elsewhere.
  */
 
+/** Must match the grid-template-columns in styles.css: the keyboard steps a
+    whole row vertically, so it has to know how wide a row is. */
+const SWATCH_COLUMNS = 6;
+
 const PICK_HINTS: Array<[string, string]> = [
   ["↑↓", "navigate"],
   ["↵", "select"],
@@ -50,7 +84,7 @@ const PICK_HINTS: Array<[string, string]> = [
 ];
 
 const EDIT_HINTS: Array<[string, string]> = [
-  ["↑↓", "icon"],
+  ["↑↓←→", "icon"],
   ["↵", "save"],
   ["esc", "back"],
 ];
@@ -120,6 +154,7 @@ function gridEditorScreen(
     // A grid of swatches, not a list: the icons are one value being chosen,
     // and as rows the chosen one had nowhere to show itself.
     layout: "swatches",
+    columns: SWATCH_COLUMNS,
     cta: creating ? "Create grid" : "Save",
     rows: () =>
       GRID_ICONS.map((name) => ({

@@ -1649,17 +1649,32 @@ buttonbuttonbutton/* The management panel's rows. */
   transform: scale(0.93);
 }
 
+/* An icon id setIcon did not recognise. Drawn as a plain hole rather than left
+   looking like a sparse glyph, so a name that has been renamed upstream is
+   obvious on sight instead of passing for a design choice. */
+.pg-swatch-option.is-missing {
+  border: 1px dashed var(--pg-rule);
+  box-shadow: none;
+  opacity: 0.5;
+}
+
 /* Chosen: filled and knocked out, not merely tinted. Anything subtler reads
    as another hover, which is the whole reason the old list had no sense of a
-   selection. */
+   selection.
+
+   Neutral rather than accent. The accent appears on this surface as a ring, a
+   text colour or a tint at 12%, never as a field of colour, and a 44px disc of
+   it shouted over a panel that is otherwise entirely greys. --pg-mark is the
+   emphasis neutral this file already defines and already inverts per theme:
+   white on dark, near-black on light. */
 .pg-swatch-option.is-active {
-  background-color: var(--color-accent);
+  background-color: var(--pg-mark);
   box-shadow: none;
   color: var(--background-primary);
 }
 
 .pg-swatch-option.is-active:hover {
-  background-color: var(--color-accent);
+  background-color: var(--pg-mark);
   color: var(--background-primary);
 }
 
@@ -1681,7 +1696,7 @@ buttonbuttonbutton/* The management panel's rows. */
   padding: 4px 12px;
   border: 0;
   border-radius: 7px;
-  background-color: var(--color-accent);
+  background-color: var(--pg-mark);
   background-image: none;
   box-shadow: none;
   color: var(--background-primary);

@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { moveInGrid } from "./layout";
 import { hint, paintLabel } from "./palette";
 
 /**
@@ -62,6 +63,10 @@ export interface SheetScreen {
    * show itself. Defaults to the list every other screen wants.
    */
   layout?: "list" | "swatches";
+  /** Columns in a swatch grid, so the keyboard can step a whole row. Must
+      agree with the CSS, which is why the screen states it rather than each
+      side guessing. */
+  columns?: number;
   /** Label for the footer's commit button. Without one there is no button, and
       the screen is driven by Enter alone as a list is. */
   cta?: string;
@@ -108,7 +113,11 @@ export class Sheet {
 
     this.input = head.createEl("input", { cls: "pg-palette-input", type: "text" });
     this.input.oninput = () => {
-      this.active = 0;
+      // Only a narrowing list restarts at the top, where the rows have just
+      // changed under the query and the old index means nothing. On a form the
+      // rows are fixed and the index is a value the user picked, so typing a
+      // name must not quietly reach over and reset the icon.
+      if (this.screen?.filters) this.active = 0;
       this.render();
     };
 
@@ -276,6 +285,10 @@ export class Sheet {
     // The label is the icon's name, which is the only description there is.
     el.setAttribute("aria-label", row.label);
     setIcon(el, row.icon ?? "");
+    // setIcon is silent about a name it does not know, and an icon that failed
+    // is indistinguishable from one that is simply sparse. Saying so is the
+    // only way a bad id in a fixed palette gets noticed before it ships.
+    if (!el.querySelector("svg")) el.addClass("is-missing");
     el.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       this.choose(row);
@@ -292,19 +305,25 @@ export class Sheet {
     this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
   }
 
-  /**
-   * Steps one, in reading order, whatever the rows are drawn as.
-   *
-   * A swatch grid is tempting to navigate with all four arrows, a row at a
-   * time vertically. It cannot have them: this panel's field is focused for
-   * its whole life, so claiming Left and Right would take them from the caret
-   * inside the name being typed, and arrow keys in a text field are not
-   * something to spend. Up and Down alone therefore have to reach every
-   * swatch, which means stepping one rather than a row.
-   */
-  private move(delta: number): void {
+  private move(columns: number, rows: number): void {
     if (this.rows.length === 0) return;
-    this.active = (this.active + delta + this.rows.length) % this.rows.length;
+    const screen = this.screen;
+
+    if (screen?.layout === "swatches") {
+      this.active = moveInGrid(
+        this.active,
+        { columns, rows },
+        this.rows.length,
+        screen.columns ?? 6
+      );
+      this.paintActive();
+      return;
+    }
+
+    // A list has one axis. Both keys walk it, and the horizontal pair never
+    // reaches here.
+    const step = rows !== 0 ? rows : columns;
+    this.active = (this.active + step + this.rows.length) % this.rows.length;
     this.paintActive();
   }
 
@@ -342,9 +361,18 @@ export class Sheet {
     };
 
     if (event.key === "Escape") return take(() => this.pop());
-    if (event.key === "ArrowDown") return take(() => this.move(1));
-    if (event.key === "ArrowUp") return take(() => this.move(-1));
+    if (event.key === "ArrowDown") return take(() => this.move(0, 1));
+    if (event.key === "ArrowUp") return take(() => this.move(0, -1));
     if (event.key === "Enter") return take(() => this.submit());
+
+    // Claimed by a grid only. In a list they belong to the caret in the field,
+    // and a list has no horizontal axis to spend them on anyway. A grid does,
+    // and picking the icon is what this screen is for, so here they cost the
+    // caret its step and are worth it.
+    if (this.screen?.layout === "swatches") {
+      if (event.key === "ArrowRight") return take(() => this.move(1, 0));
+      if (event.key === "ArrowLeft") return take(() => this.move(-1, 0));
+    }
   }
 
   close(): void {

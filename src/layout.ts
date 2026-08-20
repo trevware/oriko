@@ -115,6 +115,44 @@ export function placeMenu(
 }
 
 /**
+ * Where the cursor lands moving across a wrapped grid of swatches.
+ *
+ * A list only wraps at its two ends. A grid has four, and the axes want
+ * different answers: stepping right off the last swatch carries on to the
+ * first of the next row, the way reading does, while stepping down off the
+ * bottom returns to the top of the same column rather than shuffling
+ * sideways. Columns therefore wrap through the flat index, rows within the
+ * column.
+ *
+ * The last row is usually short. Stepping into the gap past its end lands on
+ * the nearest swatch that column actually has, so every press moves something
+ * rather than appearing to jam.
+ */
+export function moveInGrid(
+  index: number,
+  delta: { columns: number; rows: number },
+  count: number,
+  columns: number
+): number {
+  if (count <= 0) return 0;
+  const width = Math.max(1, columns);
+  const here = Math.max(0, Math.min(index, count - 1));
+
+  if (delta.columns !== 0) return (here + delta.columns + count) % count;
+  if (delta.rows === 0) return here;
+
+  const column = here % width;
+  const height = Math.ceil(count / width);
+  let row = (Math.floor(here / width) + delta.rows + height) % height;
+
+  // Landed past the end of a short last row: take the nearest row that has
+  // this column, which is the one the gap sits directly under.
+  if (row * width + column >= count) row = delta.rows > 0 ? 0 : Math.max(0, height - 2);
+
+  return Math.min(row * width + column, count - 1);
+}
+
+/**
  * Flattens rows grouped by what they act on, ruling off each group from the
  * last.
  *

@@ -6,6 +6,7 @@ import {
   flightMidpoint,
   flipTransform,
   groupedMenu,
+  moveInGrid,
   pressureAt,
   shouldMountAll,
   visibleRange,
@@ -169,6 +170,90 @@ describe("shouldMountAll", () => {
     // Either answer renders nothing, so this pins the behaviour rather than
     // asking the caller to special-case it.
     expect(shouldMountAll(0, 150)).toBe(true);
+  });
+});
+
+describe("moveInGrid", () => {
+  // Fourteen over six columns: two full rows and a short one, which is the
+  // shape that makes the awkward cases exist at all.
+  const COUNT = 14;
+  const COLS = 6;
+  const right = (i: number): number => moveInGrid(i, { columns: 1, rows: 0 }, COUNT, COLS);
+  const left = (i: number): number => moveInGrid(i, { columns: -1, rows: 0 }, COUNT, COLS);
+  const down = (i: number): number => moveInGrid(i, { columns: 0, rows: 1 }, COUNT, COLS);
+  const up = (i: number): number => moveInGrid(i, { columns: 0, rows: -1 }, COUNT, COLS);
+
+  it("steps along a row", () => {
+    expect(right(0)).toBe(1);
+    expect(left(3)).toBe(2);
+  });
+
+  it("reads on into the next row rather than stopping at the edge", () => {
+    expect(right(5)).toBe(6);
+    expect(left(6)).toBe(5);
+  });
+
+  it("wraps the ends of the whole set", () => {
+    expect(right(COUNT - 1)).toBe(0);
+    expect(left(0)).toBe(COUNT - 1);
+  });
+
+  it("steps a whole row vertically, staying in its column", () => {
+    expect(down(3)).toBe(9);
+    expect(up(9)).toBe(3);
+  });
+
+  it("keeps its column wrapping top to bottom", () => {
+    // Column 0 reaches the short last row, so it wraps the full height.
+    expect(up(0)).toBe(12);
+    expect(down(12)).toBe(0);
+  });
+
+  it("lands on the nearest swatch a column has, never in the gap", () => {
+    // Column 3 stops at row 1, so wrapping goes there rather than to the
+    // fourth swatch of a short row that has only two.
+    expect(up(3)).toBe(9);
+    expect(down(9)).toBe(3);
+  });
+
+  it("always lands somewhere real", () => {
+    for (let i = 0; i < COUNT; i++) {
+      for (const step of [right, left, down, up]) {
+        expect(step(i)).toBeGreaterThanOrEqual(0);
+        expect(step(i)).toBeLessThan(COUNT);
+      }
+    }
+  });
+
+  it("covers the whole set given enough steps along a row", () => {
+    const seen = new Set<number>();
+    let at = 0;
+    for (let i = 0; i < COUNT; i++) {
+      seen.add(at);
+      at = right(at);
+    }
+    expect(seen.size).toBe(COUNT);
+  });
+
+  it("survives a single row, where vertical movement has nowhere to go", () => {
+    expect(moveInGrid(2, { columns: 0, rows: 1 }, 4, 6)).toBe(2);
+    expect(moveInGrid(2, { columns: 0, rows: -1 }, 4, 6)).toBe(2);
+    expect(moveInGrid(2, { columns: 1, rows: 0 }, 4, 6)).toBe(3);
+  });
+
+  it("handles the exactly-rectangular case with no short row", () => {
+    // Thirty over six is the real grid: five full rows, no gap to fall into.
+    expect(moveInGrid(0, { columns: 0, rows: -1 }, 30, 6)).toBe(24);
+    expect(moveInGrid(24, { columns: 0, rows: 1 }, 30, 6)).toBe(0);
+    expect(moveInGrid(29, { columns: 1, rows: 0 }, 30, 6)).toBe(0);
+  });
+
+  it("holds at nothing for an empty set", () => {
+    expect(moveInGrid(0, { columns: 1, rows: 0 }, 0, 6)).toBe(0);
+  });
+
+  it("clamps an index that has fallen outside the set", () => {
+    expect(moveInGrid(99, { columns: 0, rows: 0 }, COUNT, COLS)).toBe(COUNT - 1);
   });
 });
 
