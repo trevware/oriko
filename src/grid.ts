@@ -11,7 +11,13 @@ import {
   zoomAt,
 } from "./camera";
 import type { Camera } from "./camera";
-import { columnsForWidth, computeLayout, pressureAt, visibleRange } from "./layout";
+import {
+  columnsForWidth,
+  computeLayout,
+  pressureAt,
+  shouldMountAll,
+  visibleRange,
+} from "./layout";
 import type { LayoutResult, Position } from "./layout";
 import {
   MARQUEE_SLOP,
@@ -45,6 +51,12 @@ const ENTER_STAGGER_CAP = 6;
 const TARGET_COLUMN_WIDTH = 300;
 const OVERSCAN = 600;
 const MAX_OVERSCAN = 1500;
+/**
+ * At or below this many tiles the whole wall is mounted and never recycled.
+ * See shouldMountAll in layout.ts for why, and why the figure is deliberately
+ * cautious rather than as high as the DOM could bear.
+ */
+const MOUNT_ALL_BUDGET = 150;
 /** Movement past which a pointer gesture is a pan, not a click. */
 const CLICK_SLOP = 3;
 /** Trackpad pinch arrives as ctrl+wheel; this tunes how fast it zooms. */
@@ -797,6 +809,24 @@ export class GridRenderer {
     return resourceUrl(this.app.vault, path, remote);
   }
 
+  /**
+   * Reveals an image once there is a frame to paint, not merely bytes.
+   *
+   * `load` fires before the image is decoded, so revealing there starts the
+   * fade on an empty box and lets the decode land partway through it. decode()
+   * settles when the bitmap exists, which costs a few milliseconds more and
+   * buys a tile that is simply present. It rejects on a source that fails,
+   * which the error listener already handles, so there is nothing to do here.
+   */
+  private revealWhenDecoded(image: HTMLImageElement): void {
+    void image
+      .decode()
+      .then(() => {
+        if (image.isConnected) image.addClass("is-loaded");
+      })
+      .catch(() => undefined);
+  }
+
   private swapImage(image: HTMLImageElement, next: string): void {
     if (!next || image.src === next) return;
     const preload = new Image();
@@ -926,7 +956,10 @@ export class GridRenderer {
       element.media = video;
     } else {
       const image = frame.createEl("img", { cls: "pg-media" });
-      image.loading = "lazy";
+      // Deliberately not loading="lazy". The grid decides for itself what is
+      // worth mounting, and the browser's own heuristic measures intersection
+      // against a canvas sitting under a transform, so it holds the fetch back
+      // until the tile has already arrived on screen. Which is the hitch.
       image.decoding = "async";
       image.alt = model.record.title;
       // Always the full-resolution asset, so the tile stays sharp at any zoom.
@@ -955,9 +988,7 @@ export class GridRenderer {
         { once: true }
       );
 
-      image.addEventListener("load", () => image.addClass("is-loaded"), { once: true });
-      // A cached image can already be complete before the listener attaches.
-      if (image.complete && image.naturalWidth > 0) image.addClass("is-loaded");
+      this.revealWhenDecoded(image);
 
       element.media = image;
     }
@@ -1008,12 +1039,29 @@ export class GridRenderer {
     };
   }
 
-  render(): void {
+  /**
+   * The tiles worth having in the DOM.
+   *
+   * A small wall keeps all of them, so nothing is ever torn down and no tile
+   * has to be rebuilt and re-decoded when it comes back into view. A large one
+   * falls back to the window around the camera. Removal still works either
+   * way: the layout only holds positions for tiles that currently exist, so a
+   * deleted clipping drops out of this list and is released by the caller.
+   */
+  private visiblePositions(): Position[] {
+    if (shouldMountAll(this.layout.positions.length, MOUNT_ALL_BUDGET)) {
+      return this.layout.positions;
+    }
+
     const band = visibleContentBand(this.camera, this.viewportSize());
     // Overscan is a screen-space budget, so it grows in content units as you
     // zoom out. Capped, or a far-out view would mount hundreds of tiles.
     const overscan = Math.min(OVERSCAN / this.camera.zoom, MAX_OVERSCAN);
-    const visible = visibleRange(this.layout.positions, band.top, band.height, overscan);
+    return visibleRange(this.layout.positions, band.top, band.height, overscan);
+  }
+
+  render(): void {
+    const visible = this.visiblePositions();
     const wanted = new Set(visible.map((p) => p.id));
 
     for (const [id, element] of [...this.mounted]) {

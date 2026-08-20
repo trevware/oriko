@@ -6,6 +6,7 @@ import {
   flightMidpoint,
   flipTransform,
   pressureAt,
+  shouldMountAll,
   visibleRange,
 } from "../src/layout";
 import type { LayoutItem } from "../src/layout";
@@ -146,6 +147,27 @@ describe("visibleRange", () => {
   it("renders a small fraction of a large layout", () => {
     const visible = visibleRange(positions, 5000, 800, 600);
     expect(visible.length).toBeLessThan(25);
+  });
+});
+
+describe("shouldMountAll", () => {
+  it("keeps a wall smaller than the budget whole", () => {
+    expect(shouldMountAll(42, 150)).toBe(true);
+  });
+
+  it("includes a wall sitting exactly on the budget", () => {
+    expect(shouldMountAll(150, 150)).toBe(true);
+  });
+
+  it("hands anything past the budget back to the window", () => {
+    expect(shouldMountAll(151, 150)).toBe(false);
+    expect(shouldMountAll(5000, 150)).toBe(false);
+  });
+
+  it("is untroubled by an empty wall", () => {
+    // Either answer renders nothing, so this pins the behaviour rather than
+    // asking the caller to special-case it.
+    expect(shouldMountAll(0, 150)).toBe(true);
   });
 });
 

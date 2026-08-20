@@ -76,6 +76,27 @@ export function visibleRange(
   return positions.filter((p) => p.y + p.h >= top && p.y <= bottom);
 }
 
+/**
+ * Whether a wall is small enough to keep in the DOM in its entirety.
+ *
+ * Virtualizing trades memory for hitches. A tile leaving the overscan band is
+ * torn down, so panning back rebuilds its element from scratch and decodes its
+ * image again, which is seen as the tile loading in late rather than simply
+ * being there. Below the budget that trade is not worth making: mounting
+ * everything means each tile is built once, decoded once, and thereafter only
+ * ever moved by the camera transform, which the compositor does alone.
+ *
+ * The budget counts tiles rather than bytes because tile count is the only
+ * thing known before decoding. The layout knows an image's aspect ratio, never
+ * its pixel area, and tiles paint the full-resolution original so they stay
+ * sharp when zoomed, so a single one can decode to tens of megabytes. Hence a
+ * cautious ceiling: it is meant to cover a personal wall, which is the case
+ * that suffers the hitching, and to hand anything larger back to the window.
+ */
+export function shouldMountAll(count: number, budget: number): boolean {
+  return count <= budget;
+}
+
 /** Keeps the panel fully on screen, flipping rather than clipping. */
 export function placeMenu(
   point: { x: number; y: number },
