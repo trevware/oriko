@@ -827,9 +827,17 @@
   height: auto;
 }
 
+/* Restates the well, and does not merely drop the border. This field is
+   focused the entire time it is visible, so a reset that skips the background
+   hands the host's focused-form-field wash a state the resting rule never
+   gets to answer, and the well silently becomes whatever the theme paints. */
+.pg-menu input.pg-menu-query:hover,
+.pg-menu input.pg-menu-query:active,
 .pg-menu input.pg-menu-query:focus,
 .pg-menu input.pg-menu-query:focus-visible {
   border: 0;
+  background-color: var(--pg-inner-well);
+  background-image: none;
   box-shadow: none;
   outline: none;
 }
@@ -1437,16 +1445,15 @@ buttonbuttonbutton/* The management panel's rows. */
   display: block;
 }
 
-/* Selector carries the panel as well, so it outranks Obsidian's own input
-   styling, which otherwise paints a filled box with its own border. */
-.pg-palette input.pg-palette-input {
+/* Selector carries the view as well as the panel, so it outranks Obsidian's
+   own input styling, which otherwise paints a filled box with its own border. */
+.power-grid-view .pg-palette input.pg-palette-input {
   flex: 1 1 auto;
   min-width: 0;
   height: auto;
   padding: 0;
   border: none;
   border-radius: 0;
-  background: transparent;
   box-shadow: none;
   color: var(--pg-surface-text);
   /* 16px: anything smaller is what makes a mobile browser zoom on focus. */
@@ -1454,9 +1461,22 @@ buttonbuttonbutton/* The management panel's rows. */
   line-height: 1.4;
 }
 
-.pg-palette input.pg-palette-input:focus,
-.pg-palette input.pg-palette-input:focus-visible {
+/* Every state, not just the resting one.
+   The field is focused for its whole life here, since the panel focuses it on
+   open and exists to be typed into, so a resting-state-only reset is a reset
+   that never actually applies. Listing the states is what stops the host's
+   focused-form-field wash painting the box back in behind the text, which is
+   the filled rectangle this file has now been written twice to prevent.
+   background-image as well as the colour: the host states one and some themes
+   state the other, and clearing one alone leaves the other showing. */
+.power-grid-view .pg-palette input.pg-palette-input,
+.power-grid-view .pg-palette input.pg-palette-input:hover,
+.power-grid-view .pg-palette input.pg-palette-input:active,
+.power-grid-view .pg-palette input.pg-palette-input:focus,
+.power-grid-view .pg-palette input.pg-palette-input:focus-visible {
   border: none;
+  background-color: transparent;
+  background-image: none;
   box-shadow: none;
   outline: none;
 }
