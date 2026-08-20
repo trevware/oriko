@@ -5,10 +5,12 @@ import {
   fitRect,
   flightMidpoint,
   flipTransform,
+  cursorAfterNarrowing,
   groupedMenu,
   moveInGrid,
   pressureAt,
   shouldMountAll,
+  stepCursor,
   visibleRange,
 } from "../src/layout";
 import type { LayoutItem } from "../src/layout";
@@ -254,6 +256,74 @@ describe("moveInGrid", () => {
 
   it("clamps an index that has fallen outside the set", () => {
     expect(moveInGrid(99, { columns: 0, rows: 0 }, COUNT, COLS)).toBe(COUNT - 1);
+  });
+});
+
+describe("stepCursor", () => {
+  const all = [true, true, true, true];
+
+  it("steps forward and back", () => {
+    expect(stepCursor(1, 1, all)).toBe(2);
+    expect(stepCursor(1, -1, all)).toBe(0);
+  });
+
+  it("wraps at both ends", () => {
+    expect(stepCursor(3, 1, all)).toBe(0);
+    expect(stepCursor(0, -1, all)).toBe(3);
+  });
+
+  it("enters at the end the key points at", () => {
+    // From no cursor, Down should land on the top row and Up on the bottom.
+    expect(stepCursor(-1, 1, all)).toBe(0);
+    expect(stepCursor(-1, -1, all)).toBe(3);
+  });
+
+  it("passes over inert rows", () => {
+    const gap = [true, false, false, true];
+    expect(stepCursor(0, 1, gap)).toBe(3);
+    expect(stepCursor(3, 1, gap)).toBe(0);
+    expect(stepCursor(0, -1, gap)).toBe(3);
+  });
+
+  it("stays put when nothing can be reached", () => {
+    expect(stepCursor(2, 1, [false, false, false])).toBe(2);
+  });
+
+  it("has nowhere to go in an empty list", () => {
+    expect(stepCursor(0, 1, [])).toBe(-1);
+  });
+});
+
+describe("cursorAfterNarrowing", () => {
+  const all = [true, true, true];
+
+  it("takes the first row once something has been typed", () => {
+    // Which is the top match when the query matched, and the row offering to
+    // create what was typed when it did not.
+    expect(cursorAfterNarrowing(all, 2, true)).toBe(0);
+    expect(cursorAfterNarrowing([true], -1, true)).toBe(0);
+  });
+
+  it("leaves an untouched list unlit", () => {
+    // A submenu opened by pointing at it should not look already answered.
+    expect(cursorAfterNarrowing(all, -1, false)).toBe(-1);
+  });
+
+  it("holds a cursor that is still on a real row", () => {
+    expect(cursorAfterNarrowing(all, 2, false)).toBe(2);
+  });
+
+  it("rescues a cursor that has fallen off the end", () => {
+    expect(cursorAfterNarrowing(all, 9, false)).toBe(0);
+  });
+
+  it("rescues a cursor left on a row that went inert", () => {
+    expect(cursorAfterNarrowing([true, false, true], 1, false)).toBe(0);
+  });
+
+  it("reports no cursor when there is nothing to put one on", () => {
+    expect(cursorAfterNarrowing([], 0, true)).toBe(-1);
+    expect(cursorAfterNarrowing([false, false], 0, true)).toBe(-1);
   });
 });
 

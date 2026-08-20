@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { placeMenu } from "./layout";
+import { cursorAfterNarrowing, placeMenu, stepCursor } from "./layout";
 
 export interface MenuItem {
   icon: string;
@@ -38,7 +38,17 @@ export interface MenuItem {
    * do. This exists so one that cannot do that races visibly rather than
    * silently.
    */
-  onSelect?: () => void | Promise<void>;
+  onSelect?: (query: string) => void | Promise<void>;
+  /**
+   * The label, given what has been typed into the submenu's field. Lets an
+   * escape-hatch row name the thing it would create rather than describing
+   * itself in the abstract. Falls back to `label` when absent, and `label`
+   * stays the row's identity for patching and reopening either way.
+   */
+  labelFor?: (query: string) => string;
+  /** Empties the field when chosen. For a row that has consumed what was
+      typed, and would otherwise leave the list still narrowed by it. */
+  clearsQuery?: boolean;
 }
 
 interface RowRecord {
@@ -78,6 +88,10 @@ export class ContextMenu {
   private openLabel: string | null = null;
   /** The open submenu's rows before filtering, and the row it hangs off. */
   private subSource: MenuItem[] = [];
+  /** Row the keyboard is on in the open submenu, or -1 for none. Only the
+      submenu has one: the top panel is pointer-driven, and a second cursor
+      would leave nothing to say which one Enter meant. */
+  private subActive = -1;
   /**
    * Lifts this menu above the detail view, which outranks it in the normal
    * stack. Set per open() rather than raising every menu, because menus sit
@@ -151,20 +165,32 @@ export class ContextMenu {
         run();
       };
 
-      if (event.key !== "Escape") return;
-
       // Escape backs out one level at a time, rather than throwing away the
       // parent menu along with the submenu you were only glancing at. A query
       // counts as a level: clearing it is almost always what was meant, and
       // the submenu is still one more Escape away.
-      if (this.query && this.queryEl) {
-        return take(() => {
-          if (this.queryEl) this.queryEl.value = "";
-          this.paintSub();
-        });
+      if (event.key === "Escape") {
+        if (this.query && this.queryEl) {
+          return take(() => {
+            if (this.queryEl) this.queryEl.value = "";
+            this.paintSub();
+          });
+        }
+        if (this.sub) return take(() => this.closeSub());
+        return take(() => this.close());
       }
-      if (this.sub) return take(() => this.closeSub());
-      return take(() => this.close());
+
+      // The rest drive the open submenu, which is the panel with a field and a
+      // list of values to tick. The top panel stays pointer-driven.
+      if (!this.sub) return;
+
+      if (event.key === "ArrowDown") return take(() => this.stepSub(1));
+      if (event.key === "ArrowUp") return take(() => this.stepSub(-1));
+      if (event.key === "Enter") {
+        const record = this.subRows[this.subActive];
+        if (!record) return;
+        return take(() => this.activate(record, record.root));
+      }
     };
     document.addEventListener("keydown", this.onKey, true);
 
@@ -189,7 +215,13 @@ export class ContextMenu {
     const records: RowRecord[] = [];
 
     for (const item of items) {
-      if (item.divider) panel.createDiv({ cls: "pg-menu-divider" });
+      // Never above the first row: a rule there separates the list from
+      // nothing. It matters because narrowing can leave a row that carries one
+      // standing alone, which is exactly what the create row does when a
+      // search matches none of the values above it.
+      if (item.divider && records.length > 0) {
+        panel.createDiv({ cls: "pg-menu-divider" });
+      }
 
       const row = panel.createDiv({ cls: "pg-menu-item" });
       if (item.destructive) row.addClass("is-destructive");
@@ -200,7 +232,10 @@ export class ContextMenu {
       // needs the gutter, or the labels jump sideways as things are selected.
       // A panel where no row has one drops it instead, see below.
       if (item.icon) setIcon(icon, item.icon);
-      row.createDiv({ cls: "pg-menu-label", text: item.label });
+      row.createDiv({
+        cls: "pg-menu-label",
+        text: item.labelFor?.(this.query) ?? item.label,
+      });
 
       // Always made, even when empty: patching a row in place needs somewhere
       // to write, and :empty hides it until there is something to say.
@@ -233,24 +268,21 @@ export class ContextMenu {
           if (current.submenu) this.openSub(row, current.submenu);
           else this.closeSub();
         };
+      } else {
+        // The submenu's cursor follows the pointer, unlike the swatch grid's.
+        // Here the cursor is only a cursor and the tick is the selection, so
+        // moving it costs nothing and keeps mouse and keyboard on one row.
+        row.onmouseenter = () => {
+          const index = this.subRows.indexOf(record);
+          if (index === -1 || index === this.subActive) return;
+          this.subActive = index;
+          this.paintSubActive();
+        };
       }
 
       row.onclick = (event: MouseEvent) => {
         event.stopPropagation();
-        const current = record.item;
-        if (current.disabled) return;
-        if (current.submenu) {
-          this.openSub(row, current.submenu);
-          return;
-        }
-        if (current.keepOpen) {
-          const done = current.onSelect?.();
-          if (done) void done.then(() => this.rerender());
-          else this.rerender();
-          return;
-        }
-        this.close();
-        current.onSelect?.();
+        this.activate(record, row);
       };
     }
 
@@ -261,6 +293,52 @@ export class ContextMenu {
     panel.toggleClass("is-iconless", !items.some((item) => item.icon));
 
     return records;
+  }
+
+  /**
+   * Runs a row, whether a click or Enter asked for it, so the two cannot drift
+   * apart.
+   *
+   * The field is read before anything runs. A keepOpen row rebuilds the panel
+   * and a clearsQuery row empties the field, so by the time the handler is
+   * called the text that chose it may already be gone.
+   */
+  private activate(record: RowRecord, row: HTMLElement): void {
+    const current = record.item;
+    if (current.disabled) return;
+    if (current.submenu) {
+      this.openSub(row, current.submenu);
+      return;
+    }
+
+    const typed = this.query;
+    if (current.keepOpen) {
+      if (current.clearsQuery && this.queryEl) this.queryEl.value = "";
+      const done = current.onSelect?.(typed);
+      if (done) void done.then(() => this.rerender());
+      else this.rerender();
+      return;
+    }
+    this.close();
+    current.onSelect?.(typed);
+  }
+
+  private paintSubActive(): void {
+    this.subRows.forEach((record, index) =>
+      record.root.toggleClass("is-active", index === this.subActive)
+    );
+    if (this.subActive >= 0) {
+      this.subRows[this.subActive]?.root.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  private stepSub(delta: number): void {
+    this.subActive = stepCursor(
+      this.subActive,
+      delta,
+      this.subRows.map((record) => !record.item.disabled)
+    );
+    this.paintSubActive();
   }
 
   /** The trailing slot holds a count, a shortcut, or a mark. Never both. */
@@ -373,6 +451,7 @@ export class ContextMenu {
 
     this.subRowsEl = this.sub.createDiv({ cls: "pg-menu-rows" });
     this.subRows = this.fill(this.subRowsEl, items);
+    this.subActive = -1;
     this.syncQuery();
     this.placeSub();
     this.queryEl.focus({ preventScroll: true });
@@ -416,7 +495,10 @@ export class ContextMenu {
 
     const items = this.matching(this.subSource);
     const rows = items.filter((item) => !item.alwaysShow);
-    if (this.query && rows.length === 0) {
+    // Said only when there is genuinely nothing else. A row offering to create
+    // what was typed already reports the miss, and reports it better, so
+    // printing both states the failure twice and buries the way out under it.
+    if (this.query && rows.length === 0 && items.length === 0) {
       panel.createDiv({ cls: "pg-menu-item is-disabled" }).createDiv({
         cls: "pg-menu-label",
         text: "No matches",
@@ -424,6 +506,12 @@ export class ContextMenu {
     }
 
     this.subRows = this.fill(panel, items);
+    this.subActive = cursorAfterNarrowing(
+      this.subRows.map((record) => !record.item.disabled),
+      this.subActive,
+      this.query.trim().length > 0
+    );
+    this.paintSubActive();
     this.placeSub();
     // Clicking a row takes focus off the field, and a keepOpen row leaves the
     // menu up to be used again, so it has to come back or the next keystroke
@@ -461,6 +549,7 @@ export class ContextMenu {
 
   private closeSub(immediate = false): void {
     this.subSource = [];
+    this.subActive = -1;
     this.subAnchor = null;
     this.queryEl = null;
     this.subRowsEl = null;

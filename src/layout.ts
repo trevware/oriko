@@ -153,6 +153,49 @@ export function moveInGrid(
 }
 
 /**
+ * Where a menu's cursor sits once its rows have been narrowed.
+ *
+ * Typing sends it to the first row, which is the convention everywhere else
+ * here and does the useful thing at both ends: when the query matched, the top
+ * match is what Enter should take; when it matched nothing, the only row left
+ * is the one offering to create what was typed, so it arrives already picked.
+ *
+ * With no query the cursor stays put, and stays absent if it was absent. A
+ * submenu opened by pointing at it should not look as though a row has already
+ * been chosen, so nothing is lit until a key asks for it.
+ */
+export function cursorAfterNarrowing(
+  selectable: boolean[],
+  current: number,
+  hasQuery: boolean
+): number {
+  const first = selectable.indexOf(true);
+  if (first === -1) return -1;
+  if (hasQuery) return first;
+  if (current >= 0 && current < selectable.length && selectable[current]) return current;
+  return current < 0 ? -1 : first;
+}
+
+/**
+ * The next row a cursor reaches, wrapping, passing over anything inert.
+ *
+ * From nowhere it enters at the end the key points at, so the first Down lands
+ * on the top row and the first Up on the bottom one. A list with nothing
+ * selectable leaves the cursor where it was rather than spinning.
+ */
+export function stepCursor(current: number, delta: number, selectable: boolean[]): number {
+  const count = selectable.length;
+  if (count === 0) return -1;
+
+  let at = current >= 0 && current < count ? current : delta > 0 ? -1 : 0;
+  for (let i = 0; i < count; i++) {
+    at = (at + delta + count) % count;
+    if (selectable[at]) return at;
+  }
+  return current;
+}
+
+/**
  * Flattens rows grouped by what they act on, ruling off each group from the
  * last.
  *

@@ -36,6 +36,16 @@
   --pg-stage-lift: 0 24px 70px rgba(0, 0, 0, 0.45);
   /* Stronger than a label, which is what makes a matched run read as one. */
   --pg-mark: #fff;
+  /* The plugin's own accent, not the vault's.
+     --color-accent is a user setting and can be any hue at any lightness, so
+     rules built on it have no contrast guarantee and occasionally land
+     somewhere ugly against a panel that is otherwise all greys. These two are
+     tuned per theme instead: lifted here so it reads against near-black,
+     deepened in light so it carries white. It stays chromatic because the
+     selection ring sits over arbitrary photographs, where white and black both
+     occur constantly and a neutral ring simply disappears. */
+  --pg-accent: #6ea8fe;
+  --pg-on-accent: #0b0d12;
   /* Tile shadows are the thing that gives a light wall away fastest: an
      alpha tuned against near-black is a bruise against white. */
   --pg-tile-lift: 0 6px 18px rgba(0, 0, 0, 0.3);
@@ -86,6 +96,8 @@
   --pg-peek-ring: rgba(28, 28, 32, 0.6);
   --pg-stage-lift: 0 20px 56px rgba(0, 0, 0, 0.18);
   --pg-mark: rgba(10, 10, 12, 1);
+  --pg-accent: #2563c9;
+  --pg-on-accent: #ffffff;
   --pg-tile-lift: 0 4px 14px rgba(0, 0, 0, 0.12);
   --pg-tile-lift-selected: 0 6px 18px rgba(0, 0, 0, 0.16);
   --pg-tile-lift-strong: 0 8px 22px rgba(0, 0, 0, 0.2);
@@ -231,7 +243,7 @@
   inset: 0 0 auto 0;
   z-index: 20;
   height: 2px;
-  background: var(--background-modifier-border);
+  background: var(--pg-rule);
   opacity: 0;
   transition: opacity 180ms ease;
   pointer-events: none;
@@ -244,7 +256,7 @@
 .pg-progress-fill {
   height: 100%;
   width: 0;
-  background: var(--color-accent);
+  background: var(--pg-accent);
   transition: width 220ms ease;
 }
 
@@ -279,8 +291,8 @@
   z-index: 15;
   display: none;
   pointer-events: none;
-  border: 1px solid var(--color-accent);
-  background: hsl(from var(--color-accent) h s l / 0.12);
+  border: 1px solid var(--pg-accent);
+  background: hsl(from var(--pg-accent) h s l / 0.12);
   border-radius: 2px;
 }
 
@@ -297,7 +309,7 @@
 .pg-tile.is-selected .pg-frame {
   transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
     scale(var(--pg-sx, 1), var(--pg-sy, 1));
-  outline-color: var(--color-accent);
+  outline-color: var(--pg-accent);
   box-shadow: var(--pg-tile-lift-selected);
 }
 
@@ -686,6 +698,13 @@
 }
 
 .pg-menu-item:hover {
+  background: var(--pg-inner-hover);
+}
+
+/* The keyboard's cursor in a submenu, lit exactly as hover lights a row: the
+   two are the same idea arriving by different means, and showing them
+   differently would suggest they do different things. */
+.pg-menu-item.is-active {
   background: var(--pg-inner-hover);
 }
 
@@ -1259,7 +1278,7 @@
 /* Lit while filtering, because a filtered wall and an empty grid look
    identical from the outside otherwise. */
 .pg-space-filter.is-active {
-  color: var(--color-accent);
+  color: var(--pg-accent);
 }
 
 .pg-space-count {
@@ -1269,8 +1288,8 @@
   min-width: 15px;
   padding: 0 3px;
   border-radius: 8px;
-  background: var(--color-accent);
-  color: var(--text-on-accent, #fff);
+  background: var(--pg-accent);
+  color: var(--pg-on-accent);
   font-size: 10px;
   font-weight: 600;
   line-height: 15px;
@@ -1329,7 +1348,7 @@
 .pg-menu-divider {
   height: 1px;
   margin: 5px 10px;
-  background: var(--background-modifier-border);
+  background: var(--pg-rule);
 }
 
 .pg-menu-item.is-disabled {
@@ -1414,7 +1433,7 @@ buttonbuttonbutton/* The management panel's rows. */
   align-items: center;
   gap: 10px;
   padding: 6px 13px 12px;
-  border-bottom: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--pg-rule);
 }
 
 .pg-palette-search {
@@ -1683,7 +1702,7 @@ buttonbuttonbutton/* The management panel's rows. */
   align-items: center;
   gap: 16px;
   padding: 9px 13px 3px;
-  border-top: 1px solid var(--background-modifier-border);
+  border-top: 1px solid var(--pg-rule);
   color: var(--pg-surface-faint);
   font-size: 11.5px;
 }
@@ -1767,7 +1786,7 @@ buttonbuttonbutton/* The management panel's rows. */
   align-items: center;
   gap: 10px;
   padding: 6px 6px 10px 13px;
-  border-bottom: 1px solid var(--background-modifier-border);
+  border-bottom: 1px solid var(--pg-rule);
 }
 
 .pg-panel-title {
@@ -1979,7 +1998,7 @@ buttonbuttonbutton/* The management panel's rows. */
 }
 
 .pg-prop button.pg-prop-remove:hover {
-  background-color: var(--background-modifier-border);
+  background-color: var(--pg-rule);
   color: var(--text-normal);
 }
 

@@ -1099,17 +1099,48 @@ export class PowerGridView extends ItemView {
       };
     });
 
+    // Never offered against a value that is already on the list: that row is
+    // sitting one line up, and creating it again would create nothing. Matches
+    // how the sheet's own Create row decides.
+    const known = (typed: string): boolean =>
+      values.some((entry) => entry.value === typed);
+
     rows.push({
       // No icon, or this one row would reserve the gutter for the whole
       // panel: the panel drops it only when nothing in it has one. The rule
       // above already separates this row from the values.
       icon: "",
       label: "New value…",
+      // Names what was typed, so a search that found nothing reads as an offer
+      // to make it rather than as a dead end beside the word "No matches".
+      labelFor: (typed) => {
+        const wanted = typed.trim();
+        return wanted && !known(wanted) ? `Create “${wanted}”` : "New value…";
+      },
       // Survives typing, so a search that finds nothing still offers to add
       // what was typed rather than leaving a dead end.
       alwaysShow: true,
+      // Stays up like the value rows, so the tick it just set can be seen. The
+      // branch that hands off to the sheet closes the menu itself.
+      keepOpen: true,
+      clearsQuery: true,
       divider: rows.length > 0,
-      onSelect: () => this.promptPropertyValue(path, key, single, held),
+      onSelect: (typed) => {
+        const wanted = typed.trim();
+        // Nothing typed, or typed something that already exists: there is no
+        // value to create here, so the fuller prompt takes over.
+        if (!wanted || known(wanted)) {
+          this.menu?.close();
+          this.promptPropertyValue(path, key, single, held);
+          return;
+        }
+
+        // Recorded before the write and not waited on, exactly as the value
+        // rows do it, so the tick lands on the keystroke that caused it.
+        const next = single ? [wanted] : withValue(held, wanted);
+        this.edited.set(this.editKey(path, key), next);
+        void this.setProperty(path, key, next);
+      },
     });
 
     return rows;
