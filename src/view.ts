@@ -16,6 +16,7 @@ import { DetailView } from "./detail";
 import type { MenuItem } from "./context-menu";
 import type { GridsController } from "./grid-sheets";
 import { GridRenderer } from "./grid";
+import { groupedMenu } from "./layout";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
 import { LayerPanel, PanelToggle } from "./panel";
@@ -279,6 +280,8 @@ export class PowerGridView extends ItemView {
       onReveal: (id) => this.revealFirstFile(id),
       onDelete: (id) => this.confirmDelete([id]),
       onOpenNote: (id) => this.openNote(id),
+      onEditProperties: (id, x, y) => this.editProperties(id, x, y),
+      isMenuOpen: () => this.menu?.isOpen ?? false,
     }, () => this.plugin.settings.filterProperties);
     this.detail.onClosed = () => {
       this.grid?.focusTile(null);
@@ -415,13 +418,48 @@ export class PowerGridView extends ItemView {
     return [...new Set(paths)];
   }
 
+  /**
+   * The rows for editing every editable property of one clipping.
+   *
+   * One clipping only. Across a selection a value is held by some and not
+   * others, and a tick that means "some of these" is a different control than
+   * this one, not a wider version of it. Shared with the detail view's bar so
+   * both surfaces offer the same rows and reach the same single writer.
+   */
+  propertyRows(id: string): MenuItem[] {
+    const rows: MenuItem[] = [];
+    for (const def of this.defs()) {
+      if (def.source !== "property" || !def.key || !isEditable(def.key)) continue;
+      rows.push({
+        icon: def.icon,
+        label: def.label,
+        submenu: this.propertyMenu(id, def.key),
+      });
+    }
+    return rows;
+  }
+
+  /**
+   * Grouped by what a row acts on: reaching the clipping, describing it,
+   * filing it, destroying it.
+   *
+   * Describing and filing are ruled apart because the code draws that line
+   * too, and for the same reason: a property goes through setProperty behind
+   * isEditable, while `grid` is excluded from it and has its own path in
+   * assign. One is saying what a clipping is, the other is saying where it
+   * lives.
+   */
   private menuItems(ids: string[]): MenuItem[] {
     const n = ids.length;
     const count = n === 1 ? "1 selected" : `${n} selected`;
-    const items: MenuItem[] = [];
+
+    const reach: MenuItem[] = [];
+    const describe: MenuItem[] = n === 1 ? this.propertyRows(ids[0]) : [];
+    const file: MenuItem[] = [];
+    const destroy: MenuItem[] = [];
 
     if (n === 1) {
-      items.push({
+      reach.push({
         icon: "file-text",
         label: "Open note",
         onSelect: () => this.openNote(ids[0]),
@@ -429,7 +467,7 @@ export class PowerGridView extends ItemView {
     }
 
     if (systemAvailable()) {
-      items.push({
+      reach.push({
         icon: "download",
         label: "Export to Downloads",
         detail: "⌘E",
@@ -437,7 +475,7 @@ export class PowerGridView extends ItemView {
       });
 
       if (n === 1) {
-        items.push({
+        reach.push({
           icon: "folder",
           label: "Reveal in Finder",
           onSelect: () => this.revealFirstFile(ids[0]),
@@ -445,22 +483,8 @@ export class PowerGridView extends ItemView {
       }
     }
 
-    // One clipping only. Across a selection a value is held by some and not
-    // others, and a tick that means "some of these" is a different control
-    // than this one, not a wider version of it.
-    if (n === 1) {
-      for (const def of this.defs()) {
-        if (def.source !== "property" || !def.key || !isEditable(def.key)) continue;
-        items.push({
-          icon: def.icon,
-          label: def.label,
-          submenu: this.propertyMenu(ids[0], def.key),
-        });
-      }
-    }
-
     if (this.allGrids().length > 1) {
-      items.push({
+      file.push({
         icon: "corner-up-right",
         label: "Move to grid",
         submenu: this.allGrids().map((grid) => ({
@@ -471,7 +495,7 @@ export class PowerGridView extends ItemView {
       });
     }
 
-    items.push({
+    destroy.push({
       icon: "trash-2",
       label: "Delete",
       detail: count,
@@ -479,7 +503,27 @@ export class PowerGridView extends ItemView {
       onSelect: () => this.confirmDelete(ids),
     });
 
-    return items;
+    return groupedMenu([reach, describe, file, destroy]);
+  }
+
+  /**
+   * Opens the property rows from the detail view's bar, anchored at the button
+   * that asked for them.
+   *
+   * Elevated, because the detail overlay outranks a menu in the normal stack
+   * and the panel would otherwise open behind it. Given a rebuild on the same
+   * terms as the wall's menu: these rows keep the panel open so several can be
+   * ticked in a row, which only reads correctly if each click repaints them
+   * from the state it just wrote.
+   */
+  private editProperties(id: string, x: number, y: number): void {
+    const rows = (): MenuItem[] => this.propertyRows(id);
+    const items = rows();
+    if (items.length === 0) {
+      new Notice("Power Grid: no editable properties are enabled in settings");
+      return;
+    }
+    this.menu?.open(items, x, y, rows, true);
   }
 
   private openNote(id: string): void {

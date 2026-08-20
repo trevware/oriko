@@ -5,6 +5,7 @@ import {
   fitRect,
   flightMidpoint,
   flipTransform,
+  groupedMenu,
   pressureAt,
   shouldMountAll,
   visibleRange,
@@ -168,6 +169,51 @@ describe("shouldMountAll", () => {
     // Either answer renders nothing, so this pins the behaviour rather than
     // asking the caller to special-case it.
     expect(shouldMountAll(0, 150)).toBe(true);
+  });
+});
+
+describe("groupedMenu", () => {
+  const row = (label: string): { label: string; divider?: boolean } => ({ label });
+
+  it("rules every group off from the one before", () => {
+    const out = groupedMenu([[row("a"), row("b")], [row("c")], [row("d")]]);
+    expect(out.map((r) => [r.label, r.divider ?? false])).toEqual([
+      ["a", false],
+      ["b", false],
+      ["c", true],
+      ["d", true],
+    ]);
+  });
+
+  it("never rules off the leading group", () => {
+    const out = groupedMenu([[row("a")]]);
+    expect(out[0].divider).toBeUndefined();
+  });
+
+  it("takes an empty group's rule away with it", () => {
+    // The case the wall actually hits: a multi-selection drops every property
+    // row, and the rule that would have introduced them must go too.
+    const out = groupedMenu([[row("a")], [], [row("b")]]);
+    expect(out.map((r) => r.label)).toEqual(["a", "b"]);
+    expect(out[1].divider).toBe(true);
+  });
+
+  it("promotes the first surviving group rather than ruling it off", () => {
+    const out = groupedMenu([[], [row("a")], [row("b")]]);
+    expect(out[0].divider).toBeUndefined();
+    expect(out[1].divider).toBe(true);
+  });
+
+  it("leaves the rows it was given alone", () => {
+    const first = row("a");
+    const second = row("b");
+    groupedMenu([[first], [second]]);
+    expect(first.divider).toBeUndefined();
+    expect(second.divider).toBeUndefined();
+  });
+
+  it("has nothing to say about no groups at all", () => {
+    expect(groupedMenu([[], []])).toEqual([]);
   });
 });
 

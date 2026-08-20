@@ -16,6 +16,15 @@ export interface DetailActions {
   onReveal: (id: string) => void;
   onDelete: (id: string) => void;
   onOpenNote: (id: string) => void;
+  /**
+   * Opens the property rows, anchored at the button that asked. The view owns
+   * the menu and the single writer behind it, so this passes the request on
+   * rather than editing anything here: the licence to write a note the plugin
+   * did not create stays in one place, with one gate.
+   */
+  onEditProperties: (id: string, x: number, y: number) => void;
+  /** Whether a menu is up, so the overlay can leave the keyboard to it. */
+  isMenuOpen: () => boolean;
 }
 
 export interface DetailOrigin {
@@ -263,6 +272,12 @@ export class DetailView {
         return;
       }
 
+      // A menu opened from the bar owns the keyboard while it is up. Both
+      // handlers are capture-phase on document and this one was registered
+      // first, so without standing aside Escape would throw away the whole
+      // overlay instead of the panel in front of it.
+      if (this.actions.isMenuOpen()) return;
+
       // Registered in the capture phase, so stopping here also spares the
       // grid's own document-level handlers, which would otherwise act on a
       // selection sitting invisible behind this overlay.
@@ -414,7 +429,7 @@ export class DetailView {
       shortcut: string,
       match: (event: KeyboardEvent) => boolean,
       run: () => void
-    ): void => {
+    ): HTMLElement => {
       const button = bar.createEl("button", { cls: "pg-detail-button" });
       setIcon(button, icon);
       attachTip(button, label, shortcut);
@@ -423,6 +438,13 @@ export class DetailView {
         run();
       };
       this.hotkeys.push({ match, run });
+      return button;
+    };
+
+    /* Groups the bar by what a button acts on, matching the rules in the
+       wall's context menu so the two surfaces read the same way round. */
+    const rule = (): void => {
+      bar.createDiv({ cls: "pg-detail-divider" });
     };
 
     const mod = (event: KeyboardEvent): boolean => event.metaKey || event.ctrlKey;
@@ -451,6 +473,31 @@ export class DetailView {
       (event) => mod(event) && event.shiftKey && event.key.toLowerCase() === "r",
       () => this.actions.onReveal(model.id)
     );
+
+    rule();
+
+    // Anchored at the button's top edge rather than the pointer, so the panel
+    // has a fixed home whether it was opened by click or by key. placeMenu
+    // flips it up over the bar, since there is never room below.
+    let properties: HTMLElement | null = null;
+    const openProperties = (): void => {
+      const rect = properties?.getBoundingClientRect();
+      if (!rect) return;
+      this.actions.onEditProperties(model.id, rect.left + rect.width / 2, rect.top);
+    };
+    // Shown whether or not anything is editable. Which keys those are is the
+    // gate's business, and it refuses in one place with a reason; re-deciding
+    // it here would be the same rule written twice, free to drift.
+    properties = add(
+      "sliders-horizontal",
+      "Properties",
+      "P",
+      (event) => !mod(event) && !event.shiftKey && event.key.toLowerCase() === "p",
+      openProperties
+    );
+
+    rule();
+
     add(
       "trash-2",
       "Delete",

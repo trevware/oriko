@@ -115,6 +115,32 @@ export function placeMenu(
 }
 
 /**
+ * Flattens rows grouped by what they act on, ruling off each group from the
+ * last.
+ *
+ * Menus are built as groups rather than as one list with dividers set by hand
+ * because most rows are conditional. A rule written onto a row is a claim
+ * about what precedes it, and that claim goes stale the moment the rows above
+ * turn out to be absent: a multi-selection drops every property row, and a
+ * hand-placed rule then floats at the top of the panel separating nothing.
+ * Grouping states the intent instead, so an empty group takes its rule with
+ * it and the leading group never gets one.
+ *
+ * Generic over the row rather than typed to MenuItem: the shape it needs is
+ * one optional field, and staying structural is what keeps this in a module
+ * that never imports Obsidian, and therefore testable.
+ */
+export function groupedMenu<T extends { divider?: boolean }>(groups: T[][]): T[] {
+  const out: T[] = [];
+  for (const group of groups) {
+    if (group.length === 0) continue;
+    const [first, ...rest] = group;
+    out.push(out.length > 0 ? { ...first, divider: true } : first, ...rest);
+  }
+  return out;
+}
+
+/**
  * How hard the cursor is "pressing" a card, as offsets from its centre in
  * the range -1..1. Feeding these into a rotation makes a card tip away
  * from the pointer, as though the corner under it were being pushed in.

@@ -717,6 +717,23 @@
   overflow-y: auto;
 }
 
+/* Opened from the detail view's bar, which outranks a menu in the normal
+   stack, so the panel would otherwise be built behind the overlay and never
+   be seen. Scoped to that one caller rather than raising menus generally:
+   they sit below the palette on purpose, and a blanket raise would silently
+   invert that relationship too. */
+.pg-menu-backdrop.is-elevated {
+  z-index: 51;
+}
+
+.pg-menu.is-elevated {
+  z-index: 52;
+}
+
+.pg-menu.pg-menu-sub.is-elevated {
+  z-index: 53;
+}
+
 .pg-menu-item.is-destructive:hover {
   background: rgba(255, 82, 82, 0.18);
 }
@@ -1105,6 +1122,16 @@
   transition:
     opacity 320ms ease 320ms,
     transform 360ms cubic-bezier(0.19, 1, 0.26, 1) 320ms;
+}
+
+/* Rules the bar into groups on the same lines as the context menu, so the two
+   surfaces read the same way round. Inset vertically: it separates controls,
+   it is not a wall across the bar. */
+.pg-detail-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 3px 2px;
+  background: var(--pg-rule);
 }
 
 .pg-detail button.pg-detail-button {

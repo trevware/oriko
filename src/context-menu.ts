@@ -78,6 +78,12 @@ export class ContextMenu {
   private openLabel: string | null = null;
   /** The open submenu's rows before filtering, and the row it hangs off. */
   private subSource: MenuItem[] = [];
+  /**
+   * Lifts this menu above the detail view, which outranks it in the normal
+   * stack. Set per open() rather than raising every menu, because menus sit
+   * below the palette on purpose and a blanket raise would invert that too.
+   */
+  private elevated = false;
   private subAnchor: HTMLElement | null = null;
   /** The open submenu's search field, and the element its rows live in. */
   private queryEl: HTMLInputElement | null = null;
@@ -99,7 +105,8 @@ export class ContextMenu {
     items: MenuItem[],
     clientX: number,
     clientY: number,
-    rebuild?: () => MenuItem[]
+    rebuild?: () => MenuItem[],
+    elevated = false
   ): void {
     // Immediate: the old panel is being replaced right now, so fading it out
     // underneath its replacement would only show two menus at once.
@@ -107,9 +114,14 @@ export class ContextMenu {
     this.clearLeaving();
     if (items.length === 0) return;
     this.rebuild = rebuild ?? null;
+    this.elevated = elevated;
 
     this.backdrop = this.container.createDiv({ cls: "pg-menu-backdrop" });
     this.panel = this.container.createDiv({ cls: "pg-menu" });
+    if (elevated) {
+      this.backdrop.addClass("is-elevated");
+      this.panel.addClass("is-elevated");
+    }
     this.rows = this.fill(this.panel, items);
 
     const bounds = this.container.getBoundingClientRect();
@@ -348,6 +360,7 @@ export class ContextMenu {
     this.subSource = items;
     this.subAnchor = row;
     this.sub = this.container.createDiv({ cls: "pg-menu pg-menu-sub" });
+    if (this.elevated) this.sub.addClass("is-elevated");
 
     // A real input, not a key handler writing into a div. Every global
     // shortcut in the plugin already steps aside for a focused field, so
