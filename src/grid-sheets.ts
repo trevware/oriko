@@ -3,7 +3,7 @@ import { tokenLabel } from "./dates";
 import { isFilterEmpty, toggleFacet } from "./filter";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
-import { reorderTarget, validateGridName } from "./spaces";
+import { isAutoGrid, reorderTarget, validateGridName } from "./spaces";
 import type { GridSpace } from "./spaces";
 
 /**
@@ -233,12 +233,20 @@ function ruleValuesScreen(
  * The count is the affordance that makes this a rule editor rather than a form
  * filled in blind, which is why the sheet's note had to learn to recompute.
  */
+/**
+ * @param grid the grid as the screen before this one left it, which on the
+ * edit path already carries any new name and icon.
+ * @param from the name it had before that screen, and so the one the registry
+ * still knows it by. Kept apart from `grid.name` because renaming and
+ * redefining happen on two screens of one flow, and `rename` needs both ends.
+ */
 function rulesScreen(
   sheet: Sheet,
   grids: GridsController,
   grid: GridSpace,
   index: number | undefined,
-  after: () => void
+  after: () => void,
+  from?: string
 ): SheetScreen {
   const world = grids.ruleWorld();
   const creating = index === undefined;
@@ -283,10 +291,11 @@ function rulesScreen(
 
       const next: GridSpace = { ...grid, rules: current };
       sheet.close();
-      // Renaming is not possible from here: the name was settled on the screen
-      // before this one, so rename only ever carries the new rules across.
+      // No rename confirmation to make: an auto-grid has no members, because
+      // nothing carries its name in frontmatter, so renaming one rewrites no
+      // note and has nothing to warn about.
       if (creating) void grids.create(next).then(after);
-      else void grids.rename(grid.name, next).then(after);
+      else void grids.rename(from ?? grid.name, next).then(after);
     },
   };
 }
@@ -327,7 +336,7 @@ function gridEditorScreen(
     // and as rows the chosen one had nowhere to show itself.
     layout: "swatches",
     columns: SWATCH_COLUMNS,
-    cta: creating ? (auto ? "Next: rules" : "Create grid") : "Save",
+    cta: auto ? "Next: rules" : creating ? "Create grid" : "Save",
     rows: () =>
       GRID_ICONS.map((name) => ({
         label: name.replace(/-/g, " "),
@@ -350,9 +359,11 @@ function gridEditorScreen(
       };
 
       // An auto-grid is not finished until it says what picks it up, so the
-      // name screen hands on rather than committing.
-      if (creating && auto) {
-        sheet.push(rulesScreen(sheet, grids, next, undefined, after));
+      // name screen hands on rather than committing, whether it is being made
+      // or edited. Editing carries the old name along, since the registry
+      // still knows it by that and this screen may just have changed it.
+      if (auto) {
+        sheet.push(rulesScreen(sheet, grids, next, index, after, grid.name));
         return;
       }
 
@@ -409,13 +420,19 @@ function confirmDelete(
   index: number,
   after: () => void
 ): void {
-  const members = grids.memberCount(grid.name);
+  const auto = isAutoGrid(grid);
+  const members = auto ? 0 : grids.memberCount(grid.name);
   const home = grids.home().name;
 
   confirm(sheet, {
     title: `Delete ${grid.name}?`,
-    note:
-      members === 0
+    note: auto
+      ? // Not "the grid is empty, so nothing moves", which memberCount would
+        // have produced and which reads as a fact about its contents. An
+        // auto-grid holds plenty; what it does not hold is membership, so
+        // there is nothing to move whatever is on screen.
+        "Its rules are removed. No clipping is changed."
+      : members === 0
         ? "The grid is empty, so nothing moves."
         : `${members} ${plural(members, "clipping", "clippings")} will return to ${home}. No notes are deleted and nothing is rewritten.`,
     cta: "Delete grid",
