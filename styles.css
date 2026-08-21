@@ -171,13 +171,19 @@
 }
 
 /* 11px, being the overlay's own 10px inset plus half the stroke, so the dashes
-   sit inside the frame the way a border would rather than straddling it. */
+   sit inside the frame the way a border would rather than straddling it.
+
+   The radius comes in by the same 1px. Two rounded corners inset differently
+   but given the same radius are not concentric: their curves diverge, the
+   stroke wanders off the scrim's corner, and what is behind the pane shows
+   through the gap between them. Only the corners were ever wrong, the
+   straights having nothing to be concentric about. */
 .power-grid-view.is-drop-target .pg-drop-frame rect {
   x: 11px;
   y: 11px;
   width: calc(100% - 22px);
   height: calc(100% - 22px);
-  rx: var(--pg-surface-radius);
+  rx: calc(var(--pg-surface-radius) - 1px);
   fill: none;
   stroke: var(--pg-accent);
   stroke-width: 2;
