@@ -1152,7 +1152,16 @@
   text-transform: uppercase;
   white-space: nowrap;
   opacity: 0;
-  transform: translateY(-4px);
+  /* Centred by the auto margins, then carried sideways to sit under whichever
+     swatch is being pointed at, which swatch-strip.ts measures and clamps. One
+     label that travels rather than one per swatch: the panel scrolls, and a
+     scroll container clips absolutely positioned children, so a tip on each
+     would be cut off the first and the last. This one stays in the flow.
+
+     Both offsets ride in the single transform, since the second declaration of
+     a property replaces the first rather than adding to it, and the sideways
+     move has to survive the vertical one arriving. */
+  transform: translate(var(--pg-readout-x, 0px), -4px);
   pointer-events: none;
   transition:
     opacity 120ms ease,
@@ -1161,7 +1170,7 @@
 
 .pg-swatches-readout.is-visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: translate(var(--pg-readout-x, 0px), 0);
 }
 
 @media (prefers-reduced-motion: reduce) {

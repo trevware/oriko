@@ -10,6 +10,7 @@ import {
   groupedMenu,
   dragSteps,
   moveInGrid,
+  offsetToward,
   pressureAt,
   shouldMountAll,
   stepCursor,
@@ -258,6 +259,35 @@ describe("moveInGrid", () => {
 
   it("clamps an index that has fallen outside the set", () => {
     expect(moveInGrid(99, { columns: 0, rows: 0 }, COUNT, COLS)).toBe(COUNT - 1);
+  });
+});
+
+describe("offsetToward", () => {
+  // A 200 wide row centred at 100, and a 60 wide label: 70 of slack a side.
+  const W = 200;
+  const C = 100;
+  const ITEM = 60;
+
+  it("does not move for a target already at the centre", () => {
+    expect(offsetToward(100, C, W, ITEM)).toBe(0);
+  });
+
+  it("follows a target across the row", () => {
+    expect(offsetToward(140, C, W, ITEM)).toBe(40);
+    expect(offsetToward(60, C, W, ITEM)).toBe(-40);
+  });
+
+  it("stops at the edge rather than hanging outside", () => {
+    expect(offsetToward(200, C, W, ITEM)).toBe(70);
+    expect(offsetToward(0, C, W, ITEM)).toBe(-70);
+  });
+
+  it("stays centred when the label is wider than the row", () => {
+    expect(offsetToward(180, C, W, 400)).toBe(0);
+  });
+
+  it("stays centred when there is no slack at all", () => {
+    expect(offsetToward(180, C, W, W)).toBe(0);
   });
 });
 

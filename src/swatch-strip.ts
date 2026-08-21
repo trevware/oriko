@@ -1,4 +1,5 @@
 import { scaledSize } from "./derive";
+import { offsetToward } from "./layout";
 import { extractSwatches } from "./swatches";
 
 /**
@@ -106,12 +107,36 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   block.appendChild(readout);
 
   /** The swatch under the pointer or holding focus, so the readout knows what
-      to fall back to when a message expires. */
+      to fall back to when a message expires, and where to sit. */
   let active = "";
+  let activeEl: HTMLElement | null = null;
   let holding = 0;
+
+  /**
+   * Slides the readout under a swatch.
+   *
+   * Measured rather than computed from an index, because the row wraps: past
+   * the width of the panel a swatch is on the next line and its position no
+   * longer follows from its place in the list. Clamped so the label cannot
+   * hang off either end of the row.
+   */
+  const placeUnder = (swatch: HTMLElement): void => {
+    const rowBox = row.getBoundingClientRect();
+    const box = swatch.getBoundingClientRect();
+    const dx = offsetToward(
+      box.left + box.width / 2,
+      rowBox.left + rowBox.width / 2,
+      rowBox.width,
+      readout.getBoundingClientRect().width
+    );
+    readout.style.setProperty("--pg-readout-x", `${Math.round(dx)}px`);
+  };
 
   const show = (text: string): void => {
     readout.textContent = text;
+    // After the text, which is what decides the width the placement clamps
+    // against: Copied and a hex are not the same size.
+    if (activeEl) placeUnder(activeEl);
     readout.classList.add("is-visible");
   };
 
@@ -159,6 +184,7 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
 
     const enter = (): void => {
       active = hex;
+      activeEl = swatch;
       if (!holding) show(hex);
     };
     const leave = (): void => {
@@ -166,6 +192,7 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
       // an unguarded clear would blank a readout that is already correct.
       if (active !== hex) return;
       active = "";
+      activeEl = null;
       if (!holding) settle();
     };
 

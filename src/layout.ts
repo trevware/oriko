@@ -153,6 +153,29 @@ export function moveInGrid(
 }
 
 /**
+ * How far to shift an item from its container's centre to sit under a target,
+ * without letting it hang outside the container.
+ *
+ * For a label that names whichever of a row of things the pointer is on. One
+ * label that moves, rather than one per thing, because the row lives in a
+ * scrolling panel and a scroll container clips absolutely positioned children:
+ * a tip on each would be cut off the first and the last. Moving a single one
+ * keeps it in the flow, where nothing can clip it.
+ */
+export function offsetToward(
+  targetCentre: number,
+  containerCentre: number,
+  containerWidth: number,
+  itemWidth: number
+): number {
+  // Half the slack either side. An item wider than its container has none, and
+  // clamping to zero leaves it centred rather than swinging past both edges.
+  const limit = Math.max(0, (containerWidth - itemWidth) / 2);
+  const wanted = targetCentre - containerCentre;
+  return Math.max(-limit, Math.min(wanted, limit));
+}
+
+/**
  * How far each row has to be pushed back to appear where it just was.
  *
  * The first half of FLIP, for a list that rebuilds rather than moves: the rows
