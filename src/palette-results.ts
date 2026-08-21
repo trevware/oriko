@@ -5,7 +5,8 @@ import type { ClippingRecord } from "./scan";
 import { effectiveGrid } from "./spaces";
 
 /**
- * One query, two pools: the commands, and every clipping in the vault.
+ * One query, three pools: the commands, every value the wall's facets carry,
+ * and every clipping in the vault.
  *
  * They are ranked apart and shown in sections, because a list that reshuffles
  * across kinds is hard to aim at. What the query does decide is which section
@@ -49,6 +50,19 @@ export interface SearchOptions {
 
 export const CLIPPINGS_SECTION = "Clippings";
 
+/**
+ * How much has to be typed before facet values are offered at all.
+ *
+ * There is one value row for every distinct value on the wall, which is a few
+ * hundred once domains are counted, and a single letter names most of them. So
+ * they are held back rather than capped alone: a cap would still fill the
+ * first screen with whichever eight values happened to contain an "i".
+ */
+const MIN_VALUE_QUERY = 2;
+
+/** Most value rows to show, so the commands and clippings keep their place. */
+const VALUE_LIMIT = 8;
+
 /** Declared order, used when the query cannot separate two sections. */
 const SECTION_ORDER = ["Actions", "Grids", "Filters", "Capture", CLIPPINGS_SECTION];
 
@@ -57,9 +71,40 @@ function sectionRank(section: string): number {
   return index === -1 ? SECTION_ORDER.length : index;
 }
 
+/** Moves highlight ranges along a prefix the matched text did not include. */
+function shift(ranges: MatchRange[], by: number): MatchRange[] {
+  return by === 0 ? ranges : ranges.map((r) => ({ start: r.start + by, end: r.end + by }));
+}
+
+function commandRow(command: PaletteCommand, ranges: MatchRange[]): PaletteRow {
+  // Ranges index into whatever was matched, which is matchOn where a row sets
+  // one. The label is that text behind a prefix, so the runs move along by the
+  // length of the prefix and go on marking the same characters.
+  const offset = command.matchOn ? command.label.length - command.matchOn.length : 0;
+
+  return {
+    key: command.id,
+    label: command.label,
+    icon: command.icon,
+    detail: command.detail,
+    detailIcon: command.detailIcon,
+    destructive: command.destructive,
+    ranges: shift(ranges, offset),
+    command,
+  };
+}
+
+function rankCommands(query: string, pool: readonly PaletteCommand[]) {
+  return rank(query, pool, (command) => ({
+    primary: command.matchOn ?? command.label,
+    secondary: command.keywords,
+  }));
+}
+
 export function searchPalette(
   query: string,
   commands: readonly PaletteCommand[],
+  values: readonly PaletteCommand[],
   clippings: readonly ClippingRecord[],
   options: SearchOptions
 ): PaletteGroup[] {
@@ -75,25 +120,16 @@ export function searchPalette(
     groups.set(section, { section, rows: [row], score });
   };
 
-  for (const hit of rank(query, commands, (command) => ({
-    primary: command.label,
-    secondary: command.keywords,
-  }))) {
-    const command = hit.item;
-    add(
-      command.section,
-      {
-        key: command.id,
-        label: command.label,
-        icon: command.icon,
-        detail: command.detail,
-        detailIcon: command.detailIcon,
-        destructive: command.destructive,
-        ranges: hit.ranges,
-        command,
-      },
-      hit.score
-    );
+  for (const hit of rankCommands(query, commands)) {
+    add(hit.item.section, commandRow(hit.item, hit.ranges), hit.score);
+  }
+
+  // Capped after ranking for the same reason the clippings are: what survives
+  // should be the best of the pile, not whichever eight were tallied first.
+  if (query.trim().length >= MIN_VALUE_QUERY) {
+    for (const hit of rankCommands(query, values).slice(0, VALUE_LIMIT)) {
+      add(hit.item.section, commandRow(hit.item, hit.ranges), hit.score);
+    }
   }
 
   const found = rank(query, clippings, (record) => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommands } from "../src/commands";
+import { buildCommands, facetValueCommands } from "../src/commands";
 import type { PaletteContext } from "../src/commands";
 import { emptyFilter, facetDefs } from "../src/filter";
 
@@ -236,5 +236,77 @@ describe("filters over user-defined properties", () => {
       facets: { publish_date: [{ value: "2026", count: 2 }], kind: [], domain: [] },
     });
     expect(find(ctx, "filter:publish_date")?.label).toBe("Filter by publish date");
+  });
+});
+
+describe("facetValueCommands", () => {
+  const populated = (over: Partial<PaletteContext> = {}): PaletteContext =>
+    context({
+      facets: {
+        categories: [
+          { value: "ios", count: 12 },
+          { value: "design", count: 31 },
+        ],
+        status: [{ value: "unread", count: 4 }],
+        kind: [],
+        domain: [],
+      },
+      ...over,
+    });
+
+  const values = (ctx: PaletteContext) => facetValueCommands(ctx);
+
+  it("offers one row per value, named by the facet it belongs to", () => {
+    expect(values(populated()).map((c) => c.label)).toEqual([
+      "Categories: ios",
+      "Categories: design",
+      "Status: unread",
+    ]);
+  });
+
+  it("searches on the value alone, so the facet name cannot match every row", () => {
+    expect(values(populated()).map((c) => c.matchOn)).toEqual(["ios", "design", "unread"]);
+  });
+
+  it("carries the same id as the row inside the stage, being the same action", () => {
+    const ctx = populated();
+    const staged = buildCommands(ctx).find((c) => c.id === "filter:categories")?.stage?.items();
+    expect(values(ctx)[0].id).toBe(staged?.[0].id);
+  });
+
+  it("counts a value that is not chosen", () => {
+    expect(values(populated())[0]).toMatchObject({ detail: "12", detailIcon: undefined });
+  });
+
+  it("ticks a value that is already filtered", () => {
+    const ctx = populated({ filter: { ...emptyFilter(), categories: ["ios"] } });
+    expect(values(ctx)[0].detailIcon).toBe("check");
+  });
+
+  it("stays open after a pick, so several values can be toggled", () => {
+    expect(values(populated())[0].keepOpen).toBe(true);
+  });
+
+  it("toggles the facet it was built from", () => {
+    let toggled: [string, string] | null = null;
+    const ctx = populated({
+      actions: { ...actions, toggleFacet: (id: string, value: string) => (toggled = [id, value]) },
+    });
+    values(ctx)[0].run?.();
+    expect(toggled).toEqual(["categories", "ios"]);
+  });
+
+  it("reads a date bucket back as words, in the label and in what it matches", () => {
+    const ctx = context({
+      facetDefs: [
+        { id: "created", label: "Created", icon: "calendar", keywords: "", source: "property", key: "created", shape: "date", now: 0 },
+      ],
+      facets: { created: [{ value: "empty", count: 3 }] },
+    });
+    expect(values(ctx)[0]).toMatchObject({ label: "Created: Is empty", matchOn: "Is empty" });
+  });
+
+  it("offers nothing for a facet the wall carries no values for", () => {
+    expect(values(context())).toEqual([]);
   });
 });

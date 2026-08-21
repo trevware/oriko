@@ -3,7 +3,7 @@ import { absolutePath } from "./convert";
 import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
 import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
 import { ActionBar } from "./action-bar";
-import { buildCommands } from "./commands";
+import { buildCommands, facetValueCommands } from "./commands";
 import type { PaletteContext } from "./commands";
 import { ConfirmDeleteModal } from "./confirm";
 import { isDateToken, todayISO, tokenLabel } from "./dates";
@@ -209,7 +209,12 @@ export class PowerGridView extends ItemView {
     this.panelToggle.setOpen(this.plugin.settings.panelOpen);
 
     this.palette = new Palette(this.contentEl, {
-      commands: () => buildCommands(this.paletteContext()),
+      pools: () => {
+        // One context for both, for the reason paletteContext builds its defs
+        // once: reading the wall is the expensive half of a keystroke.
+        const context = this.paletteContext();
+        return { commands: buildCommands(context), values: facetValueCommands(context) };
+      },
       // Every clipping in the vault, not just this wall's: the whole point
       // of searching is to find the one you cannot remember filing.
       clippings: () => this.plugin.index.records(),

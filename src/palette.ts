@@ -8,8 +8,16 @@ import type { ClippingRecord } from "./scan";
 const ROOT_PLACEHOLDER = "Search clippings and actions…";
 
 export interface PaletteHandlers {
-  /** Rebuilt per render, so rows read the wall as it is now. */
-  commands: () => PaletteCommand[];
+  /**
+   * The two command pools, rebuilt per render so rows read the wall as it is
+   * now. They arrive together because they are built from one reading of the
+   * wall, and that reading walks a sample of it: asking for them separately
+   * would take it twice on every keystroke.
+   *
+   * `commands` is the root list. `values` is every value the wall's facets
+   * carry, which searchPalette holds back until there is a query.
+   */
+  pools: () => { commands: PaletteCommand[]; values: PaletteCommand[] };
   clippings: () => readonly ClippingRecord[];
   options: () => SearchOptions;
   /** Land on a clipping: switch grid if need be, centre it, select it. */
@@ -298,7 +306,7 @@ export class Palette {
 
     const query = this.input?.value ?? "";
     const options = this.handlers.options();
-    const commands = this.handlers.commands();
+    const { commands, values } = this.handlers.pools();
     this.stage = this.stageId
       ? (commands.find((command) => command.id === this.stageId)?.stage ?? null)
       : null;
@@ -309,8 +317,8 @@ export class Palette {
     const groups = this.stage
       ? // An argument list is a closed set: the wall's clippings are not
         // answers to "which grid", and offering them would be noise.
-        searchPalette(query, this.stage.items(), [], { ...options, limit: 0 })
-      : searchPalette(query, commands, this.handlers.clippings(), options);
+        searchPalette(query, this.stage.items(), [], [], { ...options, limit: 0 })
+      : searchPalette(query, commands, values, this.handlers.clippings(), options);
 
     this.paintChip();
 

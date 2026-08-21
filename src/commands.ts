@@ -1,3 +1,4 @@
+import { tokenLabel } from "./dates";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
 import { hotkeyPosition } from "./spaces";
 import type { GridSpace } from "./spaces";
@@ -42,6 +43,15 @@ export interface PaletteCommand {
   detailIcon?: string;
   /** Extra words to match on that the row never displays. */
   keywords?: string;
+  /**
+   * The part of the label the search should rank on, when the whole label is
+   * the wrong thing to rank on. A facet value row reads "Categories: ios" but
+   * matches only "ios", so that typing "categories" gives you the one row that
+   * opens the whole facet rather than every value inside it. Highlight ranges
+   * come back indexed into this, and the caller shifts them by the prefix; the
+   * label is therefore built as prefix + matchOn, and nothing else.
+   */
+  matchOn?: string;
   destructive?: boolean;
   /** Leaves the palette open after running, for rows used several at a time. */
   keepOpen?: boolean;
@@ -294,6 +304,44 @@ function filterCommands(context: PaletteContext): PaletteCommand[] {
       keywords: "reset show all remove narrow",
       run: () => actions.clearFilters(),
     });
+  }
+
+  return items;
+}
+
+/**
+ * Every value on the wall as a row of its own, so a filter you can name is a
+ * filter you can reach by naming it.
+ *
+ * The same work as the stage rows above, and deliberately the same ids: this
+ * is the same toggle, offered a step earlier. What it is not is part of the
+ * root list, because there are as many of these as the wall has distinct
+ * values, and a few hundred rows is not an opening screen. searchPalette
+ * holds them back until there is a query worth answering.
+ */
+export function facetValueCommands(context: PaletteContext): PaletteCommand[] {
+  const { actions } = context;
+  const items: PaletteCommand[] = [];
+
+  for (const def of context.facetDefs) {
+    for (const entry of context.facets[def.id] ?? []) {
+      // A date facet's values are groups and comparisons rather than words a
+      // clipping carries, so they are read back as words here, and matched as
+      // the words they are read as: "empty" is shown as "Is empty", and that
+      // is what the highlight ranges have to index into.
+      const shown = def.shape === "date" ? tokenLabel(entry.value) : entry.value;
+      items.push({
+        id: `filter:${def.id}:${entry.value}`,
+        label: `${def.label}: ${shown}`,
+        matchOn: shown,
+        icon: def.icon,
+        section: "Filters",
+        detail: String(entry.count),
+        detailIcon: (context.filter[def.id] ?? []).includes(entry.value) ? "check" : undefined,
+        keepOpen: true,
+        run: () => actions.toggleFacet(def.id, entry.value),
+      });
+    }
   }
 
   return items;

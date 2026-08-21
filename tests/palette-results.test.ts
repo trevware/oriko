@@ -39,6 +39,21 @@ const clippings = [
   clipping("Rachel How"),
 ];
 
+const value = (id: string, label: string, matchOn: string): PaletteCommand => ({
+  id,
+  label,
+  matchOn,
+  icon: "tag",
+  section: "Filters",
+  keepOpen: true,
+});
+
+const values: PaletteCommand[] = [
+  value("filter:categories:ios", "Categories: ios", "ios"),
+  value("filter:categories:design", "Categories: design", "design"),
+  value("filter:domain:youtube.com", "Source: youtube.com", "youtube.com"),
+];
+
 const options = {
   limit: 8,
   activeGrid: "Clippings",
@@ -47,10 +62,10 @@ const options = {
 };
 
 const sections = (query: string): string[] =>
-  searchPalette(query, commands, clippings, options).map((group) => group.section);
+  searchPalette(query, commands, values, clippings, options).map((group) => group.section);
 
 const rowsOf = (query: string, section: string) =>
-  searchPalette(query, commands, clippings, options).find((g) => g.section === section)?.rows ?? [];
+  searchPalette(query, commands, values, clippings, options).find((g) => g.section === section)?.rows ?? [];
 
 describe("searchPalette", () => {
   it("opens on the commands, in section order, with clippings last", () => {
@@ -84,7 +99,7 @@ describe("searchPalette", () => {
 
   it("caps the clippings so the commands stay in view", () => {
     const many = Array.from({ length: 30 }, (_, i) => clipping(`clip ${i}`));
-    const groups = searchPalette("", commands, many, options);
+    const groups = searchPalette("", commands, values, many, options);
     expect(groups.find((g) => g.section === "Clippings")?.rows).toHaveLength(8);
   });
 
@@ -93,12 +108,44 @@ describe("searchPalette", () => {
       ...Array.from({ length: 30 }, (_, i) => clipping(`clip ${i}`)),
       clipping("manga-downloader"),
     ];
-    const groups = searchPalette("manga", commands, many, { ...options, limit: 2 });
+    const groups = searchPalette("manga", commands, values, many, { ...options, limit: 2 });
     expect(groups[0].rows[0].label).toBe("manga-downloader");
   });
 
+  it("holds the values back until something has been typed", () => {
+    expect(rowsOf("", "Filters")).toEqual([]);
+  });
+
+  it("holds them back for one character, which names far too much", () => {
+    expect(rowsOf("i", "Filters")).toEqual([]);
+  });
+
+  it("offers a value once two characters name it", () => {
+    expect(rowsOf("io", "Filters").map((row) => row.label)).toContain("Categories: ios");
+  });
+
+  it("leads with the filter when what was typed is a value", () => {
+    expect(sections("ios")[0]).toBe("Filters");
+  });
+
+  it("does not offer every value when the facet itself is named", () => {
+    expect(rowsOf("categories", "Filters")).toEqual([]);
+  });
+
+  it("highlights the value, not the facet name that prefixes it", () => {
+    expect(rowsOf("ios", "Filters")[0].ranges).toEqual([{ start: 12, end: 15 }]);
+  });
+
+  it("caps the values so the clippings stay in view", () => {
+    const many = Array.from({ length: 30 }, (_, i) =>
+      value(`filter:categories:v${i}`, `Categories: value ${i}`, `value ${i}`)
+    );
+    const groups = searchPalette("value", commands, many, clippings, options);
+    expect(groups.find((g) => g.section === "Filters")?.rows).toHaveLength(8);
+  });
+
   it("returns nothing at all when nothing matches", () => {
-    expect(searchPalette("zzzz", commands, clippings, options)).toEqual([]);
+    expect(searchPalette("zzzz", commands, values, clippings, options)).toEqual([]);
   });
 });
 
