@@ -27,6 +27,7 @@ import { ProgressBar } from "./progress";
 import type { PropertyVocabulary } from "./filter";
 import {
   activeCount,
+  autoMembers,
   emptyFilter,
   facetDefs,
   facetLabel,
@@ -46,6 +47,7 @@ import {
   effectiveGrid,
   filterByGrid,
   hotkeyPosition,
+  isAutoGrid,
   membersOf,
   orderedGrids,
 } from "./spaces";
@@ -749,21 +751,33 @@ export class PowerGridView extends ItemView {
 
   private paint(options: { replace?: boolean }): void {
     if (!this.grid) return;
+
+    const space = this.activeGrid();
+    const auto = isAutoGrid(space);
+
+    // An auto-grid's rules run over the whole vault rather than over one
+    // wall's slice, because home stays everything: a clipping filed in Manga
+    // is still eligible for an auto-grid, and would be missing from it if the
+    // rules only ever saw the grid it happened to be filed in.
     const tiles = buildTiles(
-      filterByGrid(
-        this.plugin.index.records(),
-        this.activeGrid().name,
-        this.plugin.settings.homeGridName,
-        this.registered()
-      ),
+      auto
+        ? this.plugin.index.records()
+        : filterByGrid(
+            this.plugin.index.records(),
+            space.name,
+            this.plugin.settings.homeGridName,
+            this.registered()
+          ),
       this.plugin.archiver.cache,
       this.unloadable
     );
 
     // Facets are counted from the whole grid, not from what survives the
     // filter: counting the result would make options disappear the moment
-    // you used one, leaving no way back.
-    this.facets = tiles;
+    // you used one, leaving no way back. For an auto-grid the whole grid is
+    // what its rules admitted, so its counts are counts within the rule.
+    this.facets =
+      auto && space.rules ? autoMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
     this.applyFilter(options);
     this.flyToPending();
   }
@@ -830,6 +844,20 @@ export class PowerGridView extends ItemView {
       this.facets,
       Date.now()
     );
+  }
+
+  /**
+   * Defs for evaluating an auto-grid's rules, typed against every tile rather
+   * than against the grid's own.
+   *
+   * defs() samples this.facets, and for an auto-grid this.facets is what the
+   * rules produced, so using it here would ask the rules to be evaluated
+   * against a typing that only exists once they have been. Circular, and it
+   * fails quietly rather than loudly: a date property types as text, its
+   * buckets stop matching, and the grid is subtly wrong instead of broken.
+   */
+  private allDefs(tiles: TileModel[]): FacetDef[] {
+    return typedFacets(facetDefs(this.plugin.settings.filterProperties), tiles, Date.now());
   }
 
   /** Pruned on the way out, so a property switched off in settings stops
