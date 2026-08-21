@@ -1597,12 +1597,30 @@ buttonbuttonbutton/* The management panel's rows. */
   user-select: none;
 }
 
-/* A row that can be carried up and down the list says so before it is
-   touched. grab, not move: the row is picked up, not pushed around. */
-.pg-palette-list[data-reorderable="true"] .pg-palette-item {
+/* The handle at the end of a row that can be carried up and down the list.
+
+   The grab cursor lives here and not on the row, because the row has two
+   things it can do and only one of them is a drag: the body opens it, this
+   moves it. A whole row that says grab is promising the wrong one, and was
+   also taking the pointer capture that stopped the row being clicked. */
+.pg-palette-grip {
+  display: flex;
+  align-items: center;
+  margin-left: 2px;
+  color: var(--pg-surface-faint);
   cursor: grab;
-  /* Or a touch drag scrolls the list underneath the row instead of moving it. */
+  /* Or a touch drag scrolls the list underneath the row instead of moving it.
+     Confined to the handle, so the rest of the row still scrolls by touch. */
   touch-action: none;
+}
+
+.pg-palette-item:hover .pg-palette-grip,
+.pg-palette-item.is-active .pg-palette-grip {
+  color: var(--pg-surface-mid);
+}
+
+.pg-palette-item.is-dragging .pg-palette-grip {
+  cursor: grabbing;
 }
 
 /* Lifted while it is being carried. No transform: the row is genuinely

@@ -359,6 +359,19 @@ export class Sheet {
       detail.setText(row.detail ?? "");
     }
 
+    // A handle at the end of the row, on a list whose rows can be carried.
+    // The two gestures a reorderable row has to offer are then told apart by
+    // where the pointer is rather than by how far it has travelled: the body
+    // opens the row and says so with a pointer cursor, the handle moves it
+    // and says so with a grab.
+    if (this.screen?.onReorder) {
+      const grip = el.createDiv({ cls: "pg-palette-grip" });
+      setIcon(grip, "grip-vertical");
+      // Pressing the handle and letting go without moving is a cancelled
+      // drag, not a choice, so it must not fall through to the row.
+      grip.onclick = (event: MouseEvent) => event.stopPropagation();
+    }
+
     el.onmouseenter = () => {
       // A drag owns the cursor outright, and a keyboard move holds it until
       // the pointer is genuinely moved again.
@@ -435,7 +448,11 @@ export class Sheet {
 
     list.addEventListener("pointerdown", (event: PointerEvent) => {
       if (!this.screen?.onReorder || event.button !== 0) return;
-      const row = (event.target as HTMLElement | null)?.closest(".pg-palette-item");
+      // Only from the handle. Anywhere else on the row is a click, which is
+      // what makes the row openable at all and the cursor honest about it.
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(".pg-palette-grip")) return;
+      const row = target.closest(".pg-palette-item");
       if (!row) return;
       const index = this.rowEls.indexOf(row as HTMLElement);
       if (index === -1) return;
