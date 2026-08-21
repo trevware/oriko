@@ -1569,7 +1569,11 @@ buttonbuttonbutton/* The management panel's rows. */
   overflow-y: auto;
   /* Or a wheel past the last row keeps going into the pane behind it. */
   overscroll-behavior: contain;
-  padding-top: 6px;
+  /* Both ends, and they have to match. The bottom was missing, so rows sat
+     against the footer's rule while clearing the head's, which reads as the
+     list having slipped down. A long list hides it by scrolling; a list of one
+     row is nothing but the gap, which is where it was finally seen. */
+  padding-block: 8px;
   /* Keeps the row that scrollIntoView lands on clear of the rounded corner. */
   scroll-padding: 8px 0;
 }
