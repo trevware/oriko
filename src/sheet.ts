@@ -503,15 +503,26 @@ export class Sheet {
       moved.push(el);
     });
 
-    // Next frame, so the browser has painted the inverted state and has
-    // something to animate away from. Clearing it in the same frame is a
-    // no-op it would coalesce into never having moved at all.
-    window.requestAnimationFrame(() => {
-      for (const el of moved) {
-        el.style.transition = `transform ${REORDER_MS}ms ${REORDER_EASE}`;
-        el.style.transform = "";
-      }
-    });
+    // A forced reflow rather than the next frame, which is what this wanted to
+    // be and could not.
+    //
+    // A transition needs two computed states to run between. Deferring the
+    // clear to requestAnimationFrame gets one during a drag: pointermove is
+    // delivered in the same frame as the animation callbacks and input runs
+    // first, so the invert and the clear both landed before the browser
+    // painted either, and it saw a row that had never moved. A keypress
+    // arrives at an arbitrary point in the cycle and usually got its paint in,
+    // which is why only dragging lost its animation.
+    //
+    // Reading a layout property commits the inverted state on the spot, so the
+    // clear below is a second, separate change. The cost is one synchronous
+    // layout, which the measuring above has already paid for anyway.
+    void this.listEl?.offsetHeight;
+
+    for (const el of moved) {
+      el.style.transition = `transform ${REORDER_MS}ms ${REORDER_EASE}`;
+      el.style.transform = "";
+    }
   }
 
   private static prefersReducedMotion(): boolean {
