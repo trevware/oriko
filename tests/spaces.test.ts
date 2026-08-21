@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   effectiveGrid,
+  isAutoGrid,
   filterByGrid,
   hotkeyPosition,
   membersOf,
@@ -9,6 +10,7 @@ import {
   validateGridName,
 } from "../src/spaces";
 import type { ClippingRecord } from "../src/scan";
+import type { GridSpace } from "../src/spaces";
 
 const HOME = { name: "Clippings", icon: "layout-grid" };
 const GRIDS = [
@@ -199,5 +201,20 @@ describe("reorderTarget", () => {
   it("has nothing to move in an empty registry", () => {
     expect(reorderTarget(1, 1, 0)).toBeNull();
     expect(reorderTarget(0, 1, 0)).toBeNull();
+  });
+});
+
+describe("isAutoGrid", () => {
+  it("is an auto-grid once it carries rules", () => {
+    expect(isAutoGrid({ name: "Unread", icon: "star", rules: { status: ["unread"] } })).toBe(true);
+  });
+
+  it("is a manual grid with no rules at all", () => {
+    expect(isAutoGrid({ name: "Manga", icon: "archive" })).toBe(false);
+  });
+
+  it("treats an empty rule set as manual, since it would name the whole wall", () => {
+    const space: GridSpace = { name: "Empty", icon: "star", rules: {} };
+    expect(isAutoGrid(space)).toBe(false);
   });
 });

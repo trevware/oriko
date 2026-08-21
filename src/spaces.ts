@@ -1,3 +1,5 @@
+import { isFilterEmpty } from "./filter";
+import type { FilterState } from "./filter";
 import type { ClippingRecord } from "./scan";
 
 /**
@@ -17,6 +19,24 @@ export interface GridSpace {
   name: string;
   /** A lucide icon id. */
   icon: string;
+  /**
+   * Present on an auto-grid: the rules its membership is computed from, which
+   * is the same shape the filter menu composes. Absent on a manual grid, whose
+   * membership is the `grid:` key and a write.
+   */
+  rules?: FilterState;
+}
+
+/**
+ * Whether a grid computes its membership rather than being filled by hand.
+ *
+ * Empty rules read as manual, not as an auto-grid matching everything. A grid
+ * naming the whole wall would be a second copy of home; the editor refuses to
+ * create one, and deciding it here means a hand-edited data.json cannot make
+ * one either.
+ */
+export function isAutoGrid(space: GridSpace): boolean {
+  return space.rules !== undefined && !isFilterEmpty(space.rules);
 }
 
 /** The grid a record actually appears in, after both fallbacks. */
