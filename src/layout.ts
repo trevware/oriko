@@ -180,24 +180,30 @@ export function flipOffsets(
 }
 
 /**
- * Which row a pointer is over, given each row's vertical midpoint.
+ * How many rows a drag has carried something, from how far the pointer has
+ * travelled since it was picked up.
  *
- * Midpoints rather than edges, which is what makes a live reorder feel right:
- * a row changes places the moment the pointer passes the middle of its
- * neighbour, not when it clears the whole of it. Waiting for the edge means
- * dragging a full row's height before anything happens, and then two rows swap
- * at once when it does.
+ * Measured as displacement from the grab, not as the pointer's position
+ * against the rows. Position is wrong twice over: a row grabbed near its
+ * bottom edge is already past its own midpoint, so it swaps on the first pixel
+ * of movement, and once rows animate their measured positions are where they
+ * appear rather than where they are, which lets the test and the animation
+ * chase each other. Displacement is immune to both, and it needs the row
+ * height and nothing else.
  *
- * Counting midpoints above the pointer rather than searching for a containing
- * box also answers sensibly past either end, where there is no box at all: a
- * pointer dragged off the top belongs to the first row, off the bottom to the
- * last.
+ * `threshold` is the share of a row that must be crossed before it counts, so
+ * 0.5 swaps at the halfway point and higher values ask for more commitment
+ * before anything moves.
  */
-export function indexAtMidpoints(y: number, midpoints: readonly number[]): number {
-  if (midpoints.length === 0) return -1;
-  let index = 0;
-  while (index < midpoints.length && y > midpoints[index]) index++;
-  return Math.min(index, midpoints.length - 1);
+export function dragSteps(dy: number, rowHeight: number, threshold: number): number {
+  if (rowHeight <= 0) return 0;
+  const raw = dy / rowHeight;
+  const magnitude = Math.floor(Math.abs(raw) + (1 - threshold));
+  // Signed only once there is something to sign. Multiplying the sign through
+  // a zero magnitude yields -0 for any upward drag short of the threshold,
+  // which is the same number to arithmetic and a different one to Object.is.
+  if (magnitude === 0) return 0;
+  return raw < 0 ? -magnitude : magnitude;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { flipOffsets, indexAtMidpoints, moveInGrid } from "./layout";
+import { dragSteps, flipOffsets, moveInGrid } from "./layout";
 import { hint, paintLabel } from "./palette";
 
 /**
@@ -88,6 +88,15 @@ export interface SheetScreen {
  * longer reads as the list lagging rather than as the row moving. The curve is
  * the one the wall's own quick moves use.
  */
+/**
+ * How much of a row must be travelled before the drag counts it.
+ *
+ * Above a half, which would be the bare minimum to prefer the next slot to
+ * this one, because a reorder is a deliberate act and a list that reshuffles
+ * the moment the pointer drifts reads as twitchy rather than responsive.
+ */
+const DRAG_STEP = 0.75;
+
 const REORDER_MS = 190;
 const REORDER_EASE = "cubic-bezier(0.22, 0.9, 0.28, 1)";
 
@@ -108,8 +117,9 @@ export class Sheet {
   private dragRow = -1;
   /** Movement past which the gesture is a drag, so a click still chooses. */
   private dragMoved = false;
-  /** Row midpoints as laid out, for a drag to test against. See render(). */
-  private rowMids: number[] = [];
+  /** Where the drag began, so travel is measured from the grab rather than
+      from wherever the row has since been moved to. */
+  private dragOrigin = -1;
   /**
    * Stops hover taking the cursor back after the keyboard has moved a row.
    *
@@ -281,19 +291,6 @@ export class Sheet {
     if (this.active >= this.rows.length) this.active = Math.max(0, this.rows.length - 1);
     this.paintActive();
 
-    // Measured here, before any FLIP transform is laid on top, and kept.
-    //
-    // A drag cannot re-measure as it goes: once rows animate, their rects
-    // report where they appear rather than where they are, so the hit test
-    // reads a row still sliding out of its old place, decides it belongs
-    // there, and moves it back. The animation and the test then drive each
-    // other. These are the settled positions and the only honest ones.
-    this.rowMids = screen.onReorder
-      ? this.rowEls.map((el) => {
-          const box = el.getBoundingClientRect();
-          return box.top + box.height / 2;
-        })
-      : [];
   }
 
   private paintRow(list: HTMLElement, row: SheetRow, at: number, width: number): HTMLElement {
@@ -384,6 +381,9 @@ export class Sheet {
     /** Movement past which the gesture is a drag, matching the wall's slop. */
     const SLOP = 4;
     let startY = 0;
+    /** Measured once, at the grab. offsetHeight is layout and ignores the
+        transforms the reorder animation leaves on rows mid-flight. */
+    let rowHeight = 0;
 
     list.addEventListener("pointerdown", (event: PointerEvent) => {
       if (!this.screen?.onReorder || event.button !== 0) return;
@@ -393,8 +393,10 @@ export class Sheet {
       if (index === -1) return;
 
       this.dragRow = index;
+      this.dragOrigin = index;
       this.dragMoved = false;
       startY = event.clientY;
+      rowHeight = (row as HTMLElement).offsetHeight;
       list.setPointerCapture(event.pointerId);
     });
 
@@ -412,8 +414,14 @@ export class Sheet {
       // gesture was trying to avoid.
       if (Math.abs(event.clientY - startY) > SLOP) this.dragMoved = true;
 
-      const target = indexAtMidpoints(event.clientY, this.rowMids);
-      if (target === -1 || target === this.dragRow) return;
+      // Counted from the grab, so the row's own position never feeds back
+      // into the decision and a slow drift cannot ratchet it along.
+      const steps = dragSteps(event.clientY - startY, rowHeight, DRAG_STEP);
+      const target = Math.max(
+        0,
+        Math.min(this.dragOrigin + steps, this.rowEls.length - 1)
+      );
+      if (target === this.dragRow) return;
 
       // Reordered as the pointer crosses, not held until release. The row
       // under the finger is then the row that will land there, so the list
@@ -433,6 +441,7 @@ export class Sheet {
         list.releasePointerCapture(event.pointerId);
       }
       this.dragRow = -1;
+      this.dragOrigin = -1;
       this.paintDragging();
     };
 

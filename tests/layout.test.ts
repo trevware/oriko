@@ -8,7 +8,7 @@ import {
   flipTransform,
   cursorAfterNarrowing,
   groupedMenu,
-  indexAtMidpoints,
+  dragSteps,
   moveInGrid,
   pressureAt,
   shouldMountAll,
@@ -299,31 +299,42 @@ describe("flipOffsets", () => {
   });
 });
 
-describe("indexAtMidpoints", () => {
-  // Four rows, 40 tall, starting at 0: midpoints at 20, 60, 100, 140.
-  const mids = [20, 60, 100, 140];
+describe("dragSteps", () => {
+  const H = 40;
+  const T = 0.75;
 
-  it("answers with the row the pointer is inside", () => {
-    expect(indexAtMidpoints(10, mids)).toBe(0);
-    expect(indexAtMidpoints(70, mids)).toBe(2);
+  it("stays put until the threshold is crossed", () => {
+    expect(dragSteps(0, H, T)).toBe(0);
+    expect(dragSteps(29, H, T)).toBe(0);
+    expect(dragSteps(-29, H, T)).toBe(0);
   });
 
-  it("changes places at the midpoint, not at the edge", () => {
-    // Just above row 1's middle is still row 1; just below belongs to row 2.
-    expect(indexAtMidpoints(59, mids)).toBe(1);
-    expect(indexAtMidpoints(61, mids)).toBe(2);
+  it("counts a row once the threshold is met", () => {
+    expect(dragSteps(30, H, T)).toBe(1);
+    expect(dragSteps(-30, H, T)).toBe(-1);
   });
 
-  it("holds at the first row above the list", () => {
-    expect(indexAtMidpoints(-500, mids)).toBe(0);
+  it("counts further rows as the drag continues", () => {
+    expect(dragSteps(70, H, T)).toBe(2);
+    expect(dragSteps(-110, H, T)).toBe(-3);
   });
 
-  it("holds at the last row below it", () => {
-    expect(indexAtMidpoints(9999, mids)).toBe(3);
+  it("behaves as rounding when the threshold is a half", () => {
+    expect(dragSteps(19, H, 0.5)).toBe(0);
+    expect(dragSteps(20, H, 0.5)).toBe(1);
   });
 
-  it("has no answer for a list with no rows", () => {
-    expect(indexAtMidpoints(50, [])).toBe(-1);
+  it("does not move on a row of no height", () => {
+    expect(dragSteps(100, 0, T)).toBe(0);
+  });
+
+  it("is symmetric about the grab", () => {
+    for (const dy of [5, 33, 61, 94]) {
+      const down = dragSteps(dy, H, T);
+      // Negating zero would give -0, which is the same number to arithmetic
+      // and a different one to the comparison this makes.
+      expect(dragSteps(-dy, H, T)).toBe(down === 0 ? 0 : -down);
+    }
   });
 });
 
