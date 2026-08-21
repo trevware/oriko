@@ -133,7 +133,9 @@ Note that this write is not a move. The clipping keeps whatever `grid:` key it h
 
 ## Empty states
 
-An auto-grid whose rules match nothing shows "No clipping matches these rules", with the rule summary and an action opening its editor. This is distinct from a manual grid's empty state, which invites a drop; nothing can be dropped into a non-assignable auto-grid, and telling the user to drop something into one would be a dead end.
+There is no empty state in the plugin today: an empty grid is a blank wall. That is survivable for a manual grid, whose emptiness you caused by not having put anything in it yet, and confusing for an auto-grid, where a blank wall is indistinguishable from a bug.
+
+So this change builds one, with two variants. A manual grid reads "Nothing in this grid yet" and invites a drop. An auto-grid reads "No clipping matches these rules", with the rule summary and an action opening its editor; nothing can be dropped into a non-assignable auto-grid, so telling the user to would be a dead end.
 
 The rules screen's live match count is what should stop most of these from being created in the first place: a rule that matches nothing says so before the CTA is pressed.
 
