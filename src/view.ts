@@ -52,12 +52,13 @@ import { orphansAfterDeleting, removeMedia } from "./sweep";
 import {
   effectiveGrid,
   filterByGrid,
+  groupedGrids,
   hotkeyPosition,
   isAutoGrid,
   membersOf,
   orderedGrids,
 } from "./spaces";
-import type { GridSpace } from "./spaces";
+import type { GridSpace, PlacedGrid } from "./spaces";
 import { buildTiles, previewOf } from "./tile";
 import type { TileModel } from "./tile";
 
@@ -1405,14 +1406,28 @@ export class PowerGridView extends ItemView {
 
   private openSwitcher(x: number, y: number): void {
     const active = this.activeGrid().name;
-    const items: MenuItem[] = this.allGrids().map((grid, index) => ({
-      icon: grid.icon,
-      label: grid.name,
-      detail: index < 9 ? `\u2318${index + 1}` : undefined,
+    const { manual, auto } = groupedGrids(this.allGrids());
+
+    // The hint reads the stored position, never the place in this list: the
+    // two kinds are grouped here and the hotkeys are not, so a grid shown
+    // second may genuinely be \u23184.
+    const row = (placed: PlacedGrid, divider = false): MenuItem => ({
+      icon: placed.grid.icon,
+      label: placed.grid.name,
+      detail: placed.position < 9 ? `\u2318${placed.position + 1}` : undefined,
+      divider,
       // Shown but inert: the set reads whole, and selecting it would do nothing.
-      disabled: grid.name === active,
-      onSelect: () => this.activate(grid.name),
-    }));
+      disabled: placed.grid.name === active,
+      onSelect: () => this.activate(placed.grid.name),
+    });
+
+    // A rule above the first computed grid, and only when there is one. The
+    // two kinds behave differently enough that a drop lands somewhere else,
+    // so the picker should not present them as one undifferentiated list.
+    const items: MenuItem[] = [
+      ...manual.map((placed) => row(placed)),
+      ...auto.map((placed, index) => row(placed, index === 0)),
+    ];
     this.menu?.open(items, x, y);
   }
 

@@ -93,6 +93,39 @@ export function filterByGrid(
   return records.filter((record) => effectiveGrid(record, home, registered) === grid);
 }
 
+export interface PlacedGrid {
+  grid: GridSpace;
+  /**
+   * Where it sits in the switcher order, which is what its hotkey follows.
+   *
+   * Carried because the picker groups the two kinds and the hotkeys do not:
+   * ⌘1..9 indexes the stored order directly, so a grid shown second may well
+   * be ⌘4, and a hint read off the grouped list would name the wrong grid.
+   */
+  position: number;
+}
+
+/**
+ * The grids split by kind for a picker, each keeping its stored order.
+ *
+ * Manual first, because home is one and home is always first. Grouping is
+ * presentation only: nothing here reorders the registry, so the hotkeys and
+ * the manager are untouched by it.
+ */
+export function groupedGrids(grids: readonly GridSpace[]): {
+  manual: PlacedGrid[];
+  auto: PlacedGrid[];
+} {
+  const manual: PlacedGrid[] = [];
+  const auto: PlacedGrid[] = [];
+
+  grids.forEach((grid, position) => {
+    (isAutoGrid(grid) ? auto : manual).push({ grid, position });
+  });
+
+  return { manual, auto };
+}
+
 /** Home first, then the created grids in their stored order. */
 export function orderedGrids(home: GridSpace, grids: readonly GridSpace[]): GridSpace[] {
   return [home, ...grids];

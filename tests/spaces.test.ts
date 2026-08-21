@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assignableValue,
   effectiveGrid,
+  groupedGrids,
   isAutoGrid,
   filterByGrid,
   hotkeyPosition,
@@ -259,5 +260,37 @@ describe("assignableValue", () => {
 
   it("refuses a facet no longer on offer, whose shape cannot be read", () => {
     expect(assignableValue(auto({ medium: ["photo"] }), defs)).toBeNull();
+  });
+});
+
+describe("groupedGrids", () => {
+  const auto = (name: string): GridSpace => ({
+    name,
+    icon: "star",
+    rules: { status: ["unread"] },
+  });
+  const manual = (name: string): GridSpace => ({ name, icon: "star" });
+
+  it("puts the manual grids first and the auto-grids after", () => {
+    const grouped = groupedGrids([manual("Home"), auto("Unread"), manual("Manga")]);
+    expect(grouped.manual.map((p) => p.grid.name)).toEqual(["Home", "Manga"]);
+    expect(grouped.auto.map((p) => p.grid.name)).toEqual(["Unread"]);
+  });
+
+  it("remembers where each really sits, which is what the hotkey follows", () => {
+    // Manga is shown second but is third in the switcher order, so its hint
+    // has to read the position rather than the place in the grouped list.
+    const grouped = groupedGrids([manual("Home"), auto("Unread"), manual("Manga")]);
+    expect(grouped.manual.map((p) => p.position)).toEqual([0, 2]);
+    expect(grouped.auto.map((p) => p.position)).toEqual([1]);
+  });
+
+  it("keeps the stored order inside each group", () => {
+    const grouped = groupedGrids([auto("B"), auto("A")]);
+    expect(grouped.auto.map((p) => p.grid.name)).toEqual(["B", "A"]);
+  });
+
+  it("has no auto group at all when nothing computes its membership", () => {
+    expect(groupedGrids([manual("Home"), manual("Manga")]).auto).toEqual([]);
   });
 });
