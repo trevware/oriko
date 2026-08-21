@@ -386,6 +386,14 @@ export class PowerGridView extends ItemView {
   private installDropTarget(): void {
     const el = this.contentEl;
 
+    // The frame's dashes, as a stroke rather than a border, because a CSS
+    // border cannot have its dash offset animated and a stroke can. One rect,
+    // so the dashes run continuously round the corners instead of four edges
+    // meeting at seams. Made once and hidden by CSS until a drag arrives.
+    const frame = el.createSvg("svg", { cls: "pg-drop-frame" });
+    frame.setAttribute("aria-hidden", "true");
+    frame.createSvg("rect");
+
     // dragleave fires again every time the pointer crosses into a child, and
     // the wall is nothing but children. Counting entries against leaves is
     // what stops the target strobing the whole way across the grid.

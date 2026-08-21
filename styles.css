@@ -132,7 +132,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px dashed var(--pg-accent);
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-scrim);
   backdrop-filter: var(--pg-surface-blur);
@@ -143,6 +142,47 @@
   letter-spacing: 0.01em;
   pointer-events: none;
   animation: pg-drop-in 140ms ease both;
+}
+
+/* The dashes, travelling slowly round the frame for as long as the file is
+   held over the wall. This is the state worth animating: the entrance is over
+   in a seventh of a second, and a drag sits here as long as it takes to aim.
+
+   Geometry in CSS rather than attributes, so the rect follows the frame at any
+   pane size without being measured. */
+.pg-drop-frame {
+  display: none;
+}
+
+.power-grid-view.is-drop-target .pg-drop-frame {
+  display: block;
+  position: absolute;
+  inset: 10px;
+  z-index: 61;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.power-grid-view.is-drop-target .pg-drop-frame rect {
+  x: 1px;
+  y: 1px;
+  width: calc(100% - 2px);
+  height: calc(100% - 2px);
+  rx: var(--pg-surface-radius);
+  fill: none;
+  stroke: var(--pg-accent);
+  stroke-width: 2;
+  stroke-dasharray: 10 8;
+  animation: pg-drop-march 900ms linear infinite;
+}
+
+/* One dash plus one gap, so the loop is seamless. */
+@keyframes pg-drop-march {
+  to {
+    stroke-dashoffset: -18;
+  }
 }
 
 @keyframes pg-drop-in {
@@ -157,7 +197,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .power-grid-view.is-drop-target::after {
+  .power-grid-view.is-drop-target::after,
+  .power-grid-view.is-drop-target .pg-drop-frame rect {
     animation: none;
   }
 }
