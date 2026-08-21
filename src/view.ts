@@ -385,10 +385,6 @@ export class PowerGridView extends ItemView {
    */
   private installDropTarget(): void {
     const el = this.contentEl;
-    // A real element, the two pseudo-elements being spoken for by the frame
-    // and the label. Made once and hidden by CSS until a drag arrives, rather
-    // than built and torn down on each one.
-    el.createDiv({ cls: "pg-drop-ants" });
 
     // dragleave fires again every time the pointer crosses into a child, and
     // the wall is nothing but children. Counting entries against leaves is
@@ -396,12 +392,6 @@ export class PowerGridView extends ItemView {
     let depth = 0;
     const show = (on: boolean): void => {
       if (!on) depth = 0;
-      if (!on) {
-        // Parked in the middle, so the next drag does not open with the glow
-        // sitting wherever the last one was let go.
-        el.style.setProperty("--pg-drop-x", "50%");
-        el.style.setProperty("--pg-drop-y", "50%");
-      }
       // Named while it is up, because a drop does not always land where you
       // are looking: nothing is filed into a smart grid, so one on screen
       // sends the clipping home and the frame should say so before the drop
@@ -425,27 +415,10 @@ export class PowerGridView extends ItemView {
       show(true);
     });
 
-    // Where the file is being held, for the glow that follows it. Written to
-    // custom properties rather than to a style the CSS could not reach, and
-    // coalesced to a frame: dragover fires far faster than anything repaints,
-    // and each one of these is a style invalidation on the whole pane.
-    let at: { x: number; y: number } | null = null;
-    let frame = 0;
-    const trackDrag = (): void => {
-      frame = 0;
-      if (!at) return;
-      const box = el.getBoundingClientRect();
-      el.style.setProperty("--pg-drop-x", `${at.x - box.left}px`);
-      el.style.setProperty("--pg-drop-y", `${at.y - box.top}px`);
-    };
-
     this.registerDomEvent(el, "dragover", (event: DragEvent) => {
       if (!wantsDrop(Array.from(event.dataTransfer?.types ?? []))) return;
       event.preventDefault();
       if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-
-      at = { x: event.clientX, y: event.clientY };
-      if (!frame) frame = window.requestAnimationFrame(trackDrag);
     });
 
     this.registerDomEvent(el, "dragleave", () => {
