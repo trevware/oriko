@@ -18,6 +18,13 @@ export interface MenuItem {
   /** Dimmed and inert: shown so the set reads whole, but not selectable. */
   disabled?: boolean;
   /**
+   * A small mark on the row's icon, for a row whose kind matters and is not
+   * otherwise visible. The icon itself belongs to the thing, not to its kind:
+   * two grids may reasonably wear the same bookmark, and only one of them can
+   * be dragged into.
+   */
+  badge?: boolean;
+  /**
    * Rows for a panel that opens beside this one. The parent stays open and
    * the row stays lit, so the choice keeps the context it was made from.
    */
@@ -232,6 +239,7 @@ export class ContextMenu {
       // needs the gutter, or the labels jump sideways as things are selected.
       // A panel where no row has one drops it instead, see below.
       if (item.icon) setIcon(icon, item.icon);
+      if (item.badge) icon.addClass("is-badged");
       row.createDiv({
         cls: "pg-menu-label",
         text: item.labelFor?.(this.query) ?? item.label,

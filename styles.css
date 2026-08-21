@@ -1692,6 +1692,36 @@ buttonbuttonbutton/* The management panel's rows. */
   height: 15px;
 }
 
+/* The mark on a smart grid's icon.
+
+   A dot rather than a glyph. At the size this has to be, every lucide icon
+   worth the meaning turns to mush, and the mark is a reminder rather than an
+   explanation: the create menu names the kind, the switcher groups the two,
+   and this is what carries that knowledge onto a chip showing one grid.
+
+   Drawn on the icon container, so it costs no element on any of the three
+   surfaces that show it, and rings itself in the surface colour so it reads
+   against whatever glyph it sits on. */
+.pg-menu-icon.is-badged,
+.pg-palette-icon.is-badged,
+.pg-space-icon.is-badged {
+  position: relative;
+}
+
+.pg-menu-icon.is-badged::after,
+.pg-palette-icon.is-badged::after,
+.pg-space-icon.is-badged::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pg-accent);
+  box-shadow: 0 0 0 2px var(--pg-surface);
+}
+
 /* No row in this list has a left icon, so nothing reserves the gutter. */
 .pg-palette-list.is-iconless .pg-palette-icon {
   display: none;

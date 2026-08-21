@@ -161,6 +161,15 @@ function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
 
+/** How many facets a smart grid's rules name, for a row with no room to list
+    them. Counted rather than spelled out: the rules can run to several facets
+    of several values each, and a row that wraps is worse than one that says
+    how much there is to go and read. */
+function ruleCount(grid: GridSpace): string {
+  const n = Object.keys(grid.rules ?? {}).length;
+  return `${n} ${plural(n, "rule", "rules")}`;
+}
+
 /**
  * Names a grid and picks its icon at once: the field is the name, the rows are
  * the icons. The rows are a choice beside the field rather than a list to
@@ -520,10 +529,17 @@ export function openGridsManager(
         return;
       }
 
+      const smart = isSmartGrid(grid);
       rows.push({
         label: grid.name,
         icon: grid.icon,
-        detail: String(grids.memberCount(grid.name)),
+        badge: smart,
+        // memberCount asks how many notes carry the name, which is nought for
+        // a smart grid however much it is showing, so it would report every
+        // one of them as empty. What it holds is a question for the wall; what
+        // defines it belongs here, and is the half this row can answer without
+        // going and reading the vault on every keystroke.
+        detail: smart ? ruleCount(grid) : String(grids.memberCount(grid.name)),
         onChoose: () => actions(grid, index),
       });
     });

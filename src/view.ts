@@ -1468,6 +1468,7 @@ export class PowerGridView extends ItemView {
     // second may genuinely be \u23184.
     const row = (placed: PlacedGrid, divider = false): MenuItem => ({
       icon: placed.grid.icon,
+      badge: isSmartGrid(placed.grid),
       label: placed.grid.name,
       detail: placed.position < 9 ? `\u2318${placed.position + 1}` : undefined,
       divider,
