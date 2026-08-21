@@ -174,12 +174,23 @@
        change no eye picks up; this runs from a little over half opacity to the
        surface's fullest mark, and narrows the band so the lift arrives as a
        glint rather than a wash. */
+    /* Two glints to a tile, not one.
+
+       Slower and more often pull against each other while there is a single
+       band: one cycle carries the tile exactly one width, so the only way to
+       raise the cadence is to shorten the cycle, which speeds the travel up.
+       A second band in the same tile breaks the tie. The cycle can then be
+       lengthened, which slows the sweep, while a glint arrives every half
+       cycle rather than every whole one. */
     background-image: linear-gradient(
       90deg,
       color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 0%,
-      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 42%,
-      var(--pg-mark) 50%,
-      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 58%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 17%,
+      var(--pg-mark) 25%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 33%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 67%,
+      var(--pg-mark) 75%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 83%,
       color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 100%
     );
     /* Tiled, not no-repeat. Outside a no-repeat image there is nothing to clip
@@ -193,7 +204,7 @@
     color: transparent;
     animation:
       pg-drop-in 140ms ease both,
-      pg-drop-shimmer 3200ms linear infinite;
+      pg-drop-shimmer 4800ms linear infinite;
   }
 }
 
