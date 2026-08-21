@@ -113,35 +113,84 @@
 }
 
 /* Drop target: drawn on the view rather than inside the viewport, so it frames
-   the whole wall including its chrome, and as a ::after so it costs nothing at
-   all until a drag actually arrives.
+   the whole wall including its chrome, and as pseudo-elements so it costs no
+   DOM at all until a drag actually arrives.
 
-   The label is set by the view, which knows where the drop will actually
-   land: nothing is filed into a smart grid, so one on screen sends the
-   clipping home, and that is better said by the frame before the drop than by
-   a toast after it.
+   The scrim and the label are separate because the label shimmers, and a
+   shimmer is a gradient clipped to the glyphs. Clip the scrim's own element
+   and the scrim would be clipped to the letters along with it.
 
    pointer-events stay off throughout. An overlay that could be hit would take
    the dragover events itself, and the drop would land on a target that had
    just stopped being able to hear about it. */
-.power-grid-view.is-drop-target::after {
-  content: var(--pg-drop-label, "Drop to add");
+.power-grid-view.is-drop-target::before {
+  content: "";
   position: absolute;
   inset: 10px;
   z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-scrim);
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
+  pointer-events: none;
+  animation: pg-drop-in 140ms ease both;
+}
+
+/* The label is set by the view, which knows where the drop will actually
+   land: nothing is filed into a smart grid, so one on screen sends the
+   clipping home, and that is better said by the frame before the drop than by
+   a toast after it. */
+.power-grid-view.is-drop-target::after {
+  content: var(--pg-drop-label, "Drop to add");
+  position: absolute;
+  inset: 10px;
+  z-index: 62;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--pg-surface-text);
   font-size: 15px;
   font-weight: 500;
   letter-spacing: 0.01em;
   pointer-events: none;
   animation: pg-drop-in 140ms ease both;
+}
+
+/* A highlight travelling across the words, lighting each letter as it passes.
+
+   Painted as a gradient clipped to the glyphs, so it is the letters that
+   brighten rather than a band drawn over them. Guarded, because the colour has
+   to be transparent for the clip to show and text that cannot be clipped would
+   then be text that cannot be seen. The flare is the accent rather than white:
+   in a light theme the letters are already dark on pale, so brightening
+   towards white would fade them out instead of lighting them up. */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .power-grid-view.is-drop-target::after {
+    background-image: linear-gradient(
+      90deg,
+      var(--pg-surface-text) 45%,
+      color-mix(in srgb, var(--pg-accent) 75%, var(--pg-surface-text)) 50%,
+      var(--pg-surface-text) 55%
+    );
+    background-size: 220% 100%;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation:
+      pg-drop-in 140ms ease both,
+      pg-drop-shimmer 2600ms linear 300ms infinite;
+  }
+}
+
+/* One full traverse: the band starts off one end and leaves by the other. */
+@keyframes pg-drop-shimmer {
+  from {
+    background-position: 110% 0;
+  }
+  to {
+    background-position: -110% 0;
+  }
 }
 
 /* The dashes, travelling slowly round the frame for as long as the file is
@@ -213,9 +262,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .power-grid-view.is-drop-target::before,
   .power-grid-view.is-drop-target::after,
   .power-grid-view.is-drop-target .pg-drop-frame rect {
     animation: none;
+  }
+
+  /* Without the sweep the gradient parks mid-band, so the colour comes back
+     and the letters are simply the colour they always were. */
+  .power-grid-view.is-drop-target::after {
+    background-image: none;
+    color: var(--pg-surface-text);
   }
 }
 
