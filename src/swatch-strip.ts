@@ -30,8 +30,8 @@ const FLASH_MS = 1100;
 const STAGGER_CAP = 8;
 
 /** Between one swatch and the next, and how long each takes to arrive. */
-const STAGGER_MS = 45;
-const SWATCH_MS = 260;
+const STAGGER_MS = 32;
+const SWATCH_MS = 200;
 
 /**
  * The palette of an image element, or an empty array when there is none to
