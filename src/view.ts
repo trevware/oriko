@@ -163,6 +163,7 @@ export class PowerGridView extends ItemView {
       // Armed, not flown: the tile does not exist until the index change
       // this capture is about to cause has been painted.
       this.pendingReveal = { path, until: performance.now() + REVEAL_WINDOW_MS };
+      this.reportCaptureHome(path);
     };
 
     this.grid = new GridRenderer(this.app, this.contentEl);
@@ -797,6 +798,39 @@ export class PowerGridView extends ItemView {
    * the cover may still be resolving, and the next repaint is the one that
    * will have it.
    */
+  /**
+   * Says where a clipping went when it could not go where you were looking.
+   *
+   * Nothing is filed into an auto-grid, so clipping while one is on screen
+   * saves to home. Whether that is worth saying depends on what happens next:
+   * a clipping the rules do admit turns up on this very wall and the detour is
+   * invisible, which is why it is not mentioned. One they do not simply never
+   * appears, and a clip that looks like it did nothing is the thing worth a
+   * word.
+   */
+  private reportCaptureHome(path: string): void {
+    const space = this.activeGrid();
+    if (!isAutoGrid(space) || !space.rules) return;
+
+    const home = this.plugin.settings.homeGridName;
+    const record = this.plugin.index.records().find((entry) => entry.path === path);
+    const [tile] = record ? buildTiles([record], this.plugin.archiver.cache) : [];
+
+    // No tile yet means the cover is still resolving, so whether the rules
+    // admit it cannot be judged. Where it went still can, and is the half of
+    // the message that matters.
+    if (!tile) {
+      new Notice(`Power Grid: saved to ${home}`);
+      return;
+    }
+
+    if (matchesFilter(tile, space.rules, this.allDefs(this.facets))) return;
+
+    new Notice(
+      `Power Grid: saved to ${home}. It does not match ${space.name}, so it is not on this wall.`
+    );
+  }
+
   private flyToPending(): void {
     const pending = this.pendingReveal;
     if (!pending) return;
