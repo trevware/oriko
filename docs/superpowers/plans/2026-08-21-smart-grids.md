@@ -1,27 +1,27 @@
-# Auto-grids Implementation Plan
+# Smart grids Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A grid whose membership is a stored `FilterState` rather than a `grid:` key, created from the create menu and defined with a Smart Folders style rule editor.
 
-**Architecture:** An auto-grid is a `GridSpace` carrying `rules?: FilterState`. Membership is `matchesFilter` over tiles, evaluated in `paint()` after `buildTiles` and before the ad-hoc filter, so rules and filter are the same type run through the same matcher at two stages. Nothing is written to a note to belong to one, and home keeps its meaning as the remainder.
+**Architecture:** A smart grid is a `GridSpace` carrying `rules?: FilterState`. Membership is `matchesFilter` over tiles, evaluated in `paint()` after `buildTiles` and before the ad-hoc filter, so rules and filter are the same type run through the same matcher at two stages. Nothing is written to a note to belong to one, and home keeps its meaning as the remainder.
 
 **Tech Stack:** TypeScript, esbuild, vitest, Obsidian plugin API.
 
-**Spec:** `docs/superpowers/specs/2026-08-21-auto-grids-design.md`
+**Spec:** `docs/superpowers/specs/2026-08-21-smart grids-design.md`
 
 ## Global Constraints
 
 - **A module importing `obsidian` cannot be unit tested.** Pure logic goes in modules with zero Obsidian imports: `spaces`, `filter`, `tile`, `dates`. `view.ts`, `grid-sheets.ts`, `space-bar.ts` are the untestable shell.
-- **Never write to a note outside the two licensed writers.** `view.assign` for `grid`, `view.setProperty` for the user's own properties. Auto-grid membership writes nothing.
+- **Never write to a note outside the two licensed writers.** `view.assign` for `grid`, `view.setProperty` for the user's own properties. Smart grid membership writes nothing.
 - **Verification is `npm test` and `npx tsc --noEmit`, both exit 0.** Piping to `head` masks a non-zero status.
 - **Commit as you go, push to `origin`.** No AI attribution anywhere in repository information.
 - **Rules are never pruned.** `pruneFilter` applies to the ad-hoc filter only.
-- **Home cannot be an auto-grid.** It is implicit and is the remainder.
+- **Home cannot be a smart grid.** It is implicit and is the remainder.
 
 ---
 
-### Task 1: `GridSpace.rules` and `isAutoGrid`
+### Task 1: `GridSpace.rules` and `isSmartGrid`
 
 **Files:**
 - Modify: `src/spaces.ts`
@@ -29,22 +29,22 @@
 
 **Interfaces:**
 - Consumes: `FilterState` from `src/filter.ts` (both modules are pure, so the import is safe).
-- Produces: `GridSpace.rules?: FilterState`, `isAutoGrid(space: GridSpace): boolean`.
+- Produces: `GridSpace.rules?: FilterState`, `isSmartGrid(space: GridSpace): boolean`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-describe("isAutoGrid", () => {
-  it("is an auto-grid once it carries rules", () => {
-    expect(isAutoGrid({ name: "Unread", icon: "star", rules: { status: ["unread"] } })).toBe(true);
+describe("isSmartGrid", () => {
+  it("is a smart grid once it carries rules", () => {
+    expect(isSmartGrid({ name: "Unread", icon: "star", rules: { status: ["unread"] } })).toBe(true);
   });
 
   it("is a manual grid with no rules at all", () => {
-    expect(isAutoGrid({ name: "Manga", icon: "archive" })).toBe(false);
+    expect(isSmartGrid({ name: "Manga", icon: "archive" })).toBe(false);
   });
 
   it("treats an empty rule set as manual, since it would name the whole wall", () => {
-    expect(isAutoGrid({ name: "Empty", icon: "star", rules: {} })).toBe(false);
+    expect(isSmartGrid({ name: "Empty", icon: "star", rules: {} })).toBe(false);
   });
 });
 ```
@@ -52,7 +52,7 @@ describe("isAutoGrid", () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/spaces.test.ts`
-Expected: FAIL, `isAutoGrid is not a function`.
+Expected: FAIL, `isSmartGrid is not a function`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -63,18 +63,18 @@ import type { FilterState } from "./filter";
 export interface GridSpace {
   name: string;
   icon: string;
-  /** Present on an auto-grid: the rules its membership is computed from.
+  /** Present on a smart grid: the rules its membership is computed from.
       Absent on a manual grid, whose membership is the `grid:` key. */
   rules?: FilterState;
 }
 
 /**
- * Empty rules are manual, not an auto-grid matching everything. A grid that
+ * Empty rules are manual, not a smart grid matching everything. A grid that
  * named the whole wall would be a second copy of home, and the editor refuses
  * to create one; treating it as manual here means a hand-edited data.json
  * cannot produce one either.
  */
-export function isAutoGrid(space: GridSpace): boolean {
+export function isSmartGrid(space: GridSpace): boolean {
   return space.rules !== undefined && !isFilterEmpty(space.rules);
 }
 ```
@@ -88,7 +88,7 @@ Expected: PASS, tsc exit 0.
 
 ```bash
 git add src/spaces.ts tests/spaces.test.ts
-git commit -m "Let a grid carry rules, which is what makes it an auto-grid"
+git commit -m "Let a grid carry rules, which is what makes it a smart grid"
 ```
 
 ---
@@ -100,10 +100,10 @@ git commit -m "Let a grid carry rules, which is what makes it an auto-grid"
 - Test: `tests/spaces.test.ts`
 
 **Interfaces:**
-- Consumes: `isAutoGrid` from Task 1, `FacetDef` from `src/filter.ts`.
+- Consumes: `isSmartGrid` from Task 1, `FacetDef` from `src/filter.ts`.
 - Produces: `assignableValue(space: GridSpace, defs: FacetDef[]): { key: string; value: string } | null`.
 
-The single property write that would make a clipping match, or null when there isn't one. Used by Task 7 to decide whether an auto-grid can be a move target.
+The single property write that would make a clipping match, or null when there isn't one. Used by Task 7 to decide whether a smart grid can be a move target.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -161,7 +161,7 @@ Expected: FAIL, `assignableValue is not a function`.
  * The single property write that would make a clipping match, or null when
  * there is not exactly one.
  *
- * This is what decides whether an auto-grid can be a move target. A target
+ * This is what decides whether a smart grid can be a move target. A target
  * that cannot act is worse than an absent one, which is why every ambiguous
  * case refuses rather than picking a value out of the rule and hoping.
  */
@@ -169,7 +169,7 @@ export function assignableValue(
   space: GridSpace,
   defs: FacetDef[]
 ): { key: string; value: string } | null {
-  if (!isAutoGrid(space) || !space.rules) return null;
+  if (!isSmartGrid(space) || !space.rules) return null;
 
   const entries = Object.entries(space.rules);
   if (entries.length !== 1) return null;
@@ -199,12 +199,12 @@ Expected: PASS, tsc exit 0.
 
 ```bash
 git add src/spaces.ts tests/spaces.test.ts
-git commit -m "Work out whether an auto-grid names a write that would join it"
+git commit -m "Work out whether a smart grid names a write that would join it"
 ```
 
 ---
 
-### Task 3: `autoMembers`
+### Task 3: `smartMembers`
 
 **Files:**
 - Modify: `src/filter.ts`
@@ -212,14 +212,14 @@ git commit -m "Work out whether an auto-grid names a write that would join it"
 
 **Interfaces:**
 - Consumes: `matchesFilter`, `FilterState`, `FacetDef` (all already in `src/filter.ts`).
-- Produces: `autoMembers(tiles: TileModel[], rules: FilterState, defs: FacetDef[]): TileModel[]`.
+- Produces: `smartMembers(tiles: TileModel[], rules: FilterState, defs: FacetDef[]): TileModel[]`.
 
 A named home for the first of the two matcher stages, so the untestable `paint()` branch is one call rather than a filter expression nobody can test.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-describe("autoMembers", () => {
+describe("smartMembers", () => {
   const defs = facetDefs(["categories", "status"]);
   const tiles = [
     tileWith({ categories: ["design"], status: ["unread"] }),
@@ -228,19 +228,19 @@ describe("autoMembers", () => {
   ];
 
   it("admits the tiles the rules name", () => {
-    expect(autoMembers(tiles, { categories: ["design"] }, defs)).toHaveLength(2);
+    expect(smartMembers(tiles, { categories: ["design"] }, defs)).toHaveLength(2);
   });
 
   it("narrows across facets, as the filter does", () => {
-    expect(autoMembers(tiles, { categories: ["design"], status: ["unread"] }, defs)).toHaveLength(1);
+    expect(smartMembers(tiles, { categories: ["design"], status: ["unread"] }, defs)).toHaveLength(1);
   });
 
   it("admits everything when the rules are empty, leaving the wall to the filter", () => {
-    expect(autoMembers(tiles, {}, defs)).toHaveLength(3);
+    expect(smartMembers(tiles, {}, defs)).toHaveLength(3);
   });
 
   it("stacks: an ad-hoc filter narrows the members further rather than replacing them", () => {
-    const members = autoMembers(tiles, { categories: ["design"] }, defs);
+    const members = smartMembers(tiles, { categories: ["design"] }, defs);
     const shown = members.filter((tile) => matchesFilter(tile, { status: ["unread"] }, defs));
     expect(shown).toHaveLength(1);
   });
@@ -257,20 +257,20 @@ const tileWith = (properties: Record<string, string[]>): TileModel =>
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/filter.test.ts`
-Expected: FAIL, `autoMembers is not a function`.
+Expected: FAIL, `smartMembers is not a function`.
 
 - [ ] **Step 3: Write minimal implementation**
 
 ```ts
 /**
- * The tiles an auto-grid holds: the first of the two stages the same matcher
+ * The tiles a smart grid holds: the first of the two stages the same matcher
  * runs at.
  *
  * The rules decide what the grid contains; the ad-hoc filter then narrows what
  * of it is on screen. Keeping them the same type run by the same function is
- * what makes stacking a filter on an auto-grid need no new code at all.
+ * what makes stacking a filter on a smart grid need no new code at all.
  */
-export function autoMembers(
+export function smartMembers(
   tiles: TileModel[],
   rules: FilterState,
   defs: FacetDef[]
@@ -289,7 +289,7 @@ Expected: PASS, tsc exit 0.
 
 ```bash
 git add src/filter.ts tests/filter.test.ts
-git commit -m "Name the first matcher stage, where an auto-grid's members are decided"
+git commit -m "Name the first matcher stage, where a smart grid's members are decided"
 ```
 
 ---
@@ -300,22 +300,22 @@ git commit -m "Name the first matcher stage, where an auto-grid's members are de
 - Modify: `src/view.ts` (`paint`, `defs`, add `allDefs`)
 
 **Interfaces:**
-- Consumes: `autoMembers` (Task 3), `isAutoGrid` (Task 1).
-- Produces: an auto-grid renders its members; nothing else changes.
+- Consumes: `smartMembers` (Task 3), `isSmartGrid` (Task 1).
+- Produces: a smart grid renders its members; nothing else changes.
 
 No unit tests: `view.ts` imports `obsidian`. Verified by hand against the vault in Step 4.
 
 - [ ] **Step 1: Add the rule-evaluation defs**
 
-`defs()` reads `this.facets`, and for an auto-grid `this.facets` is the rules' *result*, so it cannot be what the rules are evaluated against. Add a sibling that types the facets from every tile:
+`defs()` reads `this.facets`, and for a smart grid `this.facets` is the rules' *result*, so it cannot be what the rules are evaluated against. Add a sibling that types the facets from every tile:
 
 ```ts
 /**
- * Defs for evaluating an auto-grid's rules, typed from every tile rather than
+ * Defs for evaluating a smart grid's rules, typed from every tile rather than
  * from the grid's own.
  *
  * defs() samples this.facets to decide whether a property holds dates, and for
- * an auto-grid this.facets is what the rules produced. Using it here would ask
+ * a smart grid this.facets is what the rules produced. Using it here would ask
  * the rules to be evaluated against a typing that only exists once they have
  * been. Circular, and it fails quietly: a date facet types as text and its
  * buckets stop matching, so the grid is wrong rather than broken.
@@ -334,11 +334,11 @@ private paint(options: { replace?: boolean }): void {
   if (!this.grid) return;
 
   const space = this.activeGrid();
-  const auto = isAutoGrid(space);
+  const auto = isSmartGrid(space);
 
-  // An auto-grid's rules run over the whole vault, so its tiles are built from
+  // A smart grid's rules run over the whole vault, so its tiles are built from
   // every record rather than from one wall's slice. Home stays everything, so
-  // a clipping filed in Manga is still eligible for an auto-grid.
+  // a clipping filed in Manga is still eligible for a smart grid.
   const tiles = buildTiles(
     auto
       ? this.plugin.index.records()
@@ -356,7 +356,7 @@ private paint(options: { replace?: boolean }): void {
   // filter: counting the result would make options disappear the moment
   // you used one, leaving no way back.
   this.facets =
-    auto && space.rules ? autoMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
+    auto && space.rules ? smartMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
   this.applyFilter(options);
   this.flyToPending();
 }
@@ -381,7 +381,7 @@ Expected: the grid shows only unread clippings, drawn from every grid rather tha
 
 ```bash
 git add src/view.ts
-git commit -m "Render an auto-grid from its rules, typed against the whole wall"
+git commit -m "Render a smart grid from its rules, typed against the whole wall"
 ```
 
 ---
@@ -392,8 +392,8 @@ git commit -m "Render an auto-grid from its rules, typed against the whole wall"
 - Modify: `src/grid-sheets.ts`, `src/view.ts` (`openCreate`, `promptNewGrid`)
 
 **Interfaces:**
-- Consumes: `assignableValue` is not needed here; `FacetDef`, `FacetValue`, `FilterState`, `toggleFacet`, `facetsOf`, `isFilterEmpty` from `src/filter.ts`; `autoMembers` from Task 3.
-- Produces: `openNewAutoGrid(sheet, grids, rules, after)`, and `GridsController` gains the two readers the editor needs.
+- Consumes: `assignableValue` is not needed here; `FacetDef`, `FacetValue`, `FilterState`, `toggleFacet`, `facetsOf`, `isFilterEmpty` from `src/filter.ts`; `smartMembers` from Task 3.
+- Produces: `openNewSmartGrid(sheet, grids, rules, after)`, and `GridsController` gains the two readers the editor needs.
 
 `GridsController` gains:
 
@@ -409,26 +409,26 @@ export interface GridsController {
 }
 ```
 
-Implemented in `view.ts` from `buildTiles(this.plugin.index.records(), ...)`, `this.allDefs(tiles)`, `facetsOf(tiles, defs)` and `autoMembers(tiles, rules, defs).length`.
+Implemented in `view.ts` from `buildTiles(this.plugin.index.records(), ...)`, `this.allDefs(tiles)`, `facetsOf(tiles, defs)` and `smartMembers(tiles, rules, defs).length`.
 
-- [ ] **Step 1: Add "New auto-grid" to the create menu**
+- [ ] **Step 1: Add "New smart grid" to the create menu**
 
 In `view.openCreate`, beneath the existing New grid row (which keeps the divider):
 
 ```ts
 {
   icon: "wand-2",
-  label: "New auto-grid",
-  onSelect: () => this.promptNewAutoGrid(),
+  label: "New smart grid",
+  onSelect: () => this.promptNewSmartGrid(),
 },
 ```
 
 and beside `promptNewGrid`:
 
 ```ts
-private promptNewAutoGrid(): void {
+private promptNewSmartGrid(): void {
   if (!this.sheet) return;
-  openNewAutoGrid(this.sheet, this.gridsController(), {}, () => this.refresh());
+  openNewSmartGrid(this.sheet, this.gridsController(), {}, () => this.refresh());
 }
 ```
 
@@ -436,7 +436,7 @@ private promptNewAutoGrid(): void {
 
 `gridEditorScreen` gains two parameters: the rules being built (`FilterState | null`, null for a manual grid) and the controller readers above. When rules are present:
 
-- `title` is `New auto-grid` when creating, `Edit ${grid.name}` otherwise
+- `title` is `New smart grid` when creating, `Edit ${grid.name}` otherwise
 - `cta` is `Next: rules` when creating, `Save` otherwise
 - `onSubmit` validates the name exactly as now, then **pushes the rules screen** instead of calling `create`
 
@@ -459,7 +459,7 @@ function rulesScreen(
 - `note`: `` `Matches ${grids.ruleMatches(rules)} ${plural(n, "clipping", "clippings")}` ``, rebuilt whenever the screen is repainted so ticking a value moves it
 - `filters: true`, `layout: "list"`
 - `rows`: one per def from `grids.ruleDefs()`, `label` the def's label, `icon` the def's icon, `detail` the chosen values joined with `, ` or `Any` when unset. `onChoose` pushes the values screen for that def.
-- `cta`: `Create grid` when creating, `Save` otherwise. `onSubmit` refuses with a `Notice` reading `Power Grid: an auto-grid needs at least one rule` while `isFilterEmpty(rules)`, otherwise calls `grids.create({ ...grid, rules })` or `grids.rename(grid.name, { ...grid, rules })` and closes.
+- `cta`: `Create grid` when creating, `Save` otherwise. `onSubmit` refuses with a `Notice` reading `Power Grid: a smart grid needs at least one rule` while `isFilterEmpty(rules)`, otherwise calls `grids.create({ ...grid, rules })` or `grids.rename(grid.name, { ...grid, rules })` and closes.
 - `hints`: `[["↑↓", "navigate"], ["↵", "choose"], ["esc", "back"]]`
 
 - [ ] **Step 4: Add the values screen**
@@ -479,7 +479,7 @@ The tick list the plugin already draws twice. Rows come from `grids.ruleFacets()
 - [ ] **Step 5: Export the entry point**
 
 ```ts
-export function openNewAutoGrid(
+export function openNewSmartGrid(
   sheet: Sheet,
   grids: GridsController,
   rules: FilterState,
@@ -495,13 +495,13 @@ export function openNewAutoGrid(
 
 Run: `npx tsc --noEmit && node esbuild.config.mjs`
 
-In Obsidian: create button, New auto-grid, name it, pick an icon, `Next: rules`, tick two categories, watch the count move, `Create grid`. Expected: the grid appears in the switcher and holds what the count promised. Then delete the hand-written entry from Task 4's `data.json` check.
+In Obsidian: create button, New smart grid, name it, pick an icon, `Next: rules`, tick two categories, watch the count move, `Create grid`. Expected: the grid appears in the switcher and holds what the count promised. Then delete the hand-written entry from Task 4's `data.json` check.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add src/grid-sheets.ts src/view.ts
-git commit -m "Ask what picks an auto-grid up, and say how much it would pick up"
+git commit -m "Ask what picks a smart grid up, and say how much it would pick up"
 ```
 
 ---
@@ -512,22 +512,22 @@ git commit -m "Ask what picks an auto-grid up, and say how much it would pick up
 - Modify: `src/grid-sheets.ts` (`openGridsManager`, `gridEditorScreen`, `confirmDelete`), `src/space-bar.ts`, `src/view.ts` (`openSwitcher`), `styles.css`
 
 **Interfaces:**
-- Consumes: `isAutoGrid` (Task 1), the screens from Task 5.
+- Consumes: `isSmartGrid` (Task 1), the screens from Task 5.
 - Produces: no new exports.
 
 - [ ] **Step 1: Route editing through the rules screen**
 
-In `gridEditorScreen`, when the grid `isAutoGrid` and is **not** being created, add a `Rules` row above the icon swatches that pushes `rulesScreen`. The swatch layout cannot hold a row, so this screen becomes `layout: "list"` for an auto-grid, with the icon chosen from a pushed swatch screen instead. Manual grids keep today's single-screen swatch editor untouched.
+In `gridEditorScreen`, when the grid `isSmartGrid` and is **not** being created, add a `Rules` row above the icon swatches that pushes `rulesScreen`. The swatch layout cannot hold a row, so this screen becomes `layout: "list"` for a smart grid, with the icon chosen from a pushed swatch screen instead. Manual grids keep today's single-screen swatch editor untouched.
 
 - [ ] **Step 2: Stop rename and delete lying about notes**
 
-`gridEditorScreen`'s rename branch calls `grids.memberCount(grid.name)`, which counts notes carrying the name. An auto-grid has none, so guard it:
+`gridEditorScreen`'s rename branch calls `grids.memberCount(grid.name)`, which counts notes carrying the name. A smart grid has none, so guard it:
 
 ```ts
-const members = renamed && !isAutoGrid(grid) ? grids.memberCount(grid.name) : 0;
+const members = renamed && !isSmartGrid(grid) ? grids.memberCount(grid.name) : 0;
 ```
 
-In `confirmDelete`, an auto-grid's note reads `Its rules are removed. No clipping is changed.` rather than the manual grid's copy about clippings returning home.
+In `confirmDelete`, a smart grid's note reads `Its rules are removed. No clipping is changed.` rather than the manual grid's copy about clippings returning home.
 
 - [ ] **Step 3: Mark a rule the wall can no longer apply**
 
@@ -535,7 +535,7 @@ Rules are never pruned, which is true by construction: `pruneFilter` is called i
 
 - [ ] **Step 4: Badge the switcher and the manager**
 
-Add a `pg-auto-badge` element to the space bar's active-grid chip and to each auto-grid row in the manager and the switcher menu. `space-bar.ts` `setActive(grid)` toggles it from `isAutoGrid(grid)`.
+Add a `pg-auto-badge` element to the space bar's active-grid chip and to each smart grid row in the manager and the switcher menu. `space-bar.ts` `setActive(grid)` toggles it from `isSmartGrid(grid)`.
 
 ```css
 .pg-auto-badge { /* small corner mark over the grid icon */ }
@@ -545,13 +545,13 @@ Add a `pg-auto-badge` element to the space bar's active-grid chip and to each au
 
 Run: `npx tsc --noEmit && node esbuild.config.mjs`
 
-Expected: renaming an auto-grid does not ask about clippings and rewrites no note; deleting one says so; the badge distinguishes the two kinds in all three places; removing `status` from the filter properties in settings marks a grid whose rules use it. Confirm with `git status` in the vault that no clipping was touched.
+Expected: renaming a smart grid does not ask about clippings and rewrites no note; deleting one says so; the badge distinguishes the two kinds in all three places; removing `status` from the filter properties in settings marks a grid whose rules use it. Confirm with `git status` in the vault that no clipping was touched.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add src/grid-sheets.ts src/space-bar.ts src/view.ts styles.css
-git commit -m "Edit, rename and delete an auto-grid without lying about notes"
+git commit -m "Edit, rename and delete a smart grid without lying about notes"
 ```
 
 ---
@@ -566,12 +566,12 @@ git commit -m "Edit, rename and delete an auto-grid without lying about notes"
 - Consumes: `assignableValue` (Task 2).
 - Produces: `PaletteContext` gains `assignable: (grid: GridSpace) => { key: string; value: string } | null`.
 
-There is no tile-onto-chip drag gesture in the plugin today, so "dropping onto an auto-grid" means the **move targets**: the palette's `Move to grid` stage and the context menu's move submenu.
+There is no tile-onto-chip drag gesture in the plugin today, so "dropping onto a smart grid" means the **move targets**: the palette's `Move to grid` stage and the context menu's move submenu.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-it("offers an assignable auto-grid as a move target", () => {
+it("offers an assignable smart grid as a move target", () => {
   const ctx = context({
     selection: ["a.md"],
     grids: [
@@ -584,7 +584,7 @@ it("offers an assignable auto-grid as a move target", () => {
   expect(targets.map((t) => t.label)).toContain("Design");
 });
 
-it("drops an auto-grid that names no single write", () => {
+it("drops a smart grid that names no single write", () => {
   const ctx = context({
     selection: ["a.md"],
     grids: [
@@ -610,13 +610,13 @@ Expected: FAIL, the Mixed target is still offered.
 In `selectionCommands`, replace the targets line:
 
 ```ts
-// Moving to the grid you are already in does nothing, and an auto-grid can
+// Moving to the grid you are already in does nothing, and a smart grid can
 // only be a target when its rules name one write that would join it: a
 // target that cannot act is worse than an absent one.
 const targets = context.grids.filter(
   (grid) =>
     grid.name !== context.activeGrid &&
-    (!isAutoGrid(grid) || context.assignable(grid) !== null)
+    (!isSmartGrid(grid) || context.assignable(grid) !== null)
 );
 ```
 
@@ -630,8 +630,8 @@ Expected: PASS, tsc exit 0.
 In `view.moveTo`, before the `assign` path:
 
 ```ts
-// Joining an auto-grid is not a move: the clipping keeps whatever grid key
-// it had, because home stays everything and an auto-grid is not a place.
+// Joining a smart grid is not a move: the clipping keeps whatever grid key
+// it had, because home stays everything and a smart grid is not a place.
 const space = this.allGrids().find((grid) => grid.name === name);
 const write = space ? assignableValue(space, this.defs()) : null;
 if (write) {
@@ -646,13 +646,13 @@ Note `setProperty` replaces the value here rather than appending. That matches t
 
 Run: `npx tsc --noEmit && node esbuild.config.mjs`
 
-Expected: `Move to grid` on a selection offers `Design`; choosing it adds `categories: design` to each note's frontmatter, leaves `grid:` alone, and the tiles appear in the Design auto-grid without leaving the grid they were in.
+Expected: `Move to grid` on a selection offers `Design`; choosing it adds `categories: design` to each note's frontmatter, leaves `grid:` alone, and the tiles appear in the Design smart grid without leaving the grid they were in.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add src/commands.ts src/view.ts tests/commands.test.ts
-git commit -m "Join an auto-grid by making its rule true, which is not a move"
+git commit -m "Join a smart grid by making its rule true, which is not a move"
 ```
 
 ---
@@ -663,12 +663,12 @@ git commit -m "Join an auto-grid by making its rule true, which is not a move"
 - Modify: `src/view.ts` (`openFilter`)
 
 **Interfaces:**
-- Consumes: `openNewAutoGrid` (Task 5), `isAutoGrid` (Task 1).
+- Consumes: `openNewSmartGrid` (Task 5), `isSmartGrid` (Task 1).
 - Produces: no new exports.
 
-- [ ] **Step 1: Show the rules inertly while an auto-grid is on screen**
+- [ ] **Step 1: Show the rules inertly while a smart grid is on screen**
 
-At the top of the items `openFilter` builds, when the active grid `isAutoGrid`, prepend a section: one `disabled` row per rule reading `${def.label}: ${values.join(", ")}`, followed by a `divider` on the first facet row beneath. They explain why the wall looks like this, so the facets below are read as narrowing something rather than as the whole story.
+At the top of the items `openFilter` builds, when the active grid `isSmartGrid`, prepend a section: one `disabled` row per rule reading `${def.label}: ${values.join(", ")}`, followed by a `divider` on the first facet row beneath. They explain why the wall looks like this, so the facets below are read as narrowing something rather than as the whole story.
 
 - [ ] **Step 2: Add the Save as grid row**
 
@@ -682,7 +682,7 @@ At the end of the items, when the ad-hoc filter is non-empty:
   alwaysShow: true,
   onSelect: () => {
     const rules = this.activeFilter();
-    if (this.sheet) openNewAutoGrid(this.sheet, this.gridsController(), rules, () => this.refresh());
+    if (this.sheet) openNewSmartGrid(this.sheet, this.gridsController(), rules, () => this.refresh());
   },
 },
 ```
@@ -699,7 +699,7 @@ Expected: narrowing the wall and choosing Save as grid opens the editor with the
 
 ```bash
 git add src/view.ts
-git commit -m "Show an auto-grid its rules, and let a narrowing become one"
+git commit -m "Show a smart grid its rules, and let a narrowing become one"
 ```
 
 ---
@@ -711,10 +711,10 @@ git commit -m "Show an auto-grid its rules, and let a narrowing become one"
 - Test: none; `grid.ts` draws DOM.
 
 **Interfaces:**
-- Consumes: `isAutoGrid` (Task 1).
+- Consumes: `isSmartGrid` (Task 1).
 - Produces: `GridHandlers` gains `emptyState: () => { title: string; note: string; action?: { label: string; run: () => void } }`.
 
-**This is new work, not a modification.** There is no empty state in the plugin today: an empty grid is a blank wall. Confirmed by `grep -rn "pg-empty|No clippings" src/ styles.css`, which finds nothing. That is survivable for a manual grid and confusing for an auto-grid, where a blank wall reads as a bug.
+**This is new work, not a modification.** There is no empty state in the plugin today: an empty grid is a blank wall. Confirmed by `grep -rn "pg-empty|No clippings" src/ styles.css`, which finds nothing. That is survivable for a manual grid and confusing for a smart grid, where a blank wall reads as a bug.
 
 - [ ] **Step 1: Draw an empty state when there are no tiles**
 
@@ -725,7 +725,7 @@ In `grid.setTiles`, when the tile list is empty, render a centred `pg-empty` blo
 ```ts
 emptyState: () => {
   const space = this.activeGrid();
-  if (!isAutoGrid(space) || !space.rules) {
+  if (!isSmartGrid(space) || !space.rules) {
     return { title: "Nothing in this grid yet", note: "Clip something, or move a clipping here." };
   }
   return {
@@ -748,13 +748,13 @@ where `summariseRules` joins each facet as `${def.label}: ${values.join(", ")}` 
 
 Run: `npm test && npx tsc --noEmit && node esbuild.config.mjs`
 
-Create an auto-grid whose rules match nothing. Expected: the rule copy and an Edit rules button, not the drop invitation. Then check an empty manual grid gets the other copy. Note the rules screen's live count should make the first case rare, since a rule matching nothing says `Matches 0 clippings` before the CTA is pressed.
+Create a smart grid whose rules match nothing. Expected: the rule copy and an Edit rules button, not the drop invitation. Then check an empty manual grid gets the other copy. Note the rules screen's live count should make the first case rare, since a rule matching nothing says `Matches 0 clippings` before the CTA is pressed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/view.ts src/grid.ts styles.css
-git commit -m "Say why an auto-grid is empty, rather than inviting a drop it cannot take"
+git commit -m "Say why a smart grid is empty, rather than inviting a drop it cannot take"
 ```
 
 ---
@@ -764,5 +764,5 @@ git commit -m "Say why an auto-grid is empty, rather than inviting a drop it can
 - [ ] `npm test` exits 0
 - [ ] `npx tsc --noEmit` exits 0
 - [ ] `node esbuild.config.mjs` writes the bundle into the vault
-- [ ] In Obsidian: create an auto-grid, edit its rules, rename it, delete it, and confirm with `git status` in the vault that no clipping's frontmatter changed by any of it
+- [ ] In Obsidian: create a smart grid, edit its rules, rename it, delete it, and confirm with `git status` in the vault that no clipping's frontmatter changed by any of it
 - [ ] `git push`

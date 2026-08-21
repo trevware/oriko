@@ -3,7 +3,7 @@ import { tokenLabel } from "./dates";
 import { isFilterEmpty, toggleFacet } from "./filter";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
-import { isAutoGrid, reorderTarget, validateGridName } from "./spaces";
+import { isSmartGrid, reorderTarget, validateGridName } from "./spaces";
 import type { GridSpace } from "./spaces";
 
 /**
@@ -285,13 +285,13 @@ function rulesScreen(
       if (isFilterEmpty(current)) {
         // Without a rule it would hold the whole wall, which is home under a
         // second name. Refused here rather than hidden, so the reason is said.
-        new Notice("Power Grid: an auto-grid needs at least one rule");
+        new Notice("Power Grid: a smart grid needs at least one rule");
         return;
       }
 
       const next: GridSpace = { ...grid, rules: current };
       sheet.close();
-      // No rename confirmation to make: an auto-grid has no members, because
+      // No rename confirmation to make: a smart grid has no members, because
       // nothing carries its name in frontmatter, so renaming one rewrites no
       // note and has nothing to warn about.
       if (creating) void grids.create(next).then(after);
@@ -316,17 +316,17 @@ function gridEditorScreen(
 
   const creating = index === undefined && grid.name === "";
   /**
-   * Whether this editor is making or editing an auto-grid.
+   * Whether this editor is making or editing a smart grid.
    *
-   * Deliberately not isAutoGrid, which asks whether a grid computes its
-   * membership and is therefore false for the empty rules a new auto-grid
+   * Deliberately not isSmartGrid, which asks whether a grid computes its
+   * membership and is therefore false for the empty rules a new smart grid
    * starts life with. The question here is which editor this is, and a
    * present-but-empty rules object is exactly how that is carried in.
    */
-  const auto = grid.rules !== undefined;
+  const smart = grid.rules !== undefined;
 
   return {
-    title: creating ? (auto ? "New auto-grid" : "New grid") : `Edit ${grid.name}`,
+    title: creating ? (smart ? "New smart grid" : "New grid") : `Edit ${grid.name}`,
     placeholder: "Grid name",
     value: grid.name,
     filters: false,
@@ -336,7 +336,7 @@ function gridEditorScreen(
     // and as rows the chosen one had nowhere to show itself.
     layout: "swatches",
     columns: SWATCH_COLUMNS,
-    cta: auto ? "Next: rules" : creating ? "Create grid" : "Save",
+    cta: smart ? "Next: rules" : creating ? "Create grid" : "Save",
     rows: () =>
       GRID_ICONS.map((name) => ({
         label: name.replace(/-/g, " "),
@@ -358,11 +358,11 @@ function gridEditorScreen(
         icon: active?.value ?? grid.icon,
       };
 
-      // An auto-grid is not finished until it says what picks it up, so the
+      // A smart grid is not finished until it says what picks it up, so the
       // name screen hands on rather than committing, whether it is being made
       // or edited. Editing carries the old name along, since the registry
       // still knows it by that and this screen may just have changed it.
-      if (auto) {
+      if (smart) {
         sheet.push(rulesScreen(sheet, grids, next, index, after, grid.name));
         return;
       }
@@ -420,16 +420,16 @@ function confirmDelete(
   index: number,
   after: () => void
 ): void {
-  const auto = isAutoGrid(grid);
-  const members = auto ? 0 : grids.memberCount(grid.name);
+  const smart = isSmartGrid(grid);
+  const members = smart ? 0 : grids.memberCount(grid.name);
   const home = grids.home().name;
 
   confirm(sheet, {
     title: `Delete ${grid.name}?`,
-    note: auto
+    note: smart
       ? // Not "the grid is empty, so nothing moves", which memberCount would
         // have produced and which reads as a fact about its contents. An
-        // auto-grid holds plenty; what it does not hold is membership, so
+        // smart grid holds plenty; what it does not hold is membership, so
         // there is nothing to move whatever is on screen.
         "Its rules are removed. No clipping is changed."
       : members === 0
@@ -665,7 +665,7 @@ export function openNewGrid(
  * An empty rules object is what tells the editor which kind it is making, so
  * it is passed even when there is nothing in it.
  */
-export function openNewAutoGrid(
+export function openNewSmartGrid(
   sheet: Sheet,
   grids: GridsController,
   rules: FilterState,

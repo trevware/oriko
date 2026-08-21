@@ -15,7 +15,7 @@ import {
   openDeleteGrid,
   openGridEditor,
   openGridsManager,
-  openNewAutoGrid,
+  openNewSmartGrid,
   openNewGrid,
 } from "./grid-sheets";
 import { DetailView } from "./detail";
@@ -33,7 +33,7 @@ import { ProgressBar } from "./progress";
 import type { PropertyVocabulary } from "./filter";
 import {
   activeCount,
-  autoMembers,
+  smartMembers,
   emptyFilter,
   facetDefs,
   facetLabel,
@@ -54,7 +54,7 @@ import {
   filterByGrid,
   groupedGrids,
   hotkeyPosition,
-  isAutoGrid,
+  isSmartGrid,
   membersOf,
   orderedGrids,
 } from "./spaces";
@@ -782,14 +782,14 @@ export class PowerGridView extends ItemView {
     if (!this.grid) return;
 
     const space = this.activeGrid();
-    const auto = isAutoGrid(space);
+    const smart = isSmartGrid(space);
 
-    // An auto-grid's rules run over the whole vault rather than over one
+    // A smart grid's rules run over the whole vault rather than over one
     // wall's slice, because home stays everything: a clipping filed in Manga
-    // is still eligible for an auto-grid, and would be missing from it if the
+    // is still eligible for a smart grid, and would be missing from it if the
     // rules only ever saw the grid it happened to be filed in.
     const tiles = buildTiles(
-      auto
+      smart
         ? this.plugin.index.records()
         : filterByGrid(
             this.plugin.index.records(),
@@ -803,10 +803,10 @@ export class PowerGridView extends ItemView {
 
     // Facets are counted from the whole grid, not from what survives the
     // filter: counting the result would make options disappear the moment
-    // you used one, leaving no way back. For an auto-grid the whole grid is
+    // you used one, leaving no way back. For a smart grid the whole grid is
     // what its rules admitted, so its counts are counts within the rule.
     this.facets =
-      auto && space.rules ? autoMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
+      smart && space.rules ? smartMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
     this.applyFilter(options);
     this.flyToPending();
   }
@@ -822,7 +822,7 @@ export class PowerGridView extends ItemView {
   /**
    * Says where a clipping went when it could not go where you were looking.
    *
-   * Nothing is filed into an auto-grid, so clipping while one is on screen
+   * Nothing is filed into a smart grid, so clipping while one is on screen
    * saves to home. Whether that is worth saying depends on what happens next:
    * a clipping the rules do admit turns up on this very wall and the detour is
    * invisible, which is why it is not mentioned. One they do not simply never
@@ -831,7 +831,7 @@ export class PowerGridView extends ItemView {
    */
   private reportCaptureHome(path: string): void {
     const space = this.activeGrid();
-    if (!isAutoGrid(space) || !space.rules) return;
+    if (!isSmartGrid(space) || !space.rules) return;
 
     const home = this.plugin.settings.homeGridName;
     const record = this.plugin.index.records().find((entry) => entry.path === path);
@@ -909,10 +909,10 @@ export class PowerGridView extends ItemView {
   }
 
   /**
-   * Defs for evaluating an auto-grid's rules, typed against every tile rather
+   * Defs for evaluating a smart grid's rules, typed against every tile rather
    * than against the grid's own.
    *
-   * defs() samples this.facets, and for an auto-grid this.facets is what the
+   * defs() samples this.facets, and for a smart grid this.facets is what the
    * rules produced, so using it here would ask the rules to be evaluated
    * against a typing that only exists once they have been. Circular, and it
    * fails quietly rather than loudly: a date property types as text, its
@@ -1461,7 +1461,7 @@ export class PowerGridView extends ItemView {
 
   private openSwitcher(x: number, y: number): void {
     const active = this.activeGrid().name;
-    const { manual, auto } = groupedGrids(this.allGrids());
+    const { manual, smart } = groupedGrids(this.allGrids());
 
     // The hint reads the stored position, never the place in this list: the
     // two kinds are grouped here and the hotkeys are not, so a grid shown
@@ -1481,7 +1481,7 @@ export class PowerGridView extends ItemView {
     // so the picker should not present them as one undifferentiated list.
     const items: MenuItem[] = [
       ...manual.map((placed) => row(placed)),
-      ...auto.map((placed, index) => row(placed, index === 0)),
+      ...smart.map((placed, index) => row(placed, index === 0)),
     ];
     this.menu?.open(items, x, y);
   }
@@ -1584,8 +1584,8 @@ export class PowerGridView extends ItemView {
         },
         {
           icon: "wand-2",
-          label: "New auto-grid",
-          onSelect: () => this.promptNewAutoGrid(),
+          label: "New smart grid",
+          onSelect: () => this.promptNewSmartGrid(),
         },
       ],
       x,
@@ -1600,9 +1600,9 @@ export class PowerGridView extends ItemView {
 
   /** Empty rules rather than none: it is what tells the editor which kind of
       grid it is making, before any of them have been chosen. */
-  private promptNewAutoGrid(): void {
+  private promptNewSmartGrid(): void {
     if (!this.sheet) return;
-    openNewAutoGrid(this.sheet, this.gridsController(), {}, () => this.refresh());
+    openNewSmartGrid(this.sheet, this.gridsController(), {}, () => this.refresh());
   }
 
   private async moveTo(ids: string[], target: string): Promise<void> {
@@ -1636,7 +1636,7 @@ export class PowerGridView extends ItemView {
         return {
           defs,
           facets: facetsOf(tiles, defs),
-          matches: (rules) => autoMembers(tiles, rules, defs).length,
+          matches: (rules) => smartMembers(tiles, rules, defs).length,
         };
       },
 

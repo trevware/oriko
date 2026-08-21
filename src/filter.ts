@@ -221,19 +221,19 @@ export function matchesFilter(
 }
 
 /**
- * The tiles an auto-grid holds: the first of the two stages this same matcher
+ * The tiles a smart grid holds: the first of the two stages this same matcher
  * runs at.
  *
  * The rules decide what the grid contains; the ad-hoc filter then decides what
  * of it is on screen. Keeping both the same type, evaluated by the same
- * function, is what makes stacking a filter on an auto-grid need no new code
+ * function, is what makes stacking a filter on a smart grid need no new code
  * and no new concept.
  *
  * Note that the defs passed here must be typed against the whole wall rather
  * than against the grid's own tiles, which are what these rules are about to
  * produce. See view.allDefs.
  */
-export function autoMembers(
+export function smartMembers(
   tiles: TileModel[],
   rules: FilterState,
   defs: FacetDef[]

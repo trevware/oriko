@@ -20,7 +20,7 @@ export interface GridSpace {
   /** A lucide icon id. */
   icon: string;
   /**
-   * Present on an auto-grid: the rules its membership is computed from, which
+   * Present on a smart grid: the rules its membership is computed from, which
    * is the same shape the filter menu composes. Absent on a manual grid, whose
    * membership is the `grid:` key and a write.
    */
@@ -30,12 +30,12 @@ export interface GridSpace {
 /**
  * Whether a grid computes its membership rather than being filled by hand.
  *
- * Empty rules read as manual, not as an auto-grid matching everything. A grid
+ * Empty rules read as manual, not as a smart grid matching everything. A grid
  * naming the whole wall would be a second copy of home; the editor refuses to
  * create one, and deciding it here means a hand-edited data.json cannot make
  * one either.
  */
-export function isAutoGrid(space: GridSpace): boolean {
+export function isSmartGrid(space: GridSpace): boolean {
   return space.rules !== undefined && !isFilterEmpty(space.rules);
 }
 
@@ -43,7 +43,7 @@ export function isAutoGrid(space: GridSpace): boolean {
  * The single property write that would make a clipping match, or null when
  * there is not exactly one.
  *
- * This is what decides whether an auto-grid can be moved into. Every ambiguous
+ * This is what decides whether a smart grid can be moved into. Every ambiguous
  * case refuses rather than picking a value out of the rule and hoping: a target
  * that cannot act is worse than an absent one, which is the same bargain the
  * palette makes when it drops a facet with nothing to offer.
@@ -52,7 +52,7 @@ export function assignableValue(
   space: GridSpace,
   defs: FacetDef[]
 ): { key: string; value: string } | null {
-  if (!isAutoGrid(space) || !space.rules) return null;
+  if (!isSmartGrid(space) || !space.rules) return null;
 
   const entries = Object.entries(space.rules);
   if (entries.length !== 1) return null;
@@ -114,16 +114,16 @@ export interface PlacedGrid {
  */
 export function groupedGrids(grids: readonly GridSpace[]): {
   manual: PlacedGrid[];
-  auto: PlacedGrid[];
+  smart: PlacedGrid[];
 } {
   const manual: PlacedGrid[] = [];
-  const auto: PlacedGrid[] = [];
+  const smart: PlacedGrid[] = [];
 
   grids.forEach((grid, position) => {
-    (isAutoGrid(grid) ? auto : manual).push({ grid, position });
+    (isSmartGrid(grid) ? smart : manual).push({ grid, position });
   });
 
-  return { manual, auto };
+  return { manual, smart };
 }
 
 /** Home first, then the created grids in their stored order. */

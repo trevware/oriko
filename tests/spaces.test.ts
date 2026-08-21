@@ -3,7 +3,7 @@ import {
   assignableValue,
   effectiveGrid,
   groupedGrids,
-  isAutoGrid,
+  isSmartGrid,
   filterByGrid,
   hotkeyPosition,
   membersOf,
@@ -208,27 +208,27 @@ describe("reorderTarget", () => {
   });
 });
 
-describe("isAutoGrid", () => {
-  it("is an auto-grid once it carries rules", () => {
-    expect(isAutoGrid({ name: "Unread", icon: "star", rules: { status: ["unread"] } })).toBe(true);
+describe("isSmartGrid", () => {
+  it("is a smart grid once it carries rules", () => {
+    expect(isSmartGrid({ name: "Unread", icon: "star", rules: { status: ["unread"] } })).toBe(true);
   });
 
   it("is a manual grid with no rules at all", () => {
-    expect(isAutoGrid({ name: "Manga", icon: "archive" })).toBe(false);
+    expect(isSmartGrid({ name: "Manga", icon: "archive" })).toBe(false);
   });
 
   it("treats an empty rule set as manual, since it would name the whole wall", () => {
     const space: GridSpace = { name: "Empty", icon: "star", rules: {} };
-    expect(isAutoGrid(space)).toBe(false);
+    expect(isSmartGrid(space)).toBe(false);
   });
 });
 
 describe("assignableValue", () => {
   const defs = facetDefs(["categories", "created"]);
-  const auto = (rules: FilterState): GridSpace => ({ name: "G", icon: "star", rules });
+  const smart = (rules: FilterState): GridSpace => ({ name: "G", icon: "star", rules });
 
   it("names the one write that would make a clipping match", () => {
-    expect(assignableValue(auto({ categories: ["design"] }), defs)).toEqual({
+    expect(assignableValue(smart({ categories: ["design"] }), defs)).toEqual({
       key: "categories",
       value: "design",
     });
@@ -239,58 +239,58 @@ describe("assignableValue", () => {
   });
 
   it("refuses more than one facet, there being no single write", () => {
-    expect(assignableValue(auto({ categories: ["design"], status: ["unread"] }), defs)).toBeNull();
+    expect(assignableValue(smart({ categories: ["design"], status: ["unread"] }), defs)).toBeNull();
   });
 
   it("refuses more than one value, for the same reason", () => {
-    expect(assignableValue(auto({ categories: ["design", "ios"] }), defs)).toBeNull();
+    expect(assignableValue(smart({ categories: ["design", "ios"] }), defs)).toBeNull();
   });
 
   it("refuses a derived facet, which no note can carry", () => {
-    expect(assignableValue(auto({ domain: ["youtube.com"] }), defs)).toBeNull();
-    expect(assignableValue(auto({ kind: ["video"] }), defs)).toBeNull();
+    expect(assignableValue(smart({ domain: ["youtube.com"] }), defs)).toBeNull();
+    expect(assignableValue(smart({ kind: ["video"] }), defs)).toBeNull();
   });
 
   it("refuses a date facet, whose values are buckets rather than literals", () => {
     const dated = typedFacets(defs, [], 0).map((d) =>
       d.id === "created" ? { ...d, shape: "date" as const } : d
     );
-    expect(assignableValue(auto({ created: ["empty"] }), dated)).toBeNull();
+    expect(assignableValue(smart({ created: ["empty"] }), dated)).toBeNull();
   });
 
   it("refuses a facet no longer on offer, whose shape cannot be read", () => {
-    expect(assignableValue(auto({ medium: ["photo"] }), defs)).toBeNull();
+    expect(assignableValue(smart({ medium: ["photo"] }), defs)).toBeNull();
   });
 });
 
 describe("groupedGrids", () => {
-  const auto = (name: string): GridSpace => ({
+  const smart = (name: string): GridSpace => ({
     name,
     icon: "star",
     rules: { status: ["unread"] },
   });
   const manual = (name: string): GridSpace => ({ name, icon: "star" });
 
-  it("puts the manual grids first and the auto-grids after", () => {
-    const grouped = groupedGrids([manual("Home"), auto("Unread"), manual("Manga")]);
+  it("puts the manual grids first and the smart grids after", () => {
+    const grouped = groupedGrids([manual("Home"), smart("Unread"), manual("Manga")]);
     expect(grouped.manual.map((p) => p.grid.name)).toEqual(["Home", "Manga"]);
-    expect(grouped.auto.map((p) => p.grid.name)).toEqual(["Unread"]);
+    expect(grouped.smart.map((p) => p.grid.name)).toEqual(["Unread"]);
   });
 
   it("remembers where each really sits, which is what the hotkey follows", () => {
     // Manga is shown second but is third in the switcher order, so its hint
     // has to read the position rather than the place in the grouped list.
-    const grouped = groupedGrids([manual("Home"), auto("Unread"), manual("Manga")]);
+    const grouped = groupedGrids([manual("Home"), smart("Unread"), manual("Manga")]);
     expect(grouped.manual.map((p) => p.position)).toEqual([0, 2]);
-    expect(grouped.auto.map((p) => p.position)).toEqual([1]);
+    expect(grouped.smart.map((p) => p.position)).toEqual([1]);
   });
 
   it("keeps the stored order inside each group", () => {
-    const grouped = groupedGrids([auto("B"), auto("A")]);
-    expect(grouped.auto.map((p) => p.grid.name)).toEqual(["B", "A"]);
+    const grouped = groupedGrids([smart("B"), smart("A")]);
+    expect(grouped.smart.map((p) => p.grid.name)).toEqual(["B", "A"]);
   });
 
-  it("has no auto group at all when nothing computes its membership", () => {
-    expect(groupedGrids([manual("Home"), manual("Manga")]).auto).toEqual([]);
+  it("has no smart group at all when nothing computes its membership", () => {
+    expect(groupedGrids([manual("Home"), manual("Manga")]).smart).toEqual([]);
   });
 });

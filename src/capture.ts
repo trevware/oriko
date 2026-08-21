@@ -2,7 +2,7 @@ import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
 import type { ArchiveService } from "./archive-service";
 import { todayISO as today } from "./dates";
 import { extensionForMime } from "./formats";
-import { isAutoGrid } from "./spaces";
+import { isSmartGrid } from "./spaces";
 import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
@@ -152,10 +152,10 @@ export class CaptureService {
   /**
    * The grid a new clipping should carry, or "" when that is home.
    *
-   * An auto-grid is never it. Nothing is filed into one: its membership is
+   * A smart grid is never it. Nothing is filed into one: its membership is
    * computed, and writing its name into `grid:` would put the clipping in a
    * collection that no wall reads. Home would not show it, because the key
-   * names a registered grid; the auto-grid would not show it either, because
+   * names a registered grid; the smart grid would not show it either, because
    * it ignores the key and asks its rules. The clipping would exist and be
    * visible nowhere, which is the exact failure effectiveGrid's fallbacks are
    * there to prevent.
@@ -165,7 +165,7 @@ export class CaptureService {
     if (settings.activeGrid === settings.homeGridName) return "";
 
     const active = settings.grids.find((grid) => grid.name === settings.activeGrid);
-    if (active && isAutoGrid(active)) return "";
+    if (active && isSmartGrid(active)) return "";
 
     return settings.activeGrid;
   }
