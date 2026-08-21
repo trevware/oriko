@@ -108,6 +108,8 @@ export class Sheet {
   private dragRow = -1;
   /** Movement past which the gesture is a drag, so a click still chooses. */
   private dragMoved = false;
+  /** Row midpoints as laid out, for a drag to test against. See render(). */
+  private rowMids: number[] = [];
   /**
    * Stops hover taking the cursor back after the keyboard has moved a row.
    *
@@ -278,6 +280,20 @@ export class Sheet {
 
     if (this.active >= this.rows.length) this.active = Math.max(0, this.rows.length - 1);
     this.paintActive();
+
+    // Measured here, before any FLIP transform is laid on top, and kept.
+    //
+    // A drag cannot re-measure as it goes: once rows animate, their rects
+    // report where they appear rather than where they are, so the hit test
+    // reads a row still sliding out of its old place, decides it belongs
+    // there, and moves it back. The animation and the test then drive each
+    // other. These are the settled positions and the only honest ones.
+    this.rowMids = screen.onReorder
+      ? this.rowEls.map((el) => {
+          const box = el.getBoundingClientRect();
+          return box.top + box.height / 2;
+        })
+      : [];
   }
 
   private paintRow(list: HTMLElement, row: SheetRow, at: number, width: number): HTMLElement {
@@ -369,12 +385,6 @@ export class Sheet {
     const SLOP = 4;
     let startY = 0;
 
-    const midpoints = (): number[] =>
-      this.rowEls.map((el) => {
-        const box = el.getBoundingClientRect();
-        return box.top + box.height / 2;
-      });
-
     list.addEventListener("pointerdown", (event: PointerEvent) => {
       if (!this.screen?.onReorder || event.button !== 0) return;
       const row = (event.target as HTMLElement | null)?.closest(".pg-palette-item");
@@ -402,7 +412,7 @@ export class Sheet {
       // gesture was trying to avoid.
       if (Math.abs(event.clientY - startY) > SLOP) this.dragMoved = true;
 
-      const target = indexAtMidpoints(event.clientY, midpoints());
+      const target = indexAtMidpoints(event.clientY, this.rowMids);
       if (target === -1 || target === this.dragRow) return;
 
       // Reordered as the pointer crosses, not held until release. The row
@@ -496,6 +506,12 @@ export class Sheet {
 
     const moved: HTMLElement[] = [];
     this.rowEls.forEach((el, index) => {
+      // The row being dragged is excepted. It belongs to the pointer, and a
+      // pointer does not ease: animating it means the thing under the finger
+      // trails the finger, which reads as the list lagging rather than as a
+      // row moving. Its neighbours sliding aside is what shows the swap. The
+      // keyboard has no such row and animates everything.
+      if (index === this.dragRow) return;
       const dy = offsets.get(this.rows[index]?.label ?? "");
       if (dy === undefined) return;
       el.style.transition = "none";
