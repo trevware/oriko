@@ -321,6 +321,13 @@ export class Sheet {
     const host = swatches ? list.createDiv({ cls: "pg-swatch-grid" }) : list;
     if (swatches) host.setAttribute("role", "radiogroup");
 
+    // A list where no row has a left icon drops the gutter rather than
+    // reserving an empty one, which is what left a tick list of plain values
+    // indented from nothing. Decided for the list and not per row: a row with
+    // no icon in a list that has them still needs its gutter, or the labels
+    // jump sideways as values are ticked.
+    list.toggleClass("is-iconless", !swatches && !found.some(({ row }) => row.icon));
+
     const width = query.trim().length;
     for (const { row, at } of found) {
       this.rows.push(row);
