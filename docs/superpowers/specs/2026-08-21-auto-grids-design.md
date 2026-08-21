@@ -20,7 +20,7 @@ An auto-grid is a **named `FilterState`**. It appears in the switcher, takes a h
 
 The obvious alternative is a rule language: boolean groups, comparisons, text predicates. It was rejected because `FilterState` is already the thing the user composes when they filter the wall, `matchesFilter` already evaluates it with tested semantics ("within a facet, any; across facets, all"), and date facets already carry both forms worth saving: a bucket label re-evaluates against `now` on every paint, so a rule holding one is a rolling window, while a `before:` / `on-or-after:` token from the custom prompt is an absolute cutoff that stays put. "Clipped this month" therefore needs nothing new, and neither does "clipped since the relaunch".
 
-More importantly it means there is no rule editor to design. The rule editor is the filter menu, and creating an auto-grid is narrowing the wall until it looks right and giving it a name. A separate query builder would be a second way to express something the plugin already expresses, and the two would drift.
+More importantly it decides what the rule editor is. Because a rule is a set of ticked facet values and nothing else, the editor is a list of facets and a tick list of values, which is an idiom the plugin already draws twice (the filter menu's submenus and the palette's stage). An expression tree with groups and operators would be a second way to say something the plugin already says, and the two would drift.
 
 The cost is that `FilterState` cannot say "not". That is a real gap, `status is not archived` being an obvious want, and it is deliberately left to a later change rather than smuggled in as a special case. See "Not in this change".
 
@@ -82,23 +82,33 @@ An auto-grid pays `buildTiles` over every record on each paint, where a manual g
 
 If it is not, the fix is to build all tiles once per index change, cache them on the view, and make every grid a partition of that cache. That is a better shape and makes grid switching cheaper across the board, but it takes on invalidation that today's rebuild-every-paint gets for free (archiver cache updates, the `unloadable` signature map). It is deliberately not in this change: it is an optimisation with its own risks, and it should be made when there is a measurement asking for it.
 
-## Creating one: "Save as grid"
+## Creating one: pick the kind, then say what picks it up
 
-The filter menu gains a final row, below a divider, marked `alwaysShow` so it survives type-to-filter: **Save as grid…**. It is offered only while the filter is non-empty, since saving an empty rule would produce a grid that is a second copy of home.
+The kind is chosen up front, the way Finder makes you choose between a folder and a smart folder, because the two are different objects and the difference is the whole point. The create menu, which today holds Clip link, Clip image and New grid, gains **New auto-grid** beneath New grid.
 
-Choosing it opens the existing grid editor sheet, the same one `openNewGrid` opens, pre-seeded with the current `FilterState`. Name validation and the icon picker are reused unchanged. The name field is seeded with the value when the rule is a single facet holding a single value, and left empty otherwise, because no short name for a three-facet rule is going to be better than the one the user types.
+Creation is three screens on the existing sheet, which already pushes and pops screens for the manager.
 
-This is the whole creation flow. There is no separate rule builder to design, which was the point of storing a `FilterState`.
+**1. Name and icon.** Exactly today's `gridEditorScreen`, unchanged apart from its CTA, which reads `Next: rules` instead of `Create grid` when an auto-grid is being made.
+
+**2. Rules.** A row per facet, in the order the filter menu shows them, each row showing what it has chosen: `Categories · ios, design`, or `Any` when it is unset. The `note` line carries a live **`Matches 42 clippings`**, recomputed as values are ticked, which is the affordance that makes a rule editor legible rather than a form you fill in blind. The CTA is `Create grid`, and it is refused while nothing is chosen, since an empty rule is a second copy of home.
+
+**3. Values for one facet.** The tick list the plugin already draws in two places: label is the value, detail is the count, a chosen value marks itself with a check where its count was. Escape returns to the rules screen.
+
+**The counts and the values on screens 2 and 3 come from every tile, not from the active grid's.** Rules run over the whole vault, so offering them the vocabulary of whichever wall happened to be open would let you define a vault-wide rule from one wall's values and see a count that does not match what the grid will hold.
+
+**The filter menu keeps a shortcut into this.** Below a divider, marked `alwaysShow` so it survives type-to-filter, a **Save as grid…** row appears while the filter is non-empty and opens screen 1 with the rules already filled in from what is on screen. It is the fastest path when you have just narrowed the wall by hand, and it costs nothing once the editor exists. It is a shortcut, not the way in.
 
 ## Editing rules
 
-Two surfaces show a rule, and only one of them changes it.
+The same editor, reached from the manager: editing an auto-grid opens screen 1, whose CTA is `Save`, with a **Rules** row that pushes screen 2. Create and edit are one flow with one difference in wording.
 
-**The filter menu, while an auto-grid is on screen,** opens with an inert section at the top headed by the grid's name, listing the rules as rows that cannot be toggled. They are there to explain why the wall looks like this, so that the ad-hoc facets below are read as narrowing something rather than as the whole story.
+An earlier draft put rule editing in the filter menu instead, as a mode in which toggles wrote to the grid's rules rather than to the ad-hoc filter. It is recorded here only so it is not reinvented: it needed a new UI state on a surface that already has two jobs, and it was never going to explain itself as well as a screen that says `Matches 42 clippings` at the bottom.
 
-**The manage sheet's edit screen** gains a Rules line showing the same summary and an **Edit rules** action. Choosing it closes the sheet and reopens the filter menu in **rule mode**: the same facet rows, a chip reading `Editing rules: <name>`, and toggles writing to the grid's rules instead of to the ad-hoc filter. Escape commits and returns.
+**The filter menu still shows the rules, inertly.** While an auto-grid is on screen it opens with a section at the top headed by the grid's name, listing the rules as rows that cannot be toggled, so the ad-hoc facets below are read as narrowing something rather than as the whole story.
 
-Rule mode is the one genuinely new UI state in this change and is the riskiest part of it. The alternative considered and rejected was "narrow the wall, then update the rules from the current filter", which reads well until you are inside an auto-grid, where the ad-hoc filter is stacked on top of the rules and "the current filter" no longer names one thing.
+## Telling the two kinds apart
+
+An auto-grid carries a small badge on its switcher chip and its manager row, in addition to whatever icon the user chose. You need to know at a glance which grids will accept a drag, and an icon the user picked cannot carry that, since they will reasonably choose the same bookmark icon for both kinds.
 
 ## Dropping onto an auto-grid
 
@@ -123,7 +133,9 @@ Note that this write is not a move. The clipping keeps whatever `grid:` key it h
 
 ## Empty states
 
-An auto-grid whose rules match nothing shows "No clipping matches these rules", with the rule summary and an action opening rule mode. This is distinct from a manual grid's empty state, which invites a drop; nothing can be dropped into a non-assignable auto-grid, and telling the user to drop something into one would be a dead end.
+An auto-grid whose rules match nothing shows "No clipping matches these rules", with the rule summary and an action opening its editor. This is distinct from a manual grid's empty state, which invites a drop; nothing can be dropped into a non-assignable auto-grid, and telling the user to drop something into one would be a dead end.
+
+The rules screen's live match count is what should stop most of these from being created in the first place: a rule that matches nothing says so before the CTA is pressed.
 
 ## The pruning hazard
 
@@ -147,4 +159,6 @@ Pure, so unit tested:
 - Membership: a tile matching the rules is admitted, one that does not is not, and an ad-hoc filter stacked on top narrows the result further rather than replacing it.
 - Rules survive a facet leaving `filterProperties`, where an ad-hoc filter is pruned.
 
-Not unit tested, per the repo's rule that a module importing `obsidian` cannot be: the `paint()` branch, rule mode, the sheet screens. The defs ordering above is the part of that untested half most worth checking by hand against a real vault, since getting it wrong produces a wall that is subtly wrong rather than one that is obviously broken.
+- The rules screen's match count, which is `matchesFilter` over all tiles and is pure.
+
+Not unit tested, per the repo's rule that a module importing `obsidian` cannot be: the `paint()` branch and the sheet screens. The defs ordering above is the part of that untested half most worth checking by hand against a real vault, since getting it wrong produces a wall that is subtly wrong rather than one that is obviously broken.
