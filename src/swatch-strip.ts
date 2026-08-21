@@ -17,6 +17,15 @@ const SAMPLE_WIDTH = 96;
 const FLASH_MS = 1100;
 
 /**
+ * How many swatches are staggered before they all arrive together.
+ *
+ * A palette is short, so this is insurance rather than a limit anyone will
+ * meet: past a handful the wait to see the last colour costs more than the
+ * sequence is worth.
+ */
+const STAGGER_CAP = 8;
+
+/**
  * The palette of an image element, or an empty array when there is none to
  * be had.
  *
@@ -114,12 +123,15 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
     }, FLASH_MS);
   };
 
-  for (const hex of swatches) {
+  swatches.forEach((hex, index) => {
     const swatch = document.createElement("button");
     swatch.type = "button";
     swatch.className = "pg-swatch";
     swatch.style.backgroundColor = hex;
     swatch.setAttribute("aria-label", `Copy ${hex}`);
+    // Its place in the run, which the stylesheet turns into a delay so the
+    // row arrives left to right rather than all at once.
+    swatch.style.setProperty("--pg-swatch-index", String(Math.min(index, STAGGER_CAP)));
 
     const enter = (): void => {
       active = hex;
@@ -147,7 +159,7 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
     });
 
     row.appendChild(swatch);
-  }
+  });
 
   host.appendChild(block);
 }
