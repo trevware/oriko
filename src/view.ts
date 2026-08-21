@@ -392,6 +392,16 @@ export class PowerGridView extends ItemView {
     let depth = 0;
     const show = (on: boolean): void => {
       if (!on) depth = 0;
+      // Named while it is up, because a drop does not always land where you
+      // are looking: nothing is filed into a smart grid, so one on screen
+      // sends the clipping home and the frame should say so before the drop
+      // rather than a toast after it. Carried as a custom property, the label
+      // being ::after content and there being no element to set text on.
+      if (on) {
+        const space = this.activeGrid();
+        const target = isSmartGrid(space) ? this.plugin.settings.homeGridName : space.name;
+        el.style.setProperty("--pg-drop-label", JSON.stringify(`Drop to add to ${target}`));
+      }
       el.toggleClass("is-drop-target", on);
     };
 

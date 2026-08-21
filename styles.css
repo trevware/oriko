@@ -113,37 +113,62 @@
 }
 
 /* Drop target: drawn on the view rather than inside the viewport, so it frames
-   the whole wall including its chrome, and as a ::after so it costs nothing at
-   all until a drag actually arrives.
+   the whole wall including its chrome, and as pseudo-elements so it costs no
+   DOM at all until a drag actually arrives.
+
+   Two of them, because the frame and the label want different entrances: the
+   frame arrives as a whole and then settles into a slow breath, while the
+   label rises into it a beat later. One element could only have done both at
+   once, which is the difference between a thing landing and a thing appearing.
 
    pointer-events stay off throughout. An overlay that could be hit would take
    the dragover events itself, and the drop would land on a target that had
    just stopped being able to hear about it. */
-.power-grid-view.is-drop-target::after {
-  content: "Drop to clip";
+.power-grid-view.is-drop-target::before {
+  content: "";
   position: absolute;
   inset: 10px;
   z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border: 2px dashed var(--pg-accent);
   border-radius: var(--pg-surface-radius);
   background-color: var(--pg-scrim);
   backdrop-filter: var(--pg-surface-blur);
   -webkit-backdrop-filter: var(--pg-surface-blur);
+  pointer-events: none;
+  animation:
+    pg-drop-in 200ms cubic-bezier(0.22, 0.9, 0.28, 1) both,
+    pg-drop-breathe 2.4s ease-in-out 200ms infinite;
+}
+
+/* The label, on its own pill so it reads against whatever is behind the
+   scrim. Set by the view, which knows where the drop will actually land: a
+   smart grid takes nothing, so its wall says the clipping is going home. */
+.power-grid-view.is-drop-target::after {
+  content: var(--pg-drop-label, "Drop to add");
+  position: absolute;
+  inset: 10px;
+  z-index: 61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--pg-surface-text);
   font-size: 15px;
   font-weight: 500;
   letter-spacing: 0.01em;
   pointer-events: none;
-  animation: pg-drop-in 140ms ease both;
+  animation: pg-drop-label-in 260ms cubic-bezier(0.22, 0.9, 0.28, 1) 60ms both;
 }
 
+/* Overshoots, so the frame arrives rather than fades up. The scale is tiny:
+   this is a full-pane rectangle, and anything a reader could measure reads as
+   the pane itself wobbling. */
 @keyframes pg-drop-in {
   from {
     opacity: 0;
-    transform: scale(0.995);
+    transform: scale(0.985);
+  }
+  60% {
+    transform: scale(1.004);
   }
   to {
     opacity: 1;
@@ -151,7 +176,35 @@
   }
 }
 
+/* A slow glow in and out while the drag is held, so a frame you are hovering
+   over for a few seconds stays alive rather than sitting there like a
+   screenshot of itself. */
+@keyframes pg-drop-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    border-color: var(--pg-accent);
+  }
+  50% {
+    box-shadow: 0 0 26px -6px var(--pg-accent);
+    border-color: color-mix(in srgb, var(--pg-accent) 78%, white);
+  }
+}
+
+/* Rises into place, a beat after the frame. */
+@keyframes pg-drop-label-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .power-grid-view.is-drop-target::before,
   .power-grid-view.is-drop-target::after {
     animation: none;
   }
