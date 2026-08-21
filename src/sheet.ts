@@ -24,6 +24,10 @@ export interface SheetRow {
   detail?: string;
   /** Shown in place of `detail`, to mark the row's state. */
   detailIcon?: string;
+  /** A tertiary label drawn above this row, naming the group it opens.
+      Carried by the row rather than standing as an item of its own, so it can
+      never be navigated to or selected. Mirrors MenuItem.heading. */
+  heading?: string;
   /** Survives narrowing, for a row that is an escape hatch rather than a
       choice: one that creates what a search has just failed to find. */
   alwaysShow?: boolean;
@@ -102,7 +106,7 @@ export interface SheetScreen {
    * whether to follow. A screen without one has no reorderable rows and the
    * binding does not exist for it.
    */
-  onReorder?: (from: number, delta: number) => boolean;
+  onReorder?: (from: number, delta: number, rows: readonly SheetRow[]) => boolean;
   /**
    * Backspace on the row under the cursor, offered only while the field is
    * empty. A field with something in it owes that key to the text, and taking
@@ -330,6 +334,11 @@ export class Sheet {
 
     const width = query.trim().length;
     for (const { row, at } of found) {
+      // Before the row and outside rowEls, so the caption cannot be navigated
+      // to and the cursor arithmetic never sees it.
+      if (row.heading && !swatches) {
+        host.createDiv({ cls: "pg-palette-section", text: row.heading });
+      }
       this.rows.push(row);
       this.rowEls.push(
         swatches ? this.paintSwatch(host, row) : this.paintRow(host, row, at, width)
@@ -503,7 +512,7 @@ export class Sheet {
       // under the finger is then the row that will land there, so the list
       // itself is the preview and there is nothing to draw.
       const delta = target - this.dragRow;
-      if (!this.screen?.onReorder?.(this.dragRow, delta)) return;
+      if (!this.screen?.onReorder?.(this.dragRow, delta, this.rows)) return;
 
       this.dragRow = target;
       this.active = target;
@@ -548,7 +557,7 @@ export class Sheet {
     // their own order, so moving one down past a neighbour it cannot see is a
     // request with no answer, and the index would address the wrong grid.
     if (this.input?.value) return;
-    if (!screen.onReorder(this.active, delta)) return;
+    if (!screen.onReorder(this.active, delta, this.rows)) return;
     this.active += delta;
     this.hoverLocked = true;
     this.renderMoved();

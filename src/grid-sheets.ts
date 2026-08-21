@@ -497,10 +497,16 @@ export function openGridsManager(
     // narrowed list renumbers everything.
     if (armed !== null && activeLabel !== armedLabel(armed)) armed = null;
 
+    // Captions only once there is a second group to tell the first apart
+    // from, the same bargain the switcher makes: a vault with no smart grids
+    // has one list, and naming it says nothing.
+    const captioned = registry.some(isSmartGrid);
+
     const rows: SheetRow[] = [
       {
         label: home.name,
         icon: home.icon,
+        heading: captioned ? "Grids" : undefined,
         detail: String(grids.memberCount(home.name)),
         // Home has no position in the registry, so it can be renamed and
         // re-iconed but never moved or removed.
@@ -508,7 +514,15 @@ export function openGridsManager(
       },
     ];
 
-    registry.forEach((grid, index) => {
+    // Shown in two runs but stored in one, so the registry index each row
+    // carries is looked up by name below rather than counted off the screen.
+    const ordered = [
+      ...registry.map((grid, index) => ({ grid, index })).filter((e) => !isSmartGrid(e.grid)),
+      ...registry.map((grid, index) => ({ grid, index })).filter((e) => isSmartGrid(e.grid)),
+    ];
+    let firstSmart = true;
+
+    ordered.forEach(({ grid, index }) => {
       if (grid.name === armed) {
         const members = grids.memberCount(grid.name);
         rows.push({
@@ -530,9 +544,13 @@ export function openGridsManager(
       }
 
       const smart = isSmartGrid(grid);
+      const heading = smart && firstSmart ? "Smart grids" : undefined;
+      if (smart) firstSmart = false;
+
       rows.push({
         label: grid.name,
         icon: grid.icon,
+        heading,
         // memberCount asks how many notes carry the name, which is nought for
         // a smart grid however much it is showing, so it would report every
         // one of them as empty. What it holds is a question for the wall; what
@@ -642,9 +660,24 @@ export function openGridsManager(
     onEscape: disarm,
     // Rearranged where the whole order is visible, rather than one grid at a
     // time through a screen that threw you back to the top after every move.
-    onReorder: (row, delta) => {
-      const move = reorderTarget(row, delta, grids.grids().length);
-      if (!move) return false;
+    onReorder: (row, delta, shown) => {
+      // By name, not by position. The list narrows as you type and is now
+      // shown in two runs besides, so a place on screen says nothing about a
+      // place in the registry. onDelete has always resolved this way; reorder
+      // was counting rows and quietly moving the wrong grid whenever either
+      // was true.
+      const registry = grids.grids();
+      const at = (index: number): number =>
+        registry.findIndex((entry) => entry.name === shown[index]?.label);
+
+      const from = at(row);
+      const to = at(row + delta);
+      // -1 is home, an armed row wearing its question, or the end of the list.
+      if (from === -1 || to === -1) return false;
+      // Within one run only. The two kinds are shown apart, so a drag across
+      // the caption is a gesture with nothing to mean.
+      if (isSmartGrid(registry[from]) !== isSmartGrid(registry[to])) return false;
+
       // reorder splices synchronously and only the save it does afterwards is
       // async, so the list can repaint at once and the write can catch up. A
       // run of presses stays in order because the mutation is not the slow
@@ -654,7 +687,7 @@ export function openGridsManager(
       // space bar shows only the active grid's icon. Repainting here rebuilt
       // every tile on the wall on each row crossed, which is the whole of why
       // dragging stuttered.
-      void grids.reorder(move.from, delta);
+      void grids.reorder(from, to - from);
       return true;
     },
   });
