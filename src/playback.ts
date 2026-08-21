@@ -89,6 +89,9 @@ export class PlaybackController {
   private ratios = new Map<Playable, number>();
   private enabled: boolean;
   private frame = 0;
+  /** The one element the pointer is over, or null. Only ever consulted while
+      autoplay is off, which is the only time it decides anything. */
+  private hovered: Playable | null = null;
 
   constructor(
     private root: HTMLElement,
@@ -130,8 +133,45 @@ export class PlaybackController {
 
   setEnabled(on: boolean): void {
     this.enabled = on && !PlaybackController.prefersReducedMotion();
-    if (this.enabled) this.schedule();
-    else this.stopAll();
+    if (this.enabled) {
+      this.schedule();
+      return;
+    }
+    this.stopAll();
+    // stopAll has just stopped the card under the pointer along with the rest.
+    // Turning autoplay off while hovering something should leave that one
+    // playing, or the setting would appear to take a card away rather than
+    // stop the wall running by itself.
+    this.playHovered();
+  }
+
+  /**
+   * The card the pointer is over, played even when autoplay is off.
+   *
+   * With autoplay on this decides nothing: everything in frame is already
+   * playing and apply() owns it. With autoplay off it is the only way a video
+   * moves at all, which is the point of it. The setting is a request that the
+   * wall not run by itself, not a refusal to ever show you a video.
+   */
+  hover(element: Playable | null): void {
+    if (this.hovered === element) return;
+    const previous = this.hovered;
+    this.hovered = element;
+
+    if (this.enabled) return;
+    if (previous) this.stop(previous);
+    this.playHovered();
+  }
+
+  /**
+   * Guarded against Reduce Motion here as well as by the caller. Autoplay's
+   * own flag already folds it in, so without this the one path that ignores
+   * that flag would be the one path that ignores the preference too.
+   */
+  private playHovered(): void {
+    if (!this.hovered) return;
+    if (PlaybackController.prefersReducedMotion()) return;
+    this.play(this.hovered);
   }
 
   observe(element: Playable): void {
@@ -143,6 +183,7 @@ export class PlaybackController {
   forget(element: Playable): void {
     this.observer?.unobserve(element);
     this.ratios.delete(element);
+    if (this.hovered === element) this.hovered = null;
     this.stop(element);
   }
 
@@ -152,6 +193,9 @@ export class PlaybackController {
       if (!element.isConnected) {
         this.observer?.unobserve(element);
         this.ratios.delete(element);
+        // Tiles are pooled, so the element the pointer was over can be taken
+        // out from under it by a repaint rather than by the pointer leaving.
+        if (this.hovered === element) this.hovered = null;
       }
     }
   }
@@ -215,5 +259,6 @@ export class PlaybackController {
     this.observer?.disconnect();
     this.observer = null;
     this.ratios.clear();
+    this.hovered = null;
   }
 }

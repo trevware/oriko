@@ -179,6 +179,10 @@ export class PowerGridView extends ItemView {
       }
     };
 
+    // Hovering a card plays it even when autoplay is off, which is the only
+    // way a video moves on such a wall.
+    this.grid.onHoverMedia = (media) => this.playback?.hover(media);
+
     this.grid.onDeleteRequested = (ids: string[]) => this.confirmDelete(ids);
 
     this.actionBar = new ActionBar(this.contentEl, {

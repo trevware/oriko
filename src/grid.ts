@@ -137,6 +137,10 @@ export class GridRenderer {
   private tiltedId: string | null = null;
   private pointer: { x: number; y: number } | null = null;
   private tiltFrame = 0;
+  private hoveredMedia: HTMLVideoElement | HTMLImageElement | null = null;
+  /** The card under the pointer changed. Set by the view, to drive playback
+      for a wall whose autoplay is off. */
+  onHoverMedia: ((media: HTMLVideoElement | HTMLImageElement | null) => void) | null = null;
 
   /** The card currently open in the detail view, hidden while it is. */
   private focusedId: string | null = null;
@@ -717,11 +721,32 @@ export class GridRenderer {
   }
 
   private clearTilt(): void {
+    this.setHoveredMedia(null);
     if (!this.tiltedId) return;
     const element = this.mounted.get(this.tiltedId);
     element?.root.style.removeProperty("--pg-rx");
     element?.root.style.removeProperty("--pg-ry");
     this.tiltedId = null;
+  }
+
+  /**
+   * The playable inside the card the pointer is over, or null.
+   *
+   * Reported from the tilt, which already tracks which card that is and
+   * already stands down for Reduce Motion, a pan, a selection and a held
+   * space. Every one of those is a moment the wall should not also start
+   * playing something, so following it is the answer rather than a
+   * coincidence.
+   */
+  private setHoveredMedia(next: HTMLElement | null): void {
+    const playable =
+      next instanceof HTMLVideoElement ||
+      (next instanceof HTMLImageElement && next.dataset.animatedSrc)
+        ? (next as HTMLVideoElement | HTMLImageElement)
+        : null;
+    if (this.hoveredMedia === playable) return;
+    this.hoveredMedia = playable;
+    this.onHoverMedia?.(playable);
   }
 
   private applyTilt(): void {
@@ -746,6 +771,7 @@ export class GridRenderer {
 
       if (this.tiltedId !== id) this.clearTilt();
       this.tiltedId = id;
+      this.setHoveredMedia(element.media);
       // Pressing the right edge tips the right side away, so rotateY follows
       // dx and rotateX opposes dy.
       element.root.style.setProperty("--pg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
