@@ -459,7 +459,17 @@ export class DetailView {
   ): Promise<void> {
     if (!panel) return;
     const swatches = await readSwatches(image);
+    if (!panel.isConnected || swatches.length === 0) return;
+
+    // Held until the panel has actually arrived. Reading the colours takes a
+    // few tens of milliseconds off an image the stage has already decoded,
+    // so without this the palette spent its whole entrance behind a panel
+    // still waiting out its own delay, and by the time anything was visible
+    // every swatch had finished. The row appearing after the panel is also
+    // the order that reads correctly: the details land, then their colours.
+    await this.reveal?.finished.catch(() => undefined);
     if (!panel.isConnected) return;
+
     paintSwatchStrip(panel, swatches);
   }
 

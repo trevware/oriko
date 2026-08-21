@@ -137,8 +137,6 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
     swatch.className = "pg-swatch";
     swatch.style.backgroundColor = hex;
     swatch.setAttribute("aria-label", `Copy ${hex}`);
-    // Its place in the run, which the stylesheet turns into a delay so the
-    // row arrives left to right rather than all at once.
     // Animated here rather than by a class, so the row cannot depend on a
     // style flush landing between its being built and its being shown. fill
     // backwards holds each swatch hidden through its own delay and then hands
