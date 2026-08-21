@@ -169,13 +169,18 @@
    text that cannot be clipped would then be text that cannot be read. */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .power-grid-view.is-drop-target::after {
+    /* The range has to be wide or there is nothing to see. Secondary to
+       primary is 0.72 alpha to 0.88, which spread across half the label is a
+       change no eye picks up; this runs from a little over half opacity to the
+       surface's fullest mark, and narrows the band so the lift arrives as a
+       glint rather than a wash. */
     background-image: linear-gradient(
       90deg,
-      var(--pg-surface-mid) 0%,
-      var(--pg-surface-mid) 38%,
-      var(--pg-surface-text) 50%,
-      var(--pg-surface-mid) 62%,
-      var(--pg-surface-mid) 100%
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 0%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 42%,
+      var(--pg-mark) 50%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 58%,
+      color-mix(in srgb, var(--pg-surface-text) 58%, transparent) 100%
     );
     /* Tiled, not no-repeat. Outside a no-repeat image there is nothing to clip
        to, so the letters the sweep had left behind were painting as nothing at
@@ -188,7 +193,7 @@
     color: transparent;
     animation:
       pg-drop-in 140ms ease both,
-      pg-drop-shimmer 4200ms linear infinite;
+      pg-drop-shimmer 3200ms linear infinite;
   }
 }
 
