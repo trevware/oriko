@@ -271,7 +271,9 @@ function rulesScreen(
             )
           ),
       })),
-    onSubmit: () => {
+    // onCommit, not onSubmit: Enter belongs to the facet rows, which are
+    // stepped into rather than answered, and the button is what finishes.
+    onCommit: () => {
       if (isFilterEmpty(current)) {
         // Without a rule it would hold the whole wall, which is home under a
         // second name. Refused here rather than hidden, so the reason is said.

@@ -86,6 +86,17 @@ export interface SheetScreen {
       the screen is driven by Enter alone as a list is. */
   cta?: string;
   /**
+   * What the commit button does, for a screen that is a list *and* has
+   * something to commit.
+   *
+   * Without this the button submits, which is right for a form: its rows are a
+   * choice beside the field and Enter means "done". The rule editor is the
+   * other shape, a list of facets you step into with Enter and a Create button
+   * that finishes the job, and those two cannot both be Enter. Supplying this
+   * leaves Enter to the rows and gives the button its own errand.
+   */
+  onCommit?: () => void;
+  /**
    * Moves the row itself rather than the cursor over it, bound to alt+arrow.
    * Returns whether anything actually moved, which is what tells the cursor
    * whether to follow. A screen without one has no reorderable rows and the
@@ -249,7 +260,8 @@ export class Sheet {
         });
         cta.onclick = (event: MouseEvent) => {
           event.stopPropagation();
-          this.submit();
+          if (screen.onCommit) screen.onCommit();
+          else this.submit();
         };
       }
     }
