@@ -48,7 +48,15 @@ export interface SheetScreen {
   /** Which row starts active. Defaults to the first, which is wrong for a
       screen whose rows are a current setting rather than a ranked list. */
   active?: number;
-  rows: (query: string) => SheetRow[];
+  /**
+   * Given the query and the label of the row the cursor was on, so a screen
+   * can render that one differently for having the cursor.
+   *
+   * The label, not the index. Typing narrows the list, so a position in what
+   * is on screen says nothing about a position in what the screen is built
+   * from, and the two part company the moment anything is typed.
+   */
+  rows: (query: string, activeLabel: string) => SheetRow[];
   /**
    * Enter, when the screen is a form rather than a list. Given what was typed
    * and whichever row is active. Without one, Enter chooses the active row.
@@ -77,6 +85,18 @@ export interface SheetScreen {
    * binding does not exist for it.
    */
   onReorder?: (from: number, delta: number) => boolean;
+  /**
+   * Backspace on the row under the cursor, offered only while the field is
+   * empty. A field with something in it owes that key to the text, and taking
+   * it would make the list impossible to search.
+   */
+  onDelete?: (row: SheetRow) => void;
+  /**
+   * First refusal on Escape. Returning true keeps the screen, for one holding
+   * a state of its own that the key should unwind before the screen itself is
+   * given up.
+   */
+  onEscape?: () => boolean;
 }
 
 
@@ -265,9 +285,10 @@ export class Sheet {
     if (screen.note) list.createDiv({ cls: "pg-sheet-note", text: screen.note });
 
     const query = this.input.value;
+    const built = screen.rows(query, this.rows[this.active]?.label ?? "");
     const found = screen.filters
-      ? this.narrow(screen.rows(query), query)
-      : screen.rows(query).map((row) => ({ row, at: -1 }));
+      ? this.narrow(built, query)
+      : built.map((row) => ({ row, at: -1 }));
 
     // A form with no rows is a field and nothing else, not a search that found
     // nothing, so it says nothing rather than "No matches".
@@ -468,6 +489,10 @@ export class Sheet {
   private reorder(delta: number): void {
     const screen = this.screen;
     if (!screen?.onReorder) return;
+    // Never against a narrowed list. The rows on screen are then a subset in
+    // their own order, so moving one down past a neighbour it cannot see is a
+    // request with no answer, and the index would address the wrong grid.
+    if (this.input?.value) return;
     if (!screen.onReorder(this.active, delta)) return;
     this.active += delta;
     this.hoverLocked = true;
@@ -609,7 +634,26 @@ export class Sheet {
       run();
     };
 
-    if (event.key === "Escape") return take(() => this.pop());
+    if (event.key === "Escape") {
+      if (this.screen?.onEscape?.()) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      return take(() => this.pop());
+    }
+
+    // Only with nothing typed. Otherwise this is the key that edits the query,
+    // and the row under the cursor is not what it was aimed at.
+    if (
+      (event.key === "Backspace" || event.key === "Delete") &&
+      this.screen?.onDelete &&
+      !this.input?.value
+    ) {
+      const row = this.rows[this.active];
+      if (!row) return;
+      return take(() => this.screen?.onDelete?.(row));
+    }
 
     // Before the plain arrows, which would otherwise swallow it: alt+arrow
     // carries the row along instead of stepping the cursor past it.

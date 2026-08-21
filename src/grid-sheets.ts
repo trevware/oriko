@@ -87,6 +87,7 @@ const PICK_HINTS: Array<[string, string]> = [
 const MANAGE_HINTS: Array<[string, string]> = [
   ["↑↓", "navigate"],
   ["⌥↑↓ / drag", "move"],
+  ["⌫", "delete"],
   ["↵", "select"],
   ["esc", "close"],
 ];
@@ -104,7 +105,7 @@ function confirm(
   sheet: Sheet,
   opts: { title: string; note: string; cta: string; destructive?: boolean; onConfirm: () => void }
 ): void {
-  sheet.push({
+  const screen: SheetScreen = {
     title: opts.title,
     note: opts.note,
     filters: false,
@@ -124,7 +125,14 @@ function confirm(
         },
       },
     ],
-  });
+  };
+
+  // Pushed onto a sheet that is already up so Escape returns to whatever asked
+  // the question, and opened outright when there is none. push refuses on a
+  // closed sheet and refuses silently, which is how a confirmation reached
+  // straight from a menu came to do nothing at all.
+  if (sheet.isOpen) sheet.push(screen);
+  else sheet.open(screen);
 }
 
 function plural(n: number, one: string, many: string): string {
@@ -249,14 +257,53 @@ function confirmDelete(
   });
 }
 
+/** Deleting one directly, for a caller that already knows which. */
+export function openDeleteGrid(
+  sheet: Sheet,
+  grids: GridsController,
+  grid: GridSpace,
+  index: number,
+  after: () => void = () => undefined
+): void {
+  confirmDelete(sheet, grids, grid, index, after);
+}
+
 /** The whole set: pick a grid, then pick what to do with it. */
 export function openGridsManager(
   sheet: Sheet,
   grids: GridsController,
   after: () => void = () => undefined
 ): void {
-  const list = (): SheetRow[] => {
+  /**
+   * The grid whose row is asking to be deleted, by name.
+   *
+   * Held here rather than by the sheet because it is this screen's idea: the
+   * row it belongs to is rebuilt on every render, so anything kept on the
+   * element itself would not survive the repaint that shows the question.
+   */
+  let armed: string | null = null;
+
+  const disarm = (): boolean => {
+    if (armed === null) return false;
+    armed = null;
+    sheet.refresh();
+    return true;
+  };
+
+  /** The label an armed row wears, which is also how the cursor is recognised
+      as still being on it. */
+  const armedLabel = (name: string): string => `Delete ${name}?`;
+
+  const list = (_query: string, activeLabel: string): SheetRow[] => {
     const home = grids.home();
+    const registry = grids.grids();
+
+    // A cursor that has moved on has left the question behind, so the row
+    // stops asking. Otherwise an armed row sits there in red while Enter does
+    // something else entirely, several rows away. Matched by label, since a
+    // narrowed list renumbers everything.
+    if (armed !== null && activeLabel !== armedLabel(armed)) armed = null;
+
     const rows: SheetRow[] = [
       {
         label: home.name,
@@ -268,7 +315,27 @@ export function openGridsManager(
       },
     ];
 
-    grids.grids().forEach((grid, index) => {
+    registry.forEach((grid, index) => {
+      if (grid.name === armed) {
+        const members = grids.memberCount(grid.name);
+        rows.push({
+          label: armedLabel(grid.name),
+          icon: "trash-2",
+          destructive: true,
+          // Says where the clippings go, because that is the part worth
+          // knowing before answering and there is no room for a sentence.
+          detail: members === 0 ? "empty" : `${members} → ${home.name}`,
+          onChoose: () => {
+            armed = null;
+            void grids.remove(index).then(() => {
+              after();
+              sheet.refresh();
+            });
+          },
+        });
+        return;
+      }
+
       rows.push({
         label: grid.name,
         icon: grid.icon,
@@ -359,6 +426,21 @@ export function openGridsManager(
     filters: true,
     hints: MANAGE_HINTS,
     rows: list,
+    // Backspace asks, Enter answers, both on the row itself. A grid is cheap
+    // to remake and nothing it held is deleted, so a question in place beats
+    // a screen of its own for something reached this often.
+    onDelete: (row) => {
+      // Found by the name on the row rather than by where it sits, because a
+      // narrowed list renumbers. Home is excluded by not being in the
+      // registry at all: it is where every clipping whose grid no longer
+      // resolves is shown, so it always has to exist.
+      const grid = grids.grids().find((entry) => entry.name === row.label);
+      if (!grid) return;
+      armed = grid.name;
+      sheet.refresh();
+    },
+    // Takes the question back before it takes the screen.
+    onEscape: disarm,
     // Rearranged where the whole order is visible, rather than one grid at a
     // time through a screen that threw you back to the top after every move.
     onReorder: (row, delta) => {

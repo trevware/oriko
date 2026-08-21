@@ -11,7 +11,7 @@ import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
 import { isEditable, withValue, withoutValue } from "./editable";
 import { ContextMenu } from "./context-menu";
-import { openGridEditor, openGridsManager, openNewGrid } from "./grid-sheets";
+import { openDeleteGrid, openGridEditor, openGridsManager, openNewGrid } from "./grid-sheets";
 import { DetailView } from "./detail";
 import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./drop";
 import type { MenuItem } from "./context-menu";
@@ -1399,12 +1399,16 @@ export class PowerGridView extends ItemView {
   }
 
   private deleteActiveGrid(): void {
+    if (!this.sheet) return;
     const index = this.activeGridIndex();
     // Home is where an unknown grid falls back to, so it always has to exist.
     if (index === -1) return;
-    // Through the manager, so the confirmation arrives on the same surface as
-    // every other grid decision rather than as a modal of its own.
-    this.manageGrids();
+    // Straight to the question about this grid. It used to open the manager
+    // and stop there, leaving you on a list of every grid with nothing chosen,
+    // which is not what a row saying Delete grid promises.
+    openDeleteGrid(this.sheet, this.gridsController(), this.activeGrid(), index, () =>
+      this.refresh()
+    );
   }
 
   private manageGrids(): void {
