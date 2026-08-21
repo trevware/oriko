@@ -153,6 +153,33 @@ export function moveInGrid(
 }
 
 /**
+ * How far each row has to be pushed back to appear where it just was.
+ *
+ * The first half of FLIP, for a list that rebuilds rather than moves: the rows
+ * are already in their new places by the time this runs, so animating means
+ * putting them back and then letting go. Only rows present both before and
+ * after are considered, since one that has just appeared has nowhere to come
+ * from and one that has gone is not there to move.
+ *
+ * Sub-pixel differences are dropped. They come of rounding rather than of
+ * anything actually moving, and animating them puts a transition on rows that
+ * did not move, which is enough to make a settled list shimmer.
+ */
+export function flipOffsets(
+  before: ReadonlyMap<string, number>,
+  after: ReadonlyMap<string, number>
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const [key, wasAt] of before) {
+    const isAt = after.get(key);
+    if (isAt === undefined) continue;
+    const dy = wasAt - isAt;
+    if (Math.abs(dy) >= 0.5) out.set(key, dy);
+  }
+  return out;
+}
+
+/**
  * Which row a pointer is over, given each row's vertical midpoint.
  *
  * Midpoints rather than edges, which is what makes a live reorder feel right:

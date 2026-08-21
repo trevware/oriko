@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { indexAtMidpoints, moveInGrid } from "./layout";
+import { flipOffsets, indexAtMidpoints, moveInGrid } from "./layout";
 import { hint, paintLabel } from "./palette";
 
 /**
@@ -79,6 +79,17 @@ export interface SheetScreen {
   onReorder?: (from: number, delta: number) => boolean;
 }
 
+
+/**
+ * How long a row takes to travel to its new place, and on what curve.
+ *
+ * Short and decelerating. A reorder is a direct manipulation, so the row has
+ * to arrive while the gesture that moved it is still happening; anything
+ * longer reads as the list lagging rather than as the row moving. The curve is
+ * the one the wall's own quick moves use.
+ */
+const REORDER_MS = 190;
+const REORDER_EASE = "cubic-bezier(0.22, 0.9, 0.28, 1)";
 
 export class Sheet {
   private backdrop: HTMLElement | null = null;
@@ -385,7 +396,7 @@ export class Sheet {
 
       this.dragRow = target;
       this.active = target;
-      this.render();
+      this.renderMoved();
       this.paintDragging();
     });
 
@@ -423,13 +434,70 @@ export class Sheet {
     if (!screen?.onReorder) return;
     if (!screen.onReorder(this.active, delta)) return;
     this.active += delta;
-    this.render();
+    this.renderMoved();
   }
 
   /** Repaints the screen on top of the stack, for a caller that has just
       changed what its rows would say. */
   refresh(): void {
     this.render();
+  }
+
+  /** Where each row is on screen now, by the label that identifies it. */
+  private rowTops(): Map<string, number> {
+    const tops = new Map<string, number>();
+    this.rowEls.forEach((el, index) => {
+      const label = this.rows[index]?.label;
+      if (label) tops.set(label, el.getBoundingClientRect().top);
+    });
+    return tops;
+  }
+
+  /**
+   * Rebuilds the list and slides the rows to where they now belong.
+   *
+   * The rows are already in place by the time this animates: each is pushed
+   * back to where it was and then let go, so the browser only ever interpolates
+   * a transform and the whole move composites.
+   *
+   * The measurement before the rebuild reads the rendered rect, which carries
+   * any transform still running from the last move. That is what makes a fast
+   * drag chain instead of snapping: a row caught mid-flight starts its next
+   * one from where it visually is, not from where it had been going.
+   */
+  private renderMoved(): void {
+    if (Sheet.prefersReducedMotion()) {
+      this.render();
+      return;
+    }
+
+    const before = this.rowTops();
+    this.render();
+    const offsets = flipOffsets(before, this.rowTops());
+    if (offsets.size === 0) return;
+
+    const moved: HTMLElement[] = [];
+    this.rowEls.forEach((el, index) => {
+      const dy = offsets.get(this.rows[index]?.label ?? "");
+      if (dy === undefined) return;
+      el.style.transition = "none";
+      el.style.transform = `translateY(${dy}px)`;
+      moved.push(el);
+    });
+
+    // Next frame, so the browser has painted the inverted state and has
+    // something to animate away from. Clearing it in the same frame is a
+    // no-op it would coalesce into never having moved at all.
+    window.requestAnimationFrame(() => {
+      for (const el of moved) {
+        el.style.transition = `transform ${REORDER_MS}ms ${REORDER_EASE}`;
+        el.style.transform = "";
+      }
+    });
+  }
+
+  private static prefersReducedMotion(): boolean {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
   private move(columns: number, rows: number): void {

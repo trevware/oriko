@@ -4,6 +4,7 @@ import {
   computeLayout,
   fitRect,
   flightMidpoint,
+  flipOffsets,
   flipTransform,
   cursorAfterNarrowing,
   groupedMenu,
@@ -257,6 +258,44 @@ describe("moveInGrid", () => {
 
   it("clamps an index that has fallen outside the set", () => {
     expect(moveInGrid(99, { columns: 0, rows: 0 }, COUNT, COLS)).toBe(COUNT - 1);
+  });
+});
+
+describe("flipOffsets", () => {
+  it("reports how far back a row must be pushed to look unmoved", () => {
+    const before = new Map([["a", 0], ["b", 40]]);
+    const after = new Map([["a", 40], ["b", 0]]);
+    expect(flipOffsets(before, after)).toEqual(new Map([["a", -40], ["b", 40]]));
+  });
+
+  it("says nothing about rows that did not move", () => {
+    const same = new Map([["a", 0], ["b", 40]]);
+    expect(flipOffsets(same, same).size).toBe(0);
+  });
+
+  it("ignores a sub-pixel difference, which is rounding and not movement", () => {
+    const before = new Map([["a", 10]]);
+    const after = new Map([["a", 10.2]]);
+    expect(flipOffsets(before, after).size).toBe(0);
+  });
+
+  it("skips a row that has only just appeared", () => {
+    // It has nowhere to come from, so there is nothing to animate.
+    const before = new Map([["a", 0]]);
+    const after = new Map([["a", 0], ["b", 40]]);
+    expect(flipOffsets(before, after).has("b")).toBe(false);
+  });
+
+  it("skips a row that has gone", () => {
+    const before = new Map([["a", 0], ["b", 40]]);
+    const after = new Map([["a", 40]]);
+    const out = flipOffsets(before, after);
+    expect(out.has("b")).toBe(false);
+    expect(out.get("a")).toBe(-40);
+  });
+
+  it("has nothing to say about an empty list", () => {
+    expect(flipOffsets(new Map(), new Map()).size).toBe(0);
   });
 });
 
