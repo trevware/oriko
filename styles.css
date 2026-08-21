@@ -1062,14 +1062,12 @@
 .pg-detail.is-open .pg-detail-meta {
   opacity: 1;
   transform: translateX(0);
-  /* Delayed into the last third of the card's flight, which is FLIGHT_MS in
-     detail.ts and currently 650. Starting sooner had the details racing the
-     picture across the screen, so both arrived at once and neither was the
-     thing you were watching. Beginning as the card settles lets the picture
-     land first and the details follow it in. */
-  transition:
-    opacity 300ms ease 460ms,
-    transform 340ms cubic-bezier(0.19, 1, 0.26, 1) 460ms;
+  /* No transition. The entrance is played by detail.ts, because this panel is
+     built and given is-open inside one task and a transition between the two
+     needs a style flush to land in between, which never happens. These two
+     rules are only the resting states: hidden before it opens, and shown
+     while it is open so a close cuts it rather than letting it linger as
+     debris the returning card flies underneath. */
 }
 
 .pg-detail-field {
@@ -1130,31 +1128,6 @@
 
 .pg-detail button.pg-swatch:active {
   transform: scale(0.94);
-}
-
-/* The palette arrives a colour at a time, left to right, rather than as a
-   finished row. The delay is the swatch's own position in the run, handed
-   down from paintSwatchStrip.
-
-   backwards, not both or forwards. The swatch scales on hover and on press,
-   and a filled animation outranks a transition, so holding the last keyframe
-   after it finished would leave every swatch permanently unable to move
-   again. backwards holds the first frame through the delay and then hands the
-   element back to its own rules, which is the whole of what is wanted. */
-@keyframes pg-swatch-in {
-  from {
-    opacity: 0;
-    transform: translateX(-10px) scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
-  }
-}
-
-.pg-detail button.pg-swatch {
-  animation: pg-swatch-in 260ms cubic-bezier(0.22, 0.9, 0.28, 1) backwards;
-  animation-delay: calc(var(--pg-swatch-index, 0) * 45ms);
 }
 
 /* One readout for the whole row rather than a tip on each swatch: the panel

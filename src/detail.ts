@@ -40,6 +40,16 @@ const SIDEBAR = 300;
 /* Space between the image's right edge and the start of the panel. */
 const META_GAP = 24;
 const FLIGHT_MS = 650;
+/**
+ * When the details begin arriving, measured into the card's flight, and how
+ * long they take.
+ *
+ * Held back into the last third of it. Starting sooner had the details racing
+ * the picture across the screen so both landed at once, and neither was then
+ * the thing being watched. The card settles, and the details follow it in.
+ */
+const META_DELAY_MS = Math.round(FLIGHT_MS * 0.7);
+const META_MS = 340;
 const RETURN_MS = 420;
 /** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
 const PINCH_SENSITIVITY = 0.0022;
@@ -135,6 +145,16 @@ export class DetailView {
       otherwise pin the backdrop opaque and the card would fly home against
       it rather than against the wall. */
   private veil: Animation | null = null;
+  /**
+   * The details panel's entrance.
+   *
+   * Driven here rather than by a CSS transition for the reason the veil is,
+   * and it is the same reason: the panel is built and the root is given
+   * is-open inside one task, so a transition between the two states depends on
+   * a style flush happening to land in between, and none does. The panel was
+   * simply appearing.
+   */
+  private reveal: Animation | null = null;
   /** Carries the zoom transform. Kept off the stage, whose own transform is
       owned by the flight animation and would override anything set inline. */
   private layer: HTMLElement | null = null;
@@ -356,9 +376,34 @@ export class DetailView {
     this.suspended = false;
   }
 
+  /**
+   * Slides an element up out of nothing, after a wait.
+   *
+   * fill "both" so the delay holds the element hidden rather than showing it
+   * and then snatching it away on the first frame, and so it stays put once it
+   * has arrived. Reduced motion gets no animation at all, which leaves the
+   * element on its own styles; those must therefore be the arrived state, not
+   * the hidden one.
+   */
+  private static slideIn(el: HTMLElement, delay: number, duration: number): Animation | null {
+    if (DetailView.prefersReducedMotion()) return null;
+    return el.animate(
+      [
+        { opacity: 0, transform: "translateX(10px)" },
+        { opacity: 1, transform: "translateX(0)" },
+      ],
+      { duration, delay, easing: "cubic-bezier(0.19, 1, 0.26, 1)", fill: "both" }
+    );
+  }
+
+  private static prefersReducedMotion(): boolean {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
   private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): HTMLElement | null {
     if (!this.root) return null;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
+    this.reveal = DetailView.slideIn(panel, META_DELAY_MS, META_MS);
 
     // Sit against the image rather than in a fixed right-hand column. The
     // stage is centred in the space left of the sidebar, so a portrait used
@@ -765,6 +810,8 @@ export class DetailView {
     // goes. The returning card has to have the wall to land on.
     this.veil?.cancel();
     this.veil = null;
+    this.reveal?.cancel();
+    this.reveal = null;
 
     this.root.removeClass("is-open");
     const animation = this.stage.animate(
@@ -794,6 +841,8 @@ export class DetailView {
     this.stopWatchingVisibility();
     this.veil?.cancel();
     this.veil = null;
+    this.reveal?.cancel();
+    this.reveal = null;
     this.root?.remove();
     this.root = null;
     this.stage = null;

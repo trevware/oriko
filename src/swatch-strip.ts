@@ -13,6 +13,10 @@ import { extractSwatches } from "./swatches";
     the whole read is a fraction of a frame. */
 const SAMPLE_WIDTH = 96;
 
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /** How long the readout holds a message before following the pointer again. */
 const FLASH_MS = 1100;
 
@@ -24,6 +28,10 @@ const FLASH_MS = 1100;
  * sequence is worth.
  */
 const STAGGER_CAP = 8;
+
+/** Between one swatch and the next, and how long each takes to arrive. */
+const STAGGER_MS = 45;
+const SWATCH_MS = 260;
 
 /**
  * The palette of an image element, or an empty array when there is none to
@@ -131,7 +139,25 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
     swatch.setAttribute("aria-label", `Copy ${hex}`);
     // Its place in the run, which the stylesheet turns into a delay so the
     // row arrives left to right rather than all at once.
-    swatch.style.setProperty("--pg-swatch-index", String(Math.min(index, STAGGER_CAP)));
+    // Animated here rather than by a class, so the row cannot depend on a
+    // style flush landing between its being built and its being shown. fill
+    // backwards holds each swatch hidden through its own delay and then hands
+    // it back to the stylesheet: a filled end state would outrank the hover
+    // and press transforms and leave every swatch unable to move again.
+    if (!prefersReducedMotion()) {
+      swatch.animate(
+        [
+          { opacity: 0, transform: "translateX(-10px) scale(0.8)" },
+          { opacity: 1, transform: "translateX(0) scale(1)" },
+        ],
+        {
+          duration: SWATCH_MS,
+          delay: Math.min(index, STAGGER_CAP) * STAGGER_MS,
+          easing: "cubic-bezier(0.22, 0.9, 0.28, 1)",
+          fill: "backwards",
+        }
+      );
+    }
 
     const enter = (): void => {
       active = hex;
