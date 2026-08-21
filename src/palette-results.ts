@@ -125,3 +125,24 @@ export function searchPalette(
     (a, b) => b.score - a.score || sectionRank(a.section) - sectionRank(b.section)
   );
 }
+
+/**
+ * Where the cursor goes when a list is rebuilt and a place in it is being
+ * returned to.
+ *
+ * The key is tried first, because it names the row rather than its position
+ * and a list can shift underneath: the stage that was just closed may have
+ * ticked a facet or changed a count, and rows are ordered by what they hold.
+ * The index is the fallback for a row that has genuinely gone, where the
+ * nearest thing to where you were is the best that can be done.
+ */
+export function resumeIndex(
+  keys: readonly string[],
+  key: string,
+  index: number
+): number {
+  if (keys.length === 0) return 0;
+  const found = keys.indexOf(key);
+  if (found !== -1) return found;
+  return Math.max(0, Math.min(index, keys.length - 1));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchPalette } from "../src/palette-results";
+import { resumeIndex, searchPalette } from "../src/palette-results";
 import type { PaletteCommand } from "../src/commands";
 import type { ClippingRecord } from "../src/scan";
 
@@ -99,5 +99,35 @@ describe("searchPalette", () => {
 
   it("returns nothing at all when nothing matches", () => {
     expect(searchPalette("zzzz", commands, clippings, options)).toEqual([]);
+  });
+});
+
+describe("resumeIndex", () => {
+  const keys = ["a", "b", "c", "d"];
+
+  it("returns to the row it was left on", () => {
+    expect(resumeIndex(keys, "c", 0)).toBe(2);
+  });
+
+  it("follows the row when the list has shifted under it", () => {
+    // A stage can tick a facet or change a count, and rows are ordered by
+    // what they hold, so the index it was at may now be someone else.
+    expect(resumeIndex(["d", "c", "b", "a"], "c", 2)).toBe(1);
+  });
+
+  it("falls back to the index when the row has gone", () => {
+    expect(resumeIndex(keys, "gone", 2)).toBe(2);
+  });
+
+  it("clamps a fallback index that no longer fits", () => {
+    expect(resumeIndex(["a", "b"], "gone", 9)).toBe(1);
+  });
+
+  it("has nowhere to go in an empty list", () => {
+    expect(resumeIndex([], "a", 3)).toBe(0);
+  });
+
+  it("treats an unremembered key as no key at all", () => {
+    expect(resumeIndex(keys, "", 1)).toBe(1);
   });
 });

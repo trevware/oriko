@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 import type { PaletteCommand, PaletteStage } from "./commands";
-import { searchPalette } from "./palette-results";
+import { resumeIndex, searchPalette } from "./palette-results";
 import type { PaletteRow, SearchOptions } from "./palette-results";
 import type { MatchRange } from "./palette-search";
 import type { ClippingRecord } from "./scan";
@@ -53,6 +53,17 @@ export class Palette {
   private rows: PaletteRow[] = [];
   private rowEls: HTMLElement[] = [];
   private active = 0;
+  /**
+   * The root list as it stood when a stage was entered, so backing out of one
+   * returns to the row it was opened from.
+   *
+   * The query is kept alongside the row, and has to be: the root is narrowed
+   * by whatever was typed, so restoring a position without restoring the text
+   * that produced it would point into a different list. The key is preferred
+   * to the index for the same reason the keepOpen path prefers it, a stage
+   * having very possibly changed a count or a tick while it was open.
+   */
+  private resume: { query: string; key: string; index: number } | null = null;
 
   constructor(private container: HTMLElement, private handlers: PaletteHandlers) {}
 
@@ -204,6 +215,11 @@ export class Palette {
 
   private pushStage(command: PaletteCommand): void {
     if (!command.stage) return;
+    this.resume = {
+      query: this.input?.value ?? "",
+      key: this.rows[this.active]?.key ?? "",
+      index: this.active,
+    };
     this.stageId = command.id;
     this.stage = command.stage;
     this.active = 0;
@@ -216,15 +232,29 @@ export class Palette {
   }
 
   private popStage(): void {
+    const resume = this.resume;
+    this.resume = null;
+
     this.stageId = null;
     this.stage = null;
     this.active = 0;
     if (this.input) {
-      this.input.value = "";
+      this.input.value = resume?.query ?? "";
       this.input.placeholder = ROOT_PLACEHOLDER;
       this.input.focus({ preventScroll: true });
     }
     this.render();
+
+    // After the render, because the rows it restores a place in do not exist
+    // until then.
+    if (resume) {
+      this.active = resumeIndex(
+        this.rows.map((row) => row.key),
+        resume.key,
+        resume.index
+      );
+      this.paintActive();
+    }
   }
 
   private choose(row: PaletteRow): void {
