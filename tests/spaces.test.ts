@@ -4,6 +4,7 @@ import {
   filterByGrid,
   hotkeyPosition,
   membersOf,
+  reorderTarget,
   orderedGrids,
   validateGridName,
 } from "../src/spaces";
@@ -168,5 +169,35 @@ describe("membersOf", () => {
   it("does not count the unkeyed as members of home", () => {
     // They belong to home, but renaming home must not rewrite what has no key.
     expect(membersOf(records, "Clippings")).toEqual([]);
+  });
+});
+
+describe("reorderTarget", () => {
+  it("maps a list row onto the registry entry behind it", () => {
+    // Row 0 is home, so row 1 is the first stored grid.
+    expect(reorderTarget(2, 1, 4)).toEqual({ from: 1, to: 2 });
+    expect(reorderTarget(2, -1, 4)).toEqual({ from: 1, to: 0 });
+  });
+
+  it("refuses to move home, which has no position to change", () => {
+    expect(reorderTarget(0, 1, 4)).toBeNull();
+    expect(reorderTarget(0, -1, 4)).toBeNull();
+  });
+
+  it("refuses to move a grid above home", () => {
+    expect(reorderTarget(1, -1, 4)).toBeNull();
+  });
+
+  it("refuses to move the last grid past the end", () => {
+    expect(reorderTarget(4, 1, 4)).toBeNull();
+  });
+
+  it("refuses a row that is not a grid at all", () => {
+    expect(reorderTarget(9, -1, 4)).toBeNull();
+  });
+
+  it("has nothing to move in an empty registry", () => {
+    expect(reorderTarget(1, 1, 0)).toBeNull();
+    expect(reorderTarget(0, 1, 0)).toBeNull();
   });
 });

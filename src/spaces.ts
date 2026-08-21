@@ -85,3 +85,26 @@ export function validateGridName(
 export function membersOf(records: ClippingRecord[], name: string): ClippingRecord[] {
   return records.filter((record) => record.grid.trim() === name);
 }
+
+/**
+ * Which registry entry a row of the manager list stands for, and where it
+ * would land, or null when it cannot move.
+ *
+ * The list shows home first and the registry after it, but home is not in the
+ * registry at all: it is the fallback every unknown grid resolves to, so it
+ * has no stored position to change and nothing may be moved above it. That
+ * offset by one is the whole of the arithmetic, and getting it wrong moves the
+ * grid next to the one you meant, which is the sort of mistake that is only
+ * obvious after it has been saved.
+ */
+export function reorderTarget(
+  row: number,
+  delta: number,
+  count: number
+): { from: number; to: number } | null {
+  const from = row - 1;
+  if (from < 0 || from >= count) return null;
+  const to = from + delta;
+  if (to < 0 || to >= count) return null;
+  return { from, to };
+}

@@ -1,6 +1,6 @@
 import { Notice } from "obsidian";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
-import { validateGridName } from "./spaces";
+import { reorderTarget, validateGridName } from "./spaces";
 import type { GridSpace } from "./spaces";
 
 /**
@@ -81,6 +81,14 @@ const PICK_HINTS: Array<[string, string]> = [
   ["↑↓", "navigate"],
   ["↵", "select"],
   ["esc", "back"],
+];
+
+/** The manager list, where a row can also be carried up and down the order. */
+const MANAGE_HINTS: Array<[string, string]> = [
+  ["↑↓", "navigate"],
+  ["⌥↑↓", "move"],
+  ["↵", "select"],
+  ["esc", "close"],
 ];
 
 const EDIT_HINTS: Array<[string, string]> = [
@@ -278,48 +286,71 @@ export function openGridsManager(
   };
 
   const actions = (grid: GridSpace, index: number | undefined): void => {
-    const count = grids.grids().length;
-    const rows: SheetRow[] = [
-      {
-        label: "Rename or re-icon",
-        icon: "pencil",
-        onChoose: () => openGridEditor(sheet, grids, grid, index, reopen),
-      },
-    ];
+    // Read on every repaint rather than captured once. Moving the grid changes
+    // where it sits, and a captured index would have the next press move
+    // whatever had slid into the place this one just left.
+    const positionOf = (): number =>
+      grids.grids().findIndex((entry) => entry.name === grid.name);
 
-    if (index !== undefined) {
-      rows.push({
-        label: "Move up",
-        icon: "arrow-up",
-        detail: index === 0 ? "first" : undefined,
-        onChoose: () => {
-          if (index === 0) return;
-          void grids.reorder(index, -1).then(reopen);
+    const move = (delta: number): void => {
+      const target = reorderTarget(positionOf() + 1, delta, grids.grids().length);
+      if (!target) return;
+      void grids.reorder(target.from, delta);
+      after();
+      // Repainted where it stands. Returning to the list after every move is
+      // what made rearranging cost a round trip per position, and cost you
+      // your place in the list on each one.
+      sheet.refresh();
+    };
+
+    const build = (): SheetRow[] => {
+      const at = positionOf();
+      const count = grids.grids().length;
+      const rows: SheetRow[] = [
+        {
+          label: "Rename or re-icon",
+          icon: "pencil",
+          onChoose: () =>
+            openGridEditor(
+              sheet,
+              grids,
+              grid,
+              index === undefined ? undefined : at,
+              reopen
+            ),
         },
-      });
-      rows.push({
-        label: "Move down",
-        icon: "arrow-down",
-        detail: index === count - 1 ? "last" : undefined,
-        onChoose: () => {
-          if (index === count - 1) return;
-          void grids.reorder(index, 1).then(reopen);
-        },
-      });
-      rows.push({
-        label: "Delete",
-        icon: "trash-2",
-        destructive: true,
-        onChoose: () => confirmDelete(sheet, grids, grid, index, after),
-      });
-    }
+      ];
+
+      if (index !== undefined && at >= 0) {
+        rows.push({
+          label: "Move up",
+          icon: "arrow-up",
+          detail: at === 0 ? "first" : undefined,
+          onChoose: () => move(-1),
+        });
+        rows.push({
+          label: "Move down",
+          icon: "arrow-down",
+          detail: at === count - 1 ? "last" : undefined,
+          onChoose: () => move(1),
+        });
+        rows.push({
+          label: "Delete",
+          icon: "trash-2",
+          destructive: true,
+          onChoose: () => confirmDelete(sheet, grids, grid, at, after),
+        });
+      }
+
+      return rows;
+    };
 
     sheet.push({
       title: grid.name,
       placeholder: "Search actions…",
       filters: true,
       hints: PICK_HINTS,
-      rows: () => rows,
+      rows: build,
     });
   };
 
@@ -327,8 +358,21 @@ export function openGridsManager(
     title: "Manage grids",
     placeholder: "Search grids…",
     filters: true,
-    hints: PICK_HINTS,
+    hints: MANAGE_HINTS,
     rows: list,
+    // Rearranged where the whole order is visible, rather than one grid at a
+    // time through a screen that threw you back to the top after every move.
+    onReorder: (row, delta) => {
+      const move = reorderTarget(row, delta, grids.grids().length);
+      if (!move) return false;
+      // reorder splices synchronously and only the save it does afterwards is
+      // async, so the list can repaint at once and the write can catch up. A
+      // run of presses stays in order because the mutation is not the slow
+      // part.
+      void grids.reorder(move.from, delta);
+      after();
+      return true;
+    },
   });
 }
 

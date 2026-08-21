@@ -70,6 +70,13 @@ export interface SheetScreen {
   /** Label for the footer's commit button. Without one there is no button, and
       the screen is driven by Enter alone as a list is. */
   cta?: string;
+  /**
+   * Moves the row itself rather than the cursor over it, bound to alt+arrow.
+   * Returns whether anything actually moved, which is what tells the cursor
+   * whether to follow. A screen without one has no reorderable rows and the
+   * binding does not exist for it.
+   */
+  onReorder?: (from: number, delta: number) => boolean;
 }
 
 
@@ -305,6 +312,28 @@ export class Sheet {
     this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
   }
 
+  /**
+   * Moves the row under the cursor, and takes the cursor with it.
+   *
+   * Following is the whole point. A cursor left behind means the second press
+   * moves whatever has just slid into the old place, so moving one grid three
+   * positions would take three separate trips to find it again. That is the
+   * cost this binding exists to remove.
+   */
+  private reorder(delta: number): void {
+    const screen = this.screen;
+    if (!screen?.onReorder) return;
+    if (!screen.onReorder(this.active, delta)) return;
+    this.active += delta;
+    this.render();
+  }
+
+  /** Repaints the screen on top of the stack, for a caller that has just
+      changed what its rows would say. */
+  refresh(): void {
+    this.render();
+  }
+
   private move(columns: number, rows: number): void {
     if (this.rows.length === 0) return;
     const screen = this.screen;
@@ -361,6 +390,15 @@ export class Sheet {
     };
 
     if (event.key === "Escape") return take(() => this.pop());
+
+    // Before the plain arrows, which would otherwise swallow it: alt+arrow
+    // carries the row along instead of stepping the cursor past it.
+    if (event.altKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      if (this.screen?.onReorder) {
+        return take(() => this.reorder(event.key === "ArrowDown" ? 1 : -1));
+      }
+    }
+
     if (event.key === "ArrowDown") return take(() => this.move(0, 1));
     if (event.key === "ArrowUp") return take(() => this.move(0, -1));
     if (event.key === "Enter") return take(() => this.submit());
