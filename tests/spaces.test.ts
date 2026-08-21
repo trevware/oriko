@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assignableValue,
   effectiveGrid,
   isAutoGrid,
   filterByGrid,
@@ -11,6 +12,8 @@ import {
 } from "../src/spaces";
 import type { ClippingRecord } from "../src/scan";
 import type { GridSpace } from "../src/spaces";
+import { facetDefs, typedFacets } from "../src/filter";
+import type { FilterState } from "../src/filter";
 
 const HOME = { name: "Clippings", icon: "layout-grid" };
 const GRIDS = [
@@ -216,5 +219,45 @@ describe("isAutoGrid", () => {
   it("treats an empty rule set as manual, since it would name the whole wall", () => {
     const space: GridSpace = { name: "Empty", icon: "star", rules: {} };
     expect(isAutoGrid(space)).toBe(false);
+  });
+});
+
+describe("assignableValue", () => {
+  const defs = facetDefs(["categories", "created"]);
+  const auto = (rules: FilterState): GridSpace => ({ name: "G", icon: "star", rules });
+
+  it("names the one write that would make a clipping match", () => {
+    expect(assignableValue(auto({ categories: ["design"] }), defs)).toEqual({
+      key: "categories",
+      value: "design",
+    });
+  });
+
+  it("refuses a manual grid, which is moved into rather than matched", () => {
+    expect(assignableValue({ name: "Manga", icon: "archive" }, defs)).toBeNull();
+  });
+
+  it("refuses more than one facet, there being no single write", () => {
+    expect(assignableValue(auto({ categories: ["design"], status: ["unread"] }), defs)).toBeNull();
+  });
+
+  it("refuses more than one value, for the same reason", () => {
+    expect(assignableValue(auto({ categories: ["design", "ios"] }), defs)).toBeNull();
+  });
+
+  it("refuses a derived facet, which no note can carry", () => {
+    expect(assignableValue(auto({ domain: ["youtube.com"] }), defs)).toBeNull();
+    expect(assignableValue(auto({ kind: ["video"] }), defs)).toBeNull();
+  });
+
+  it("refuses a date facet, whose values are buckets rather than literals", () => {
+    const dated = typedFacets(defs, [], 0).map((d) =>
+      d.id === "created" ? { ...d, shape: "date" as const } : d
+    );
+    expect(assignableValue(auto({ created: ["empty"] }), dated)).toBeNull();
+  });
+
+  it("refuses a facet no longer on offer, whose shape cannot be read", () => {
+    expect(assignableValue(auto({ medium: ["photo"] }), defs)).toBeNull();
   });
 });

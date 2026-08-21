@@ -1,5 +1,5 @@
 import { isFilterEmpty } from "./filter";
-import type { FilterState } from "./filter";
+import type { FacetDef, FilterState } from "./filter";
 import type { ClippingRecord } from "./scan";
 
 /**
@@ -37,6 +37,39 @@ export interface GridSpace {
  */
 export function isAutoGrid(space: GridSpace): boolean {
   return space.rules !== undefined && !isFilterEmpty(space.rules);
+}
+
+/**
+ * The single property write that would make a clipping match, or null when
+ * there is not exactly one.
+ *
+ * This is what decides whether an auto-grid can be moved into. Every ambiguous
+ * case refuses rather than picking a value out of the rule and hoping: a target
+ * that cannot act is worse than an absent one, which is the same bargain the
+ * palette makes when it drops a facet with nothing to offer.
+ */
+export function assignableValue(
+  space: GridSpace,
+  defs: FacetDef[]
+): { key: string; value: string } | null {
+  if (!isAutoGrid(space) || !space.rules) return null;
+
+  const entries = Object.entries(space.rules);
+  if (entries.length !== 1) return null;
+
+  const [id, values] = entries[0];
+  if (values.length !== 1) return null;
+
+  // A facet switched off in settings has no def, so its shape cannot be read
+  // and its writability cannot be judged. Rules are never pruned, so a rule
+  // naming one is a state the wall can genuinely be in.
+  const def = defs.find((candidate) => candidate.id === id);
+  if (!def || def.source !== "property" || !def.key) return null;
+  // A date facet's values are buckets and comparisons, which is to say
+  // groupings rather than anything a note could be given.
+  if (def.shape === "date") return null;
+
+  return { key: def.key, value: values[0] };
 }
 
 /** The grid a record actually appears in, after both fallbacks. */
