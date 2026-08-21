@@ -156,40 +156,51 @@
   animation: pg-drop-in 140ms ease both;
 }
 
-/* A highlight travelling across the words, lighting each letter as it passes.
+/* A slow sweep from secondary to primary, lighting each letter as it reaches
+   it and letting it fall back behind.
 
    Painted as a gradient clipped to the glyphs, so it is the letters that
-   brighten rather than a band drawn over them. Guarded, because the colour has
-   to be transparent for the clip to show and text that cannot be clipped would
-   then be text that cannot be seen. The flare is the accent rather than white:
-   in a light theme the letters are already dark on pale, so brightening
-   towards white would fade them out instead of lighting them up. */
+   change weight rather than a band drawn over them. The two colours are the
+   surface's own secondary and primary text, which is what makes it read as the
+   words waking up rather than as something coloured passing through: an accent
+   flare was tried first and looked like a effect, not like text.
+
+   Guarded, because the colour has to be transparent for the clip to show, and
+   text that cannot be clipped would then be text that cannot be read. */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .power-grid-view.is-drop-target::after {
     background-image: linear-gradient(
       90deg,
-      var(--pg-surface-text) 45%,
-      color-mix(in srgb, var(--pg-accent) 75%, var(--pg-surface-text)) 50%,
-      var(--pg-surface-text) 55%
+      var(--pg-surface-mid) 0%,
+      var(--pg-surface-mid) 38%,
+      var(--pg-surface-text) 50%,
+      var(--pg-surface-mid) 62%,
+      var(--pg-surface-mid) 100%
     );
-    background-size: 220% 100%;
-    background-repeat: no-repeat;
+    /* Tiled, not no-repeat. Outside a no-repeat image there is nothing to clip
+       to, so the letters the sweep had left behind were painting as nothing at
+       all rather than as secondary text. Both ends of the gradient are the
+       same colour, so the tiling seam is invisible. */
+    background-size: 200% 100%;
+    background-repeat: repeat;
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
     animation:
       pg-drop-in 140ms ease both,
-      pg-drop-shimmer 2600ms linear 300ms infinite;
+      pg-drop-shimmer 4200ms linear infinite;
   }
 }
 
-/* One full traverse: the band starts off one end and leaves by the other. */
+/* Exactly one background width per cycle, so every pass is the same pass and
+   the loop has no step in it. Right to left in position terms is left to right
+   on screen: an image wider than its box moves the other way. */
 @keyframes pg-drop-shimmer {
   from {
-    background-position: 110% 0;
+    background-position: 100% 0;
   }
   to {
-    background-position: -110% 0;
+    background-position: -100% 0;
   }
 }
 
