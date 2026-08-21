@@ -64,25 +64,11 @@ import type { TileModel } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
 
-/**
- * A firework, in six frames, shown over the drop card while a file is held.
- *
- * A spark rises, bursts and falls away, and the blank frame is what makes it a
- * burst rather than a loop: without it the sparks never quite go out and the
- * card reads as loading something. Padded to one width so the line cannot
- * shuffle sideways as it plays.
- */
-const DROP_FRAMES = [
-  "    ·    ",
-  "    ✦    ",
-  "  · ✦ ·  ",
-  " ✧  ✦  ✧ ",
-  "·   ✧   ·",
-  "         ",
-];
-
-/** Long enough to read each frame as a step rather than a flicker. */
-const DROP_FRAME_MS = 150;
+/** Dash and gap for the drop frame, in pixels, before they are rounded to fit
+    the perimeter. Small: the frame is the size of the pane, and dashes big
+    enough to count read as a barber's pole rather than a border. */
+const DASH = 5;
+const GAP = 6;
 
 /**
  * Most clippings the palette lists at once. A cap rather than a scroll to
@@ -406,45 +392,57 @@ export class PowerGridView extends ItemView {
   private installDropTarget(): void {
     const el = this.contentEl;
 
-    // The card, built once and hidden by CSS until a drag arrives rather than
-    // made and torn down on each one.
-    const scrim = el.createDiv({ cls: "pg-drop" });
-    const card = scrim.createDiv({ cls: "pg-drop-card" });
-    const art = card.createDiv({ cls: "pg-drop-art" });
-    const title = card.createDiv({ cls: "pg-drop-title" });
-    card.createDiv({
-      cls: "pg-drop-note",
-      text: "Media is archived locally, so it survives the source going dark.",
-    });
-
-    let spark = 0;
-    let sparkTimer = 0;
+    // The frame's dashes, as a stroke rather than a border, because a CSS
+    // border cannot have its dash offset animated and a stroke can. One rect,
+    // so the dashes run continuously round the corners instead of four edges
+    // meeting at seams. Made once and hidden by CSS until a drag arrives.
+    const frame = el.createSvg("svg", { cls: "pg-drop-frame" });
+    frame.setAttribute("aria-hidden", "true");
+    const dashes = frame.createSvg("rect");
 
     // dragleave fires again every time the pointer crosses into a child, and
     // the wall is nothing but children. Counting entries against leaves is
     // what stops the target strobing the whole way across the grid.
     let depth = 0;
-    const playSparks = (on: boolean): void => {
-      window.clearInterval(sparkTimer);
-      sparkTimer = 0;
-      if (!on) return;
+    /**
+     * Fits the dash pattern to the frame it is going round.
+     *
+     * A dash pattern restarts at the path's start point, so unless the
+     * perimeter divides evenly by one dash plus one gap, the last dash lands
+     * on top of the first and the top left corner wears a join. Rounding the
+     * period to whatever divides the actual perimeter costs a fraction of a
+     * pixel each and leaves no seam at all.
+     *
+     * The perimeter is worked out from the box rather than asked of the path.
+     * getTotalLength on a rect whose geometry comes from CSS depends on style
+     * and layout having already run, and this is called in the same tick as
+     * the class that reveals it, so it was reporting nothing and leaving the
+     * seam it exists to remove. Arithmetic on a rounded rectangle needs
+     * neither.
+     */
+    const fitDashes = (): void => {
+      const box = el.getBoundingClientRect();
+      // 11px a side: the overlay's 10px inset plus half the 2px stroke.
+      const width = box.width - 22;
+      const height = box.height - 22;
+      if (width <= 0 || height <= 0) return;
 
-      // Reduce Motion has to be answered here rather than in the stylesheet:
-      // this is a timer swapping text, so there is no animation for CSS to
-      // turn off. The burst at its widest stands in for the whole of it.
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        art.setText(DROP_FRAMES[3]);
-        return;
-      }
+      const radius = Math.min(
+        parseFloat(window.getComputedStyle(dashes).rx) || 0,
+        width / 2,
+        height / 2
+      );
+      // Four straights shortened by a radius at each end, plus the four
+      // quarter-circles of the corners, which together make one whole one.
+      const length = 2 * (width + height) - 8 * radius + 2 * Math.PI * radius;
+      if (!(length > 0)) return;
 
-      // Restarted from the first frame each time, so every drag opens on the
-      // spark rather than wherever the last one happened to stop.
-      spark = 0;
-      art.setText(DROP_FRAMES[0]);
-      sparkTimer = window.setInterval(() => {
-        spark = (spark + 1) % DROP_FRAMES.length;
-        art.setText(DROP_FRAMES[spark]);
-      }, DROP_FRAME_MS);
+      const count = Math.max(1, Math.round(length / (DASH + GAP)));
+      const period = length / count;
+      const dash = period * (DASH / (DASH + GAP));
+      dashes.style.strokeDasharray = `${dash} ${period - dash}`;
+      // One whole period per cycle, so the loop closes on itself.
+      el.style.setProperty("--pg-drop-period", `${period}px`);
     };
 
     const show = (on: boolean): void => {
@@ -455,19 +453,15 @@ export class PowerGridView extends ItemView {
       // rather than a toast after it. Carried as a custom property, the label
       // being ::after content and there being no element to set text on.
       if (on) {
-        // Named while it is up, because a drop does not always land where you
-        // are looking: nothing is filed into a smart grid, so one on screen
-        // sends the clipping home, and the card is a better place to say so
-        // than a toast after the fact.
         const space = this.activeGrid();
         const target = isSmartGrid(space) ? this.plugin.settings.homeGridName : space.name;
-        title.setText(`Drop to add to ${target}`);
+        el.style.setProperty("--pg-drop-label", JSON.stringify(`Drop to add to ${target}`));
       }
       el.toggleClass("is-drop-target", on);
-      playSparks(on);
+      // After the class, never before: the frame is display none until it is
+      // there, and a hidden path has no length to measure.
+      if (on) fitDashes();
     };
-
-    this.register(() => playSparks(false));
 
     this.registerDomEvent(el, "dragenter", (event: DragEvent) => {
       const types = Array.from(event.dataTransfer?.types ?? []);
