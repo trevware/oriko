@@ -1403,6 +1403,19 @@
 }
 
 /* Menu additions: a rule for grouping, and a row that is shown but inert. */
+/* A tertiary caption over a group of menu rows.
+
+   Same treatment as the palette's section headings, because they are the same
+   thing on a different surface, and left aligned to the rows' text rather than
+   the panel's edge so it reads as belonging to the list under it. */
+.pg-menu-section {
+  padding: 8px 13px 4px;
+  color: var(--pg-surface-faint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .pg-menu-divider {
   height: 1px;
   margin: 5px 10px;
@@ -1690,36 +1703,6 @@ buttonbuttonbutton/* The management panel's rows. */
 .pg-palette-detail.is-marked .svg-icon {
   width: 15px;
   height: 15px;
-}
-
-/* The mark on a smart grid's icon.
-
-   A dot rather than a glyph. At the size this has to be, every lucide icon
-   worth the meaning turns to mush, and the mark is a reminder rather than an
-   explanation: the create menu names the kind, the switcher groups the two,
-   and this is what carries that knowledge onto a chip showing one grid.
-
-   Drawn on the icon container, so it costs no element on any of the three
-   surfaces that show it, and rings itself in the surface colour so it reads
-   against whatever glyph it sits on. */
-.pg-menu-icon.is-badged,
-.pg-palette-icon.is-badged,
-.pg-space-icon.is-badged {
-  position: relative;
-}
-
-.pg-menu-icon.is-badged::after,
-.pg-palette-icon.is-badged::after,
-.pg-space-icon.is-badged::after {
-  content: "";
-  position: absolute;
-  right: -2px;
-  bottom: -1px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--pg-accent);
-  box-shadow: 0 0 0 2px var(--pg-surface);
 }
 
 /* No row in this list has a left icon, so nothing reserves the gutter. */

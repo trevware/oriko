@@ -1466,23 +1466,27 @@ export class PowerGridView extends ItemView {
     // The hint reads the stored position, never the place in this list: the
     // two kinds are grouped here and the hotkeys are not, so a grid shown
     // second may genuinely be \u23184.
-    const row = (placed: PlacedGrid, divider = false): MenuItem => ({
+    const row = (placed: PlacedGrid, heading?: string): MenuItem => ({
       icon: placed.grid.icon,
-      badge: isSmartGrid(placed.grid),
       label: placed.grid.name,
       detail: placed.position < 9 ? `\u2318${placed.position + 1}` : undefined,
-      divider,
+      heading,
       // Shown but inert: the set reads whole, and selecting it would do nothing.
       disabled: placed.grid.name === active,
       onSelect: () => this.activate(placed.grid.name),
     });
 
-    // A rule above the first computed grid, and only when there is one. The
-    // two kinds behave differently enough that a drop lands somewhere else,
-    // so the picker should not present them as one undifferentiated list.
+    // Named groups rather than a rule between them. The two kinds behave
+    // differently enough that a drop lands somewhere else, and a heading says
+    // which is which where a rule only says that something changed. Headings
+    // only once there is a second group to tell the first apart from: a vault
+    // with no smart grids has one list, and captioning it says nothing.
+    const captioned = smart.length > 0;
     const items: MenuItem[] = [
-      ...manual.map((placed) => row(placed)),
-      ...smart.map((placed, index) => row(placed, index === 0)),
+      ...manual.map((placed, index) =>
+        row(placed, captioned && index === 0 ? "Grids" : undefined)
+      ),
+      ...smart.map((placed, index) => row(placed, index === 0 ? "Smart grids" : undefined)),
     ];
     this.menu?.open(items, x, y);
   }

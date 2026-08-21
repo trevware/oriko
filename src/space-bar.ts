@@ -1,5 +1,4 @@
 import { setIcon } from "obsidian";
-import { isSmartGrid } from "./spaces";
 import type { GridSpace } from "./spaces";
 import { attachTip } from "./tip";
 
@@ -96,10 +95,6 @@ export class SpaceBar {
   setActive(grid: GridSpace): void {
     setIcon(this.icon, grid.icon);
     this.label.setText(grid.name);
-    // The chip shows one grid and no others, so it is the one place with no
-    // grouping to lean on: without the mark there is nothing here to say a
-    // drop will not land where you are looking.
-    this.icon.toggleClass("is-badged", isSmartGrid(grid));
   }
 
   /**

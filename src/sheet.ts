@@ -24,9 +24,6 @@ export interface SheetRow {
   detail?: string;
   /** Shown in place of `detail`, to mark the row's state. */
   detailIcon?: string;
-  /** A small mark on the row's icon, for a row whose kind matters and is not
-      otherwise visible. See MenuItem.badge, which it mirrors. */
-  badge?: boolean;
   /** Survives narrowing, for a row that is an escape hatch rather than a
       choice: one that creates what a search has just failed to find. */
   alwaysShow?: boolean;
@@ -350,7 +347,6 @@ export class Sheet {
 
     const icon = el.createDiv({ cls: "pg-palette-icon" });
     if (row.icon) setIcon(icon, row.icon);
-    if (row.badge) icon.addClass("is-badged");
 
     const label = el.createDiv({ cls: "pg-palette-label" });
     paintLabel(label, row.label, at >= 0 ? [{ start: at, end: at + width }] : []);

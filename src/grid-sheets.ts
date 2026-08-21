@@ -533,7 +533,6 @@ export function openGridsManager(
       rows.push({
         label: grid.name,
         icon: grid.icon,
-        badge: smart,
         // memberCount asks how many notes carry the name, which is nought for
         // a smart grid however much it is showing, so it would report every
         // one of them as empty. What it holds is a question for the wall; what
@@ -574,7 +573,7 @@ export function openGridsManager(
       const count = grids.grids().length;
       const rows: SheetRow[] = [
         {
-          label: "Rename or re-icon",
+          label: "Edit",
           icon: "pencil",
           onChoose: () =>
             openGridEditor(
