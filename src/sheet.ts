@@ -445,7 +445,8 @@ export class Sheet {
       this.dragMoved = false;
       startY = event.clientY;
       rowHeight = (row as HTMLElement).offsetHeight;
-      list.setPointerCapture(event.pointerId);
+      // Deliberately not captured here. See the pointermove below: capturing
+      // at the grab is what stopped these rows being clickable at all.
     });
 
     list.addEventListener("pointermove", (event: PointerEvent) => {
@@ -460,7 +461,17 @@ export class Sheet {
       // the first grid pushed up against home, is still a drag: without this
       // it would fall through to the click and open the very screen the
       // gesture was trying to avoid.
-      if (Math.abs(event.clientY - startY) > SLOP) this.dragMoved = true;
+      //
+      // The capture is taken here rather than at the grab, and that is the
+      // whole reason a row could not be clicked. While an element holds the
+      // pointer, the click is delivered to the capturing element, so every
+      // press on a row was arriving at the list instead and the row's own
+      // handler never ran. A drag needs the capture only once it is a drag,
+      // to keep receiving moves that leave the list; a click never needs it.
+      if (!this.dragMoved && Math.abs(event.clientY - startY) > SLOP) {
+        this.dragMoved = true;
+        list.setPointerCapture(event.pointerId);
+      }
 
       // Counted from the grab, so the row's own position never feeds back
       // into the decision and a slow drift cannot ratchet it along.
