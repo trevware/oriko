@@ -108,6 +108,15 @@ export class Sheet {
   private dragRow = -1;
   /** Movement past which the gesture is a drag, so a click still chooses. */
   private dragMoved = false;
+  /**
+   * Stops hover taking the cursor back after the keyboard has moved a row.
+   *
+   * Moving a row slides its neighbour under a pointer that has not itself
+   * moved, and the browser reports that as the pointer entering the row. Left
+   * alone, the highlight lands on the row that was displaced rather than the
+   * one just moved, so the next press moves the wrong grid.
+   */
+  private hoverLocked = false;
 
   private stack: SheetScreen[] = [];
   private rows: SheetRow[] = [];
@@ -290,6 +299,9 @@ export class Sheet {
     }
 
     el.onmouseenter = () => {
+      // A drag owns the cursor outright, and a keyboard move holds it until
+      // the pointer is genuinely moved again.
+      if (this.hoverLocked || this.dragRow !== -1) return;
       const index = this.rowEls.indexOf(el);
       if (index === -1 || index === this.active) return;
       this.active = index;
@@ -377,6 +389,11 @@ export class Sheet {
     });
 
     list.addEventListener("pointermove", (event: PointerEvent) => {
+      // Any pointermove is the pointer actually moving. A row sliding beneath
+      // a still one reports mouseenter and never this, which is what makes it
+      // the honest signal that hover may have the cursor back.
+      this.hoverLocked = false;
+
       if (this.dragRow === -1) return;
 
       // Set on movement, not on a successful move. A drag the list refuses,
@@ -434,6 +451,7 @@ export class Sheet {
     if (!screen?.onReorder) return;
     if (!screen.onReorder(this.active, delta)) return;
     this.active += delta;
+    this.hoverLocked = true;
     this.renderMoved();
   }
 

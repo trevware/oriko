@@ -296,7 +296,6 @@ export function openGridsManager(
       const target = reorderTarget(positionOf() + 1, delta, grids.grids().length);
       if (!target) return;
       void grids.reorder(target.from, delta);
-      after();
       // Repainted where it stands. Returning to the list after every move is
       // what made rearranging cost a round trip per position, and cost you
       // your place in the list on each one.
@@ -369,8 +368,12 @@ export function openGridsManager(
       // async, so the list can repaint at once and the write can catch up. A
       // run of presses stays in order because the mutation is not the slow
       // part.
+      // Deliberately no refresh. Nothing painted depends on the order:
+      // allGrids and hotkeyPosition both read the settings live, and the
+      // space bar shows only the active grid's icon. Repainting here rebuilt
+      // every tile on the wall on each row crossed, which is the whole of why
+      // dragging stuttered.
       void grids.reorder(move.from, delta);
-      after();
       return true;
     },
   });
