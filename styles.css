@@ -181,14 +181,17 @@
   fill: none;
   stroke: var(--pg-accent);
   stroke-width: 2;
-  stroke-dasharray: 10 8;
-  animation: pg-drop-march 900ms linear infinite;
+  /* Both set by the view, which measures the perimeter and rounds the period
+     to divide it evenly. The fallbacks are only ever seen if that measurement
+     fails, and carry the seam it exists to remove. */
+  stroke-dasharray: 5 6;
+  animation: pg-drop-march 1100ms linear infinite;
 }
 
-/* One dash plus one gap, so the loop is seamless. */
+/* Exactly one period per cycle, so the loop closes on itself. */
 @keyframes pg-drop-march {
   to {
-    stroke-dashoffset: -18;
+    stroke-dashoffset: calc(var(--pg-drop-period, 11px) * -1);
   }
 }
 

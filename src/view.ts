@@ -64,6 +64,12 @@ import type { TileModel } from "./tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
 
+/** Dash and gap for the drop frame, in pixels, before they are rounded to fit
+    the perimeter. Small: the frame is the size of the pane, and dashes big
+    enough to count read as a barber's pole rather than a border. */
+const DASH = 5;
+const GAP = 6;
+
 /**
  * Most clippings the palette lists at once. A cap rather than a scroll to
  * the horizon: past a handful you are not reading the list any more, you are
@@ -392,12 +398,36 @@ export class PowerGridView extends ItemView {
     // meeting at seams. Made once and hidden by CSS until a drag arrives.
     const frame = el.createSvg("svg", { cls: "pg-drop-frame" });
     frame.setAttribute("aria-hidden", "true");
-    frame.createSvg("rect");
+    const dashes = frame.createSvg("rect");
 
     // dragleave fires again every time the pointer crosses into a child, and
     // the wall is nothing but children. Counting entries against leaves is
     // what stops the target strobing the whole way across the grid.
     let depth = 0;
+    /**
+     * Fits the dash pattern to the frame it is going round.
+     *
+     * A dash pattern restarts at the path's start point, so unless the
+     * perimeter divides evenly by one dash plus one gap, the last dash lands
+     * on top of the first and the top left corner wears a join. Rounding the
+     * period to whatever divides the actual perimeter costs a fraction of a
+     * pixel each and leaves no seam at all.
+     *
+     * Measured with the frame already shown: getTotalLength on a hidden
+     * element has no layout to report.
+     */
+    const fitDashes = (): void => {
+      const length = dashes.getTotalLength();
+      if (!(length > 0)) return;
+
+      const count = Math.max(1, Math.round(length / (DASH + GAP)));
+      const period = length / count;
+      const dash = period * (DASH / (DASH + GAP));
+      dashes.style.strokeDasharray = `${dash} ${period - dash}`;
+      // One whole period per cycle, so the loop closes on itself.
+      el.style.setProperty("--pg-drop-period", `${period}px`);
+    };
+
     const show = (on: boolean): void => {
       if (!on) depth = 0;
       // Named while it is up, because a drop does not always land where you
@@ -411,6 +441,9 @@ export class PowerGridView extends ItemView {
         el.style.setProperty("--pg-drop-label", JSON.stringify(`Drop to add to ${target}`));
       }
       el.toggleClass("is-drop-target", on);
+      // After the class, never before: the frame is display none until it is
+      // there, and a hidden path has no length to measure.
+      if (on) fitDashes();
     };
 
     this.registerDomEvent(el, "dragenter", (event: DragEvent) => {
