@@ -413,11 +413,28 @@ export class PowerGridView extends ItemView {
      * period to whatever divides the actual perimeter costs a fraction of a
      * pixel each and leaves no seam at all.
      *
-     * Measured with the frame already shown: getTotalLength on a hidden
-     * element has no layout to report.
+     * The perimeter is worked out from the box rather than asked of the path.
+     * getTotalLength on a rect whose geometry comes from CSS depends on style
+     * and layout having already run, and this is called in the same tick as
+     * the class that reveals it, so it was reporting nothing and leaving the
+     * seam it exists to remove. Arithmetic on a rounded rectangle needs
+     * neither.
      */
     const fitDashes = (): void => {
-      const length = dashes.getTotalLength();
+      const box = el.getBoundingClientRect();
+      // 11px a side: the overlay's 10px inset plus half the 2px stroke.
+      const width = box.width - 22;
+      const height = box.height - 22;
+      if (width <= 0 || height <= 0) return;
+
+      const radius = Math.min(
+        parseFloat(window.getComputedStyle(dashes).rx) || 0,
+        width / 2,
+        height / 2
+      );
+      // Four straights shortened by a radius at each end, plus the four
+      // quarter-circles of the corners, which together make one whole one.
+      const length = 2 * (width + height) - 8 * radius + 2 * Math.PI * radius;
       if (!(length > 0)) return;
 
       const count = Math.max(1, Math.round(length / (DASH + GAP)));
