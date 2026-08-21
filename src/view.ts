@@ -11,7 +11,13 @@ import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
 import { isEditable, withValue, withoutValue } from "./editable";
 import { ContextMenu } from "./context-menu";
-import { openDeleteGrid, openGridEditor, openGridsManager, openNewGrid } from "./grid-sheets";
+import {
+  openDeleteGrid,
+  openGridEditor,
+  openGridsManager,
+  openNewAutoGrid,
+  openNewGrid,
+} from "./grid-sheets";
 import { DetailView } from "./detail";
 import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./drop";
 import type { MenuItem } from "./context-menu";
@@ -1506,6 +1512,11 @@ export class PowerGridView extends ItemView {
           divider: true,
           onSelect: () => this.promptNewGrid(),
         },
+        {
+          icon: "wand-2",
+          label: "New auto-grid",
+          onSelect: () => this.promptNewAutoGrid(),
+        },
       ],
       x,
       y
@@ -1515,6 +1526,13 @@ export class PowerGridView extends ItemView {
   private promptNewGrid(): void {
     if (!this.sheet) return;
     openNewGrid(this.sheet, this.gridsController(), () => this.refresh());
+  }
+
+  /** Empty rules rather than none: it is what tells the editor which kind of
+      grid it is making, before any of them have been chosen. */
+  private promptNewAutoGrid(): void {
+    if (!this.sheet) return;
+    openNewAutoGrid(this.sheet, this.gridsController(), {}, () => this.refresh());
   }
 
   private async moveTo(ids: string[], target: string): Promise<void> {
@@ -1534,6 +1552,23 @@ export class PowerGridView extends ItemView {
       home: () => this.homeGrid(),
       grids: () => settings.grids,
       memberCount: (name) => membersOf(this.plugin.index.records(), name).length,
+
+      // Every tile, typed and tallied together. A rule is written against the
+      // whole vault, so the active grid's vocabulary would be the wrong one,
+      // and its counts would not survive switching to the grid being made.
+      ruleWorld: () => {
+        const tiles = buildTiles(
+          this.plugin.index.records(),
+          this.plugin.archiver.cache,
+          this.unloadable
+        );
+        const defs = this.allDefs(tiles);
+        return {
+          defs,
+          facets: facetsOf(tiles, defs),
+          matches: (rules) => autoMembers(tiles, rules, defs).length,
+        };
+      },
 
       create: async (space) => {
         settings.grids.push(space);

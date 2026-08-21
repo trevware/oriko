@@ -42,9 +42,16 @@ export interface SheetScreen {
    * grid and picking its icon at once.
    */
   filters: boolean;
-  /** A sentence above the rows, for a screen that has to say what a choice
-      will do before it is made. */
-  note?: string;
+  /**
+   * A sentence above the rows, for a screen that has to say what a choice will
+   * do before it is made.
+   *
+   * A function when the sentence answers the rows: the rule editor's count of
+   * what its rules would hold has to move as values are ticked, and a plain
+   * string is fixed at the moment the screen was built. Resolved on every
+   * render, as the rows are.
+   */
+  note?: string | (() => string);
   /** Which row starts active. Defaults to the first, which is wrong for a
       screen whose rows are a current setting rather than a ranked list. */
   active?: number;
@@ -282,7 +289,8 @@ export class Sheet {
     // rows have to look draggable before anything has been dragged.
     list.dataset.reorderable = String(Boolean(screen.onReorder));
 
-    if (screen.note) list.createDiv({ cls: "pg-sheet-note", text: screen.note });
+    const note = typeof screen.note === "function" ? screen.note() : screen.note;
+    if (note) list.createDiv({ cls: "pg-sheet-note", text: note });
 
     const query = this.input.value;
     const built = screen.rows(query, this.rows[this.active]?.label ?? "");

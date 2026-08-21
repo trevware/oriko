@@ -1,4 +1,7 @@
 import { Notice } from "obsidian";
+import { tokenLabel } from "./dates";
+import { isFilterEmpty, toggleFacet } from "./filter";
+import type { FacetDef, FacetValue, FilterState } from "./filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
 import { reorderTarget, validateGridName } from "./spaces";
 import type { GridSpace } from "./spaces";
@@ -54,11 +57,30 @@ export const GRID_ICONS = [
 ];
 
 /** Everything the grid UI needs from the view that owns the settings. */
+/**
+ * The wall as a rule editor sees it: every tile, typed and tallied together.
+ *
+ * Deliberately not the active grid's facets. A rule is written against the
+ * whole vault, so offering it whichever wall happened to be open would let a
+ * grid be defined from values that wall has and show a count it will not
+ * honour once it is switched to.
+ *
+ * Gathered once per screen rather than per render: the vault does not change
+ * while values are being ticked, so only `matches` needs recomputing, and it
+ * is a pure pass over tiles already in hand.
+ */
+export interface RuleWorld {
+  defs: FacetDef[];
+  facets: Record<string, FacetValue[]>;
+  matches(rules: FilterState): number;
+}
+
 export interface GridsController {
   home(): GridSpace;
   grids(): GridSpace[];
   /** Clippings carrying this name outright, which is what a rename rewrites. */
   memberCount(name: string): number;
+  ruleWorld(): RuleWorld;
   create(space: GridSpace): Promise<void>;
   rename(from: string, next: GridSpace): Promise<void>;
   reorder(index: number, delta: number): Promise<void>;
@@ -144,6 +166,129 @@ function plural(n: number, one: string, many: string): string {
  * the icons. The rows are a choice beside the field rather than a list to
  * search, so typing goes to the name and Enter saves both.
  */
+/** How a facet's chosen values read on the rules screen's row for it. */
+function chosenLabel(def: FacetDef, values: readonly string[]): string {
+  if (values.length === 0) return "Any";
+  const shown = def.shape === "date" ? values.map(tokenLabel) : values;
+  return shown.join(", ");
+}
+
+const RULE_HINTS: Array<[string, string]> = [
+  ["\u2191\u2193", "navigate"],
+  ["\u21b5", "choose"],
+  ["esc", "back"],
+];
+
+const VALUE_HINTS: Array<[string, string]> = [
+  ["\u2191\u2193", "navigate"],
+  ["\u21b5", "toggle"],
+  ["esc", "back"],
+];
+
+/**
+ * Ticking the values of one facet, which is the whole of what a rule is.
+ *
+ * The same list the filter menu's submenu and the palette's stage draw, for
+ * the same reason: a rule is a set of chosen values, so the thing that chooses
+ * them should look like the thing that chooses them everywhere else.
+ */
+function ruleValuesScreen(
+  sheet: Sheet,
+  world: RuleWorld,
+  def: FacetDef,
+  read: () => FilterState,
+  write: (next: FilterState) => void
+): SheetScreen {
+  return {
+    title: def.label,
+    placeholder: `${def.label}\u2026`,
+    filters: true,
+    hints: VALUE_HINTS,
+    rows: () => {
+      const chosen = read()[def.id] ?? [];
+      return (world.facets[def.id] ?? []).map((entry) => ({
+        // No left icon at all, so the list drops the gutter. A chosen value
+        // marks itself where its count was: the count of a value you have
+        // already picked is not what you read that row for.
+        icon: "",
+        label: def.shape === "date" ? tokenLabel(entry.value) : entry.value,
+        value: entry.value,
+        detail: String(entry.count),
+        detailIcon: chosen.includes(entry.value) ? "check" : undefined,
+        onChoose: () => {
+          write(toggleFacet(read(), def.id, entry.value));
+          // In place, so the tick and the count above it both move without
+          // the screen being replaced under the cursor.
+          sheet.refresh();
+        },
+      }));
+    },
+  };
+}
+
+/**
+ * What picks the grid up: a row per facet, and a running count of what the
+ * rules as they stand would hold.
+ *
+ * The count is the affordance that makes this a rule editor rather than a form
+ * filled in blind, which is why the sheet's note had to learn to recompute.
+ */
+function rulesScreen(
+  sheet: Sheet,
+  grids: GridsController,
+  grid: GridSpace,
+  index: number | undefined,
+  after: () => void
+): SheetScreen {
+  const world = grids.ruleWorld();
+  const creating = index === undefined;
+  let current: FilterState = { ...(grid.rules ?? {}) };
+
+  return {
+    title: "Rules",
+    filters: true,
+    hints: RULE_HINTS,
+    cta: creating ? "Create grid" : "Save",
+    note: () => {
+      const n = world.matches(current);
+      return `Matches ${n} ${plural(n, "clipping", "clippings")}`;
+    },
+    rows: () =>
+      world.defs.map((def) => ({
+        icon: def.icon,
+        label: def.label,
+        detail: chosenLabel(def, current[def.id] ?? []),
+        onChoose: () =>
+          sheet.push(
+            ruleValuesScreen(
+              sheet,
+              world,
+              def,
+              () => current,
+              (next) => {
+                current = next;
+              }
+            )
+          ),
+      })),
+    onSubmit: () => {
+      if (isFilterEmpty(current)) {
+        // Without a rule it would hold the whole wall, which is home under a
+        // second name. Refused here rather than hidden, so the reason is said.
+        new Notice("Power Grid: an auto-grid needs at least one rule");
+        return;
+      }
+
+      const next: GridSpace = { ...grid, rules: current };
+      sheet.close();
+      // Renaming is not possible from here: the name was settled on the screen
+      // before this one, so rename only ever carries the new rules across.
+      if (creating) void grids.create(next).then(after);
+      else void grids.rename(grid.name, next).then(after);
+    },
+  };
+}
+
 function gridEditorScreen(
   sheet: Sheet,
   grids: GridsController,
@@ -159,9 +304,18 @@ function gridEditorScreen(
   const home = index === undefined ? "" : grids.home().name;
 
   const creating = index === undefined && grid.name === "";
+  /**
+   * Whether this editor is making or editing an auto-grid.
+   *
+   * Deliberately not isAutoGrid, which asks whether a grid computes its
+   * membership and is therefore false for the empty rules a new auto-grid
+   * starts life with. The question here is which editor this is, and a
+   * present-but-empty rules object is exactly how that is carried in.
+   */
+  const auto = grid.rules !== undefined;
 
   return {
-    title: creating ? "New grid" : `Edit ${grid.name}`,
+    title: creating ? (auto ? "New auto-grid" : "New grid") : `Edit ${grid.name}`,
     placeholder: "Grid name",
     value: grid.name,
     filters: false,
@@ -171,7 +325,7 @@ function gridEditorScreen(
     // and as rows the chosen one had nowhere to show itself.
     layout: "swatches",
     columns: SWATCH_COLUMNS,
-    cta: creating ? "Create grid" : "Save",
+    cta: creating ? (auto ? "Next: rules" : "Create grid") : "Save",
     rows: () =>
       GRID_ICONS.map((name) => ({
         label: name.replace(/-/g, " "),
@@ -187,7 +341,18 @@ function gridEditorScreen(
         return;
       }
 
-      const next: GridSpace = { name: name.trim(), icon: active?.value ?? grid.icon };
+      const next: GridSpace = {
+        ...grid,
+        name: name.trim(),
+        icon: active?.value ?? grid.icon,
+      };
+
+      // An auto-grid is not finished until it says what picks it up, so the
+      // name screen hands on rather than committing.
+      if (creating && auto) {
+        sheet.push(rulesScreen(sheet, grids, next, undefined, after));
+        return;
+      }
 
       if (creating) {
         sheet.close();
@@ -470,5 +635,24 @@ export function openNewGrid(
 ): void {
   sheet.open(
     gridEditorScreen(sheet, grids, { name: "", icon: GRID_ICONS[0] }, undefined, after)
+  );
+}
+
+/**
+ * The same editor, making the other kind of grid.
+ *
+ * `rules` seeds it: empty from the create menu, and already filled in when the
+ * filter menu's Save as grid hands over what is currently narrowing the wall.
+ * An empty rules object is what tells the editor which kind it is making, so
+ * it is passed even when there is nothing in it.
+ */
+export function openNewAutoGrid(
+  sheet: Sheet,
+  grids: GridsController,
+  rules: FilterState,
+  after: () => void = () => undefined
+): void {
+  sheet.open(
+    gridEditorScreen(sheet, grids, { name: "", icon: GRID_ICONS[0], rules }, undefined, after)
   );
 }
