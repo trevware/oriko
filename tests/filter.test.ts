@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activeCount,
+  autoMembers,
   emptyFilter,
   facetDefs,
   facetLabel,
@@ -403,5 +404,31 @@ describe("propertyVocabulary", () => {
 
   it("offers nothing for a key no clipping carries", () => {
     expect(propertyVocabulary([tile("a")], "nothing")).toEqual({ values: [], single: true });
+  });
+});
+
+describe("autoMembers", () => {
+  it("admits the tiles the rules name", () => {
+    expect(autoMembers(tiles, { categories: ["design"] }, DEFS).map((t) => t.id)).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("narrows across facets, as the filter does", () => {
+    const held = autoMembers(tiles, { categories: ["design"], status: ["unread"] }, DEFS);
+    expect(held.map((t) => t.id)).toEqual(["a"]);
+  });
+
+  it("admits everything when the rules are empty, leaving the wall to the filter", () => {
+    expect(autoMembers(tiles, {}, DEFS)).toHaveLength(tiles.length);
+  });
+
+  it("stacks: an ad-hoc filter narrows the members rather than replacing them", () => {
+    // The point of running the same matcher twice. The filter sees only what
+    // the rules admitted, so design+read cannot bring back a manga clipping.
+    const members = autoMembers(tiles, { categories: ["design"] }, DEFS);
+    const shown = members.filter((t) => matchesFilter(t, { status: ["read"] }, DEFS));
+    expect(shown.map((t) => t.id)).toEqual(["b"]);
   });
 });

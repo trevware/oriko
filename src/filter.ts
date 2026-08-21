@@ -220,6 +220,28 @@ export function matchesFilter(
   });
 }
 
+/**
+ * The tiles an auto-grid holds: the first of the two stages this same matcher
+ * runs at.
+ *
+ * The rules decide what the grid contains; the ad-hoc filter then decides what
+ * of it is on screen. Keeping both the same type, evaluated by the same
+ * function, is what makes stacking a filter on an auto-grid need no new code
+ * and no new concept.
+ *
+ * Note that the defs passed here must be typed against the whole wall rather
+ * than against the grid's own tiles, which are what these rules are about to
+ * produce. See view.allDefs.
+ */
+export function autoMembers(
+  tiles: TileModel[],
+  rules: FilterState,
+  defs: FacetDef[]
+): TileModel[] {
+  if (isFilterEmpty(rules)) return tiles;
+  return tiles.filter((tile) => matchesFilter(tile, rules, defs));
+}
+
 /** Drops state for facets no longer on offer, so the active count and the
     button's badge cannot claim a narrowing that is not being applied. */
 export function pruneFilter(filter: FilterState, defs: FacetDef[]): FilterState {
