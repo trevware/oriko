@@ -1580,6 +1580,23 @@ buttonbuttonbutton/* The management panel's rows. */
   user-select: none;
 }
 
+/* A row that can be carried up and down the list says so before it is
+   touched. grab, not move: the row is picked up, not pushed around. */
+.pg-palette-list[data-reorderable="true"] .pg-palette-item {
+  cursor: grab;
+  /* Or a touch drag scrolls the list underneath the row instead of moving it. */
+  touch-action: none;
+}
+
+/* Lifted while it is being carried. No transform: the row is genuinely
+   changing places as the pointer crosses each neighbour, so anything that
+   displaced it as well would be showing the move twice. */
+.pg-palette-list .pg-palette-item.is-dragging {
+  cursor: grabbing;
+  background: var(--pg-inner-active);
+  box-shadow: var(--pg-tile-lift);
+}
+
 /* One highlight, driven by the keyboard. Hover moves it rather than adding a
    second lit row, so the thing Enter will run is never in doubt. */
 .pg-palette-item.is-active {

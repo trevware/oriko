@@ -7,6 +7,7 @@ import {
   flipTransform,
   cursorAfterNarrowing,
   groupedMenu,
+  indexAtMidpoints,
   moveInGrid,
   pressureAt,
   shouldMountAll,
@@ -256,6 +257,34 @@ describe("moveInGrid", () => {
 
   it("clamps an index that has fallen outside the set", () => {
     expect(moveInGrid(99, { columns: 0, rows: 0 }, COUNT, COLS)).toBe(COUNT - 1);
+  });
+});
+
+describe("indexAtMidpoints", () => {
+  // Four rows, 40 tall, starting at 0: midpoints at 20, 60, 100, 140.
+  const mids = [20, 60, 100, 140];
+
+  it("answers with the row the pointer is inside", () => {
+    expect(indexAtMidpoints(10, mids)).toBe(0);
+    expect(indexAtMidpoints(70, mids)).toBe(2);
+  });
+
+  it("changes places at the midpoint, not at the edge", () => {
+    // Just above row 1's middle is still row 1; just below belongs to row 2.
+    expect(indexAtMidpoints(59, mids)).toBe(1);
+    expect(indexAtMidpoints(61, mids)).toBe(2);
+  });
+
+  it("holds at the first row above the list", () => {
+    expect(indexAtMidpoints(-500, mids)).toBe(0);
+  });
+
+  it("holds at the last row below it", () => {
+    expect(indexAtMidpoints(9999, mids)).toBe(3);
+  });
+
+  it("has no answer for a list with no rows", () => {
+    expect(indexAtMidpoints(50, [])).toBe(-1);
   });
 });
 

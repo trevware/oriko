@@ -153,6 +153,27 @@ export function moveInGrid(
 }
 
 /**
+ * Which row a pointer is over, given each row's vertical midpoint.
+ *
+ * Midpoints rather than edges, which is what makes a live reorder feel right:
+ * a row changes places the moment the pointer passes the middle of its
+ * neighbour, not when it clears the whole of it. Waiting for the edge means
+ * dragging a full row's height before anything happens, and then two rows swap
+ * at once when it does.
+ *
+ * Counting midpoints above the pointer rather than searching for a containing
+ * box also answers sensibly past either end, where there is no box at all: a
+ * pointer dragged off the top belongs to the first row, off the bottom to the
+ * last.
+ */
+export function indexAtMidpoints(y: number, midpoints: readonly number[]): number {
+  if (midpoints.length === 0) return -1;
+  let index = 0;
+  while (index < midpoints.length && y > midpoints[index]) index++;
+  return Math.min(index, midpoints.length - 1);
+}
+
+/**
  * Where a menu's cursor sits once its rows have been narrowed.
  *
  * Typing sends it to the first row, which is the convention everywhere else

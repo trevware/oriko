@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { moveInGrid } from "./layout";
+import { indexAtMidpoints, moveInGrid } from "./layout";
 import { hint, paintLabel } from "./palette";
 
 /**
@@ -89,6 +89,15 @@ export class Sheet {
   private footEl: HTMLElement | null = null;
   private onKey: ((event: KeyboardEvent) => void) | null = null;
 
+  /**
+   * A row being dragged, or -1. Held as an index rather than an element
+   * because the list is rebuilt on every move, so the element under the finger
+   * at the end of a drag is never the one it started on.
+   */
+  private dragRow = -1;
+  /** Movement past which the gesture is a drag, so a click still chooses. */
+  private dragMoved = false;
+
   private stack: SheetScreen[] = [];
   private rows: SheetRow[] = [];
   private rowEls: HTMLElement[] = [];
@@ -129,6 +138,7 @@ export class Sheet {
     };
 
     this.listEl = this.panel.createDiv({ cls: "pg-palette-list" });
+    this.installRowDrag(this.listEl);
     this.footEl = this.panel.createDiv({ cls: "pg-palette-foot" });
 
     this.onKey = (event: KeyboardEvent) => this.handleKey(event);
@@ -215,6 +225,10 @@ export class Sheet {
     list.empty();
     this.rows = [];
     this.rowEls = [];
+    // Drives the cursor and the touch-action that lets a drag beat a scroll.
+    // Set from the screen rather than a class toggled by the drag itself: the
+    // rows have to look draggable before anything has been dragged.
+    list.dataset.reorderable = String(Boolean(screen.onReorder));
 
     if (screen.note) list.createDiv({ cls: "pg-sheet-note", text: screen.note });
 
@@ -272,6 +286,13 @@ export class Sheet {
     };
     el.onclick = (event: MouseEvent) => {
       event.stopPropagation();
+      // A drag that happened to finish over a row must not also choose it.
+      // pointerup lands before click, and the list has been rebuilt by then,
+      // so this arrives on a row that was never pressed in the first place.
+      if (this.dragMoved) {
+        this.dragMoved = false;
+        return;
+      }
       this.choose(row);
     };
 
@@ -310,6 +331,83 @@ export class Sheet {
       el.setAttribute("aria-checked", String(on));
     });
     this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
+  }
+
+  /**
+   * Dragging a row up or down the list to move it.
+   *
+   * Delegated to the list rather than wired per row, and the pointer is
+   * captured by the list too. Both for the same reason: a move rebuilds every
+   * row, so anything held on the element the drag began on is thrown away
+   * halfway through the gesture. The list outlives its contents.
+   */
+  private installRowDrag(list: HTMLElement): void {
+    /** Movement past which the gesture is a drag, matching the wall's slop. */
+    const SLOP = 4;
+    let startY = 0;
+
+    const midpoints = (): number[] =>
+      this.rowEls.map((el) => {
+        const box = el.getBoundingClientRect();
+        return box.top + box.height / 2;
+      });
+
+    list.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (!this.screen?.onReorder || event.button !== 0) return;
+      const row = (event.target as HTMLElement | null)?.closest(".pg-palette-item");
+      if (!row) return;
+      const index = this.rowEls.indexOf(row as HTMLElement);
+      if (index === -1) return;
+
+      this.dragRow = index;
+      this.dragMoved = false;
+      startY = event.clientY;
+      list.setPointerCapture(event.pointerId);
+    });
+
+    list.addEventListener("pointermove", (event: PointerEvent) => {
+      if (this.dragRow === -1) return;
+
+      // Set on movement, not on a successful move. A drag the list refuses,
+      // the first grid pushed up against home, is still a drag: without this
+      // it would fall through to the click and open the very screen the
+      // gesture was trying to avoid.
+      if (Math.abs(event.clientY - startY) > SLOP) this.dragMoved = true;
+
+      const target = indexAtMidpoints(event.clientY, midpoints());
+      if (target === -1 || target === this.dragRow) return;
+
+      // Reordered as the pointer crosses, not held until release. The row
+      // under the finger is then the row that will land there, so the list
+      // itself is the preview and there is nothing to draw.
+      const delta = target - this.dragRow;
+      if (!this.screen?.onReorder?.(this.dragRow, delta)) return;
+
+      this.dragRow = target;
+      this.active = target;
+      this.render();
+      this.paintDragging();
+    });
+
+    const end = (event: PointerEvent): void => {
+      if (this.dragRow === -1) return;
+      if (list.hasPointerCapture(event.pointerId)) {
+        list.releasePointerCapture(event.pointerId);
+      }
+      this.dragRow = -1;
+      this.paintDragging();
+    };
+
+    list.addEventListener("pointerup", end);
+    list.addEventListener("pointercancel", end);
+  }
+
+  /** Lifts the row being dragged. Reapplied after each rebuild, since the
+      element carrying the class is replaced on every move. */
+  private paintDragging(): void {
+    this.rowEls.forEach((el, index) =>
+      el.toggleClass("is-dragging", index === this.dragRow)
+    );
   }
 
   /**

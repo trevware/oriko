@@ -86,7 +86,7 @@ const PICK_HINTS: Array<[string, string]> = [
 /** The manager list, where a row can also be carried up and down the order. */
 const MANAGE_HINTS: Array<[string, string]> = [
   ["↑↓", "navigate"],
-  ["⌥↑↓", "move"],
+  ["⌥↑↓ / drag", "move"],
   ["↵", "select"],
   ["esc", "close"],
 ];
