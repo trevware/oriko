@@ -243,5 +243,13 @@ export default class PowerGridPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+
+    // Saving is also how an open wall hears about it. Every caller of this
+    // already means "the settings have changed", so there is no second thing
+    // for the settings tab to remember to call, and no way for a new toggle
+    // to be added that silently does not take effect.
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+      if (leaf.view instanceof PowerGridView) leaf.view.applyLiveSettings();
+    }
   }
 }

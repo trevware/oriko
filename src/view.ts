@@ -757,6 +757,23 @@ export class PowerGridView extends ItemView {
     this.refreshFrame = 0;
   }
 
+  /**
+   * Settings the wall can adopt where it stands, pushed as they are saved.
+   *
+   * Only the ones that need nothing rebuilt: anything changing what a tile is
+   * or which records are on screen is a refresh, not this. Autoplay qualifies
+   * because the controller was always able to be told, and nothing was ever
+   * telling it, so the toggle wrote a value the open wall went on ignoring
+   * until the view was reopened.
+   */
+  applyLiveSettings(): void {
+    // Not while the detail view is up. It turns playback off deliberately and
+    // restores it on close, so obeying the setting here would set the wall
+    // playing behind the backdrop.
+    if (this.detail?.isOpen) return;
+    this.playback?.setEnabled(this.plugin.settings.autoplayVideo);
+  }
+
   private paint(options: { replace?: boolean }): void {
     if (!this.grid) return;
 
