@@ -62,6 +62,14 @@ export class Palette {
   private rowEls: HTMLElement[] = [];
   private active = 0;
   /**
+   * Whether the pointer has moved since the rows were last painted. The
+   * palette opens under wherever the mouse happens to be, and the row there
+   * gets a mouseenter at once, which used to steal the cursor from the top
+   * result before a key was pressed. Hover only counts once the pointer has
+   * actually moved.
+   */
+  private hoverArmed = false;
+  /**
    * The root list as it stood when a stage was entered, so backing out of one
    * returns to the row it was opened from.
    *
@@ -108,6 +116,15 @@ export class Palette {
     };
 
     this.listEl = this.panel.createDiv({ cls: "pg-palette-list" });
+    this.listEl.onmousemove = (event: MouseEvent) => {
+      if (this.hoverArmed) return;
+      this.hoverArmed = true;
+      // The row under the pointer missed its mouseenter while hover was
+      // disarmed, so the first movement lights it the way entering would.
+      const target = event.target as HTMLElement | null;
+      const row = this.rowEls.find((candidate) => target && candidate.contains(target));
+      if (row) this.hover(row);
+    };
 
     const foot = this.panel.createDiv({ cls: "pg-palette-foot" });
     hint(foot, "↑↓", "navigate");
@@ -297,7 +314,15 @@ export class Palette {
     else if (row.clipping) this.handlers.onClipping(row.clipping);
   }
 
+  private hover(el: HTMLElement): void {
+    const index = this.rowEls.indexOf(el);
+    if (index === -1 || index === this.active) return;
+    this.active = index;
+    this.paintActive(false);
+  }
+
   private render(): void {
+    this.hoverArmed = false;
     const list = this.listEl;
     if (!list) return;
     list.empty();
@@ -394,10 +419,8 @@ export class Palette {
     }
 
     el.onmouseenter = () => {
-      const index = this.rowEls.indexOf(el);
-      if (index === -1 || index === this.active) return;
-      this.active = index;
-      this.paintActive(false);
+      if (!this.hoverArmed) return;
+      this.hover(el);
     };
     el.onclick = (event: MouseEvent) => {
       event.stopPropagation();
