@@ -88,12 +88,6 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "scan-page-from-clipboard",
-      name: "Scan page from clipboard",
-      callback: () => void this.capture.captureScanFromClipboard(),
-    });
-
-    this.addCommand({
       id: "toggle-layer-panel",
       name: "Show or hide the list",
       hotkeys: [{ modifiers: ["Mod"], key: "L" }],

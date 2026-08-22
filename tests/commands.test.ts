@@ -22,7 +22,6 @@ const actions = {
   clearFilters: noop,
   clipLink: noop,
   clipImage: noop,
-  clipScan: noop,
   archiveAll: noop,
   selectAll: noop,
   resetZoom: noop,
