@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNote, buildPastedImageNote } from "../src/resolve";
+import { buildNote, buildPastedImageNote, buildScanNote } from "../src/resolve";
 import type { ResolvedLink } from "../src/resolve";
 
 function link(overrides: Partial<ResolvedLink> = {}): ResolvedLink {
@@ -168,5 +168,33 @@ describe("buildNote with archived media", () => {
     );
     expect(note).toContain("![[Attachments/a.mp4]]");
     expect(note).toContain("![](https://cdn/b.jpg)");
+  });
+});
+
+describe("buildScanNote", () => {
+  const note = buildScanNote(
+    "Cibby — Your collection deserves better",
+    "https://cibby.app/",
+    "Attachments/Clippings/scan-2026-08-21 212233.png",
+    "2026-08-21",
+    "Sites"
+  );
+
+  it("names the page as the source and the scan as the cover", () => {
+    expect(note).toContain('source: "https://cibby.app/"');
+    // cover is what puts a vault-path file on the wall: the scanner does not
+    // read embeds, and without it the archiver fetches the page's own social
+    // card and the tile shows that instead of the scan.
+    expect(note).toContain('cover: "Attachments/Clippings/scan-2026-08-21 212233.png"');
+    expect(note).toContain('grid: "Sites"');
+  });
+
+  it("embeds the scan and links the page", () => {
+    expect(note).toContain("![[Attachments/Clippings/scan-2026-08-21 212233.png]]");
+    expect(note).toContain("[https://cibby.app/](https://cibby.app/)");
+  });
+
+  it("carries the clippings tag the base filters on", () => {
+    expect(note).toContain('  - "clippings"');
   });
 });

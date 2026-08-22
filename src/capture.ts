@@ -8,6 +8,7 @@ import {
   ResolvedLink,
   buildNote,
   buildPastedImageNote,
+  buildScanNote,
   cleanUrl,
   directMediaKind,
   directMediaLink,
@@ -135,9 +136,11 @@ export class CaptureService {
       description: "",
       author: "",
       published: "",
-      media: [{ url, kind: "image", localPath: attachment }],
+      media: [],
     };
-    const file = await this.createNote(link);
+    const file = await this.createNote(link, (grid) =>
+      buildScanNote(link.title, url, attachment, today(), grid)
+    );
     if (!file) {
       this.onProgress?.(null);
       return;
@@ -400,7 +403,10 @@ export class CaptureService {
     }
   }
 
-  private async createNote(link: ResolvedLink): Promise<TFile | null> {
+  private async createNote(
+    link: ResolvedLink,
+    build: (grid: string) => string = (grid) => buildNote(link, today(), grid)
+  ): Promise<TFile | null> {
     const folder = normalizePath(this.settings().clippingsFolder);
     if (!(await this.app.vault.adapter.exists(folder))) {
       await this.app.vault.createFolder(folder);
@@ -415,7 +421,7 @@ export class CaptureService {
     }
 
     try {
-      return await this.app.vault.create(path, buildNote(link, today(), this.targetGrid()));
+      return await this.app.vault.create(path, build(this.targetGrid()));
     } catch (error) {
       new Notice(`Power Grid: could not create the note (${String(error)})`);
       return null;

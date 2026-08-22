@@ -115,10 +115,13 @@ export function extractPageImage(html: string, baseUrl: string): string | null {
  * undefined. Passed as a function so this stays free of Obsidian imports.
  */
 export function needsPageCover(
-  record: { source: string; media: MediaRef[] },
+  record: { source: string; media: MediaRef[]; cover?: string },
   archivedFile: (key: string) => string | undefined
 ): boolean {
   if (!record.source) return false;
+  // A cover that is a file in the vault, as a scan's is, is already what the
+  // tile will show; the page's own card would only be fetched to be ignored.
+  if (record.cover && !/^https?:\/\//i.test(record.cover)) return false;
   if (archivedFile(sourceVideoKeyFor(record.source))) return false;
   return !dedupeMedia(record.media).some((media) => archivedFile(media.key));
 }
