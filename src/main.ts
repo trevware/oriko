@@ -75,16 +75,19 @@ export default class PowerGridPlugin extends Plugin {
       },
     });
 
+    // One command for whatever is on the clipboard, as paste is: a picture
+    // or a video is saved as itself, text is taken as a link. Scoped to the
+    // wall like the search, since ⌘N is new note everywhere else.
     this.addCommand({
-      id: "clip-url-from-clipboard",
-      name: "Clip link from clipboard",
-      callback: () => void this.capture.captureFromClipboard(),
-    });
-
-    this.addCommand({
-      id: "clip-image-from-clipboard",
-      name: "Clip image from clipboard",
-      callback: () => void this.clipImageFromClipboard(),
+      id: "clip-from-clipboard",
+      name: "Clip from clipboard",
+      hotkeys: [{ modifiers: ["Mod"], key: "N" }],
+      checkCallback: (checking: boolean) => {
+        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
+        if (!view) return false;
+        if (!checking) void this.clipFromClipboard();
+        return true;
+      },
     });
 
     this.addCommand({
@@ -206,19 +209,26 @@ export default class PowerGridPlugin extends Plugin {
   }
 
   /** Lifted out of its command so the grid's create menu can call it too. */
-  async clipImageFromClipboard(): Promise<void> {
+  /**
+   * Clips whatever the clipboard holds, deciding as the paste handler does:
+   * a picture or a video is saved as itself, anything else is read as text
+   * and taken as a link.
+   */
+  async clipFromClipboard(): Promise<void> {
+    let items: ClipboardItems;
     try {
-      const items = await navigator.clipboard.read();
-      for (const item of items) {
-        const type = item.types.find((t) => t.startsWith("image/"));
-        if (!type) continue;
-        await this.capture.captureMedia(await item.getType(type));
-        return;
-      }
-      new Notice("Power Grid: no image on the clipboard");
+      items = await navigator.clipboard.read();
     } catch {
       new Notice("Power Grid: could not read the clipboard");
+      return;
     }
+    for (const item of items) {
+      const type = item.types.find((t) => t.startsWith("image/") || t.startsWith("video/"));
+      if (!type) continue;
+      await this.capture.captureMedia(await item.getType(type));
+      return;
+    }
+    await this.capture.captureFromClipboard();
   }
 
   async activateView(): Promise<void> {

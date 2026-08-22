@@ -74,8 +74,7 @@ export interface PaletteActions {
   manageGrids(): void;
   toggleFacet(id: string, value: string): void;
   clearFilters(): void;
-  clipLink(): void;
-  clipImage(): void;
+  clip(): void;
   archiveAll(): void;
   selectAll(): void;
   resetZoom(): void;
@@ -352,22 +351,13 @@ function captureCommands(context: PaletteContext): PaletteCommand[] {
 
   return [
     {
-      id: "capture:link",
-      label: "Clip link from clipboard",
-      icon: "link",
+      id: "capture:clip",
+      label: "Clip from clipboard",
+      icon: "clipboard-paste",
       section: "Capture",
       detail: "⌘N",
-      keywords: "paste url add new save web",
-      run: () => actions.clipLink(),
-    },
-    {
-      id: "capture:image",
-      label: "Clip image from clipboard",
-      icon: "image",
-      section: "Capture",
-      detail: "⇧⌘N",
-      keywords: "paste picture add new save screenshot",
-      run: () => actions.clipImage(),
+      keywords: "paste url link picture image video add new save web screenshot",
+      run: () => actions.clip(),
     },
     {
       id: "capture:archive-all",

@@ -1189,8 +1189,7 @@ export class PowerGridView extends ItemView {
         toggleFacet: (id, value) =>
           this.setFilter(toggleFacet(this.activeFilter(), id, value)),
         clearFilters: () => this.setFilter(emptyFilter()),
-        clipLink: () => void this.plugin.capture.captureFromClipboard(),
-        clipImage: () => void this.plugin.clipImageFromClipboard(),
+        clip: () => void this.plugin.clipFromClipboard(),
         archiveAll: () => this.plugin.archiveAllMedia(),
         selectAll: () => this.grid?.selectAll(),
         resetZoom: () => this.grid?.resetView(),
@@ -1710,16 +1709,11 @@ export class PowerGridView extends ItemView {
     this.menu?.open(
       [
         {
-          icon: "link",
-          label: "Clip link",
+          icon: "clipboard-paste",
+          label: "Clip",
+          // Whatever is on the clipboard: a picture, a video, or a link.
           detail: "\u2318N",
-          onSelect: () => void this.plugin.capture.captureFromClipboard(),
-        },
-        {
-          icon: "image",
-          label: "Clip image",
-          detail: "\u21e7\u2318N",
-          onSelect: () => void this.plugin.clipImageFromClipboard(),
+          onSelect: () => void this.plugin.clipFromClipboard(),
         },
         {
           icon: "layers",

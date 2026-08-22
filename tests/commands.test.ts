@@ -20,8 +20,7 @@ const actions = {
   manageGrids: noop,
   toggleFacet: noop,
   clearFilters: noop,
-  clipLink: noop,
-  clipImage: noop,
+  clip: noop,
   archiveAll: noop,
   selectAll: noop,
   resetZoom: noop,
@@ -200,8 +199,7 @@ describe("buildCommands", () => {
 
   it("always offers the capture commands", () => {
     const list = ids(context());
-    expect(list).toContain("capture:link");
-    expect(list).toContain("capture:image");
+    expect(list).toContain("capture:clip");
     expect(list).toContain("capture:archive-all");
   });
 
