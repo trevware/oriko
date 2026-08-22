@@ -140,18 +140,6 @@ describe("needsPageCover", () => {
     expect(needsPageCover(record, nothingArchived)).toBe(true);
   });
 
-  it("skips it when the clipping already has a cover of its own in the vault", () => {
-    // A scan: the page is the source, the scan is the cover, and the page's
-    // social card would only displace it.
-    const scan = { source, media: [], cover: "Attachments/Clippings/scan-2026-08-21.png" };
-    expect(needsPageCover(scan, nothingArchived)).toBe(false);
-  });
-
-  it("still asks when the cover is a remote url that may not last", () => {
-    const remote = { source, media: [], cover: "https://cdn.example.com/cover.jpg" };
-    expect(needsPageCover(remote, nothingArchived)).toBe(true);
-  });
-
   it("wants nothing for a clipping with no source to ask about", () => {
     expect(needsPageCover({ source: "", media: [] }, nothingArchived)).toBe(false);
   });

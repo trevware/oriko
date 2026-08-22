@@ -317,41 +317,6 @@ export function buildNote(link: ResolvedLink, created = today(), grid = ""): str
 }
 
 /**
- * Note for a page scanned into one picture. Shaped like a link clipping,
- * with the page as its source, but with the scan declared as `cover:` the
- * way a pasted image is: the scanner reads cover, not embeds, and without
- * it the archiver would fetch the page's own social card and the tile would
- * show that instead of the scan.
- */
-export function buildScanNote(
-  title: string,
-  url: string,
-  attachmentPath: string,
-  created: string,
-  grid = ""
-): string {
-  return [
-    "---",
-    `title: ${yamlString(title)}`,
-    `source: ${yamlString(url)}`,
-    "author:",
-    "published:",
-    `created: ${created}`,
-    "description:",
-    "tags:",
-    '  - "clippings"',
-    `cover: ${yamlString(attachmentPath)}`,
-    ...(grid ? [`grid: ${yamlString(grid)}`] : []),
-    "---",
-    "",
-    `![[${attachmentPath}]]`,
-    "",
-    `[${url}](${url})`,
-    "",
-  ].join("\n");
-}
-
-/**
  * Note body for an image pasted straight from the clipboard, which has no
  * source page to describe it. `media:` carries the vault path so the
  * scanner and the grid treat it like any other clipping.
