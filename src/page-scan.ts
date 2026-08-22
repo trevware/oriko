@@ -73,56 +73,18 @@ export function scanTitle(pageTitle: string, url: string): string {
   }
 }
 
-/** What the overlay test needs to know about an element. */
-export interface LayerFacts {
-  position: string;
-  /** The computed z-index: a number, or "auto". */
-  zIndex: string;
-  /** Bounding rect, in the page's viewport. */
-  top: number;
-  height: number;
-  /** The aria-modal attribute, if any. */
-  ariaModal: string | null;
-}
-
-/**
- * Overlays below this z-index are left alone. Consent tools stack theirs
- * as high as they can (OneTrust 2147483645, Cookiebot 2147483631,
- * Quantcast 999999, HubSpot 9999); a page's own fixed layers sit far
- * lower. cibby.app builds its whole screen from fixed elements at 0 to 10,
- * and hiding those on the old rule, any fixed element that was not a top
- * bar, blanked the page.
- */
-export const OVERLAY_Z_INDEX = 1000;
-
-/**
- * Whether an element is a banner, sheet or backdrop laid over the page
- * rather than part of it. Self-contained, no references to anything else
- * in this module: it is serialized into the page and evaluated there.
- */
-export function isOverlay(facts: LayerFacts, viewportHeight: number): boolean {
-  if (facts.ariaModal === "true") return true;
-  if (facts.position !== "fixed") return false;
-  const z = Number(facts.zIndex);
-  if (!(z >= 1000)) return false;
-  // A site's own header is fixed to the top and short; keep it.
-  const isTopBar = facts.top <= 1 && facts.height < viewportHeight * 0.35;
-  return !isTopBar;
-}
-
 /**
  * Runs inside the page before the capture. Unlocks scrolling, which a consent
  * dialog will have frozen and which makes the document's height read as one
- * screen; then hides the overlays laid over the page, which is where cookie
- * banners, sign-up sheets and their backdrops live. Returns what the capture
- * needs to know: the document's height and title.
+ * screen; then hides the fixed overlays that are not the site's top bar,
+ * which is where cookie banners, sign-up sheets and their backdrops live.
+ * Returns what the capture needs to know: the document's height and title.
  *
- * A string because it is evaluated in another process. isOverlay is carried
- * over as its own source, which is why it must be self-contained.
+ * A string because it is evaluated in another process. Self-contained for
+ * the same reason: nothing from this module exists over there.
  */
 export function prepareScript(viewportHeight: number): string {
   return `(() => {
-    const isOverlay = ${isOverlay.toString()};
     const html = document.documentElement;
     const body = document.body;
     for (const el of [html, body]) {
@@ -133,16 +95,11 @@ export function prepareScript(viewportHeight: number): string {
     const viewport = ${Math.floor(viewportHeight)};
     for (const el of Array.from(document.querySelectorAll("body *"))) {
       const style = getComputedStyle(el);
-      if (style.position !== "fixed" && el.getAttribute("aria-modal") !== "true") continue;
+      if (style.position !== "fixed" && style.position !== "sticky") continue;
       const rect = el.getBoundingClientRect();
-      const facts = {
-        position: style.position,
-        zIndex: style.zIndex,
-        top: rect.top,
-        height: rect.height,
-        ariaModal: el.getAttribute("aria-modal"),
-      };
-      if (isOverlay(facts, viewport)) el.style.setProperty("display", "none", "important");
+      const isTopBar = rect.top <= 1 && rect.height < viewport * 0.35;
+      if (style.position === "sticky" || isTopBar) continue;
+      el.style.setProperty("display", "none", "important");
     }
     return {
       height: Math.max(html ? html.scrollHeight : 0, body ? body.scrollHeight : 0),

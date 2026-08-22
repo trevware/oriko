@@ -131,8 +131,6 @@ export async function scanPage(
 
     const image = await view.capturePage();
     const size = image.getSize();
-    // Left in: a scan that comes out wrong is diagnosed from these numbers.
-    console.debug("Power Grid scan", { url, probed: probe.height, planned: plan.height, size });
     if (!(size.width > 0 && size.height > 0)) throw new Error("the page rendered blank");
     const encoding = scanEncoding(size.width, size.height);
     const bytes =
