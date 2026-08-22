@@ -367,6 +367,15 @@ export class GridRenderer {
   }
 
   relayout(): void {
+    // A pane behind another tab measures 0 by 0. Laying it out then would
+    // fall back to viewportSize's nominal size and arrange the wall for a
+    // pane that does not exist, moving the camera to suit; switching back
+    // laid it out again for the real width, and the tiles gliding from the
+    // phantom positions to the real ones read as the wall rearranging
+    // itself. Nothing is visible while hidden, so nothing is done: the
+    // resize that brings the pane back is what lays it out.
+    if (this.viewport.clientWidth === 0 || this.viewport.clientHeight === 0) return;
+
     // The wall is laid out at the unzoomed viewport width, so zooming out
     // reveals empty space around it rather than reflowing the columns.
     const anchor = this.anchor();
