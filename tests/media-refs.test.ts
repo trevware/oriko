@@ -245,3 +245,13 @@ describe("liveRefs and a post whose video was pulled", () => {
     expect(liveRefs([record], [failed]).keys.has(pageKey)).toBe(true);
   });
 });
+
+describe("isPluginOwned", () => {
+  it("claims archived files, pastes and scans, and nothing else", () => {
+    expect(isPluginOwned("0123456789ab-photo.jpg")).toBe(true);
+    expect(isPluginOwned("pasted-2026-08-18 215104.png")).toBe(true);
+    expect(isPluginOwned("scan-2026-08-21 203000.jpg")).toBe(true);
+    expect(isPluginOwned("holiday.jpg")).toBe(false);
+    expect(isPluginOwned("scanner-manual.pdf")).toBe(false);
+  });
+});

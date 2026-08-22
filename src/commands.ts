@@ -76,6 +76,7 @@ export interface PaletteActions {
   clearFilters(): void;
   clipLink(): void;
   clipImage(): void;
+  clipScan(): void;
   archiveAll(): void;
   selectAll(): void;
   resetZoom(): void;
@@ -368,6 +369,14 @@ function captureCommands(context: PaletteContext): PaletteCommand[] {
       detail: "⇧⌘N",
       keywords: "paste picture add new save screenshot",
       run: () => actions.clipImage(),
+    },
+    {
+      id: "capture:scan",
+      label: "Scan page from clipboard",
+      icon: "scan-line",
+      section: "Capture",
+      keywords: "paste url article full page screenshot snapshot save web",
+      run: () => actions.clipScan(),
     },
     {
       id: "capture:archive-all",

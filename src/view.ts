@@ -1180,6 +1180,7 @@ export class PowerGridView extends ItemView {
         clearFilters: () => this.setFilter(emptyFilter()),
         clipLink: () => void this.plugin.capture.captureFromClipboard(),
         clipImage: () => void this.plugin.clipImageFromClipboard(),
+        clipScan: () => void this.plugin.capture.captureScanFromClipboard(),
         archiveAll: () => this.plugin.archiveAllMedia(),
         selectAll: () => this.grid?.selectAll(),
         resetZoom: () => this.grid?.resetView(),
@@ -1709,6 +1710,14 @@ export class PowerGridView extends ItemView {
           label: "Clip image",
           detail: "\u21e7\u2318N",
           onSelect: () => void this.plugin.clipImageFromClipboard(),
+        },
+        {
+          icon: "scan-line",
+          label: "Scan page",
+          // The whole page as one tall picture, for a link whose point is
+          // the page rather than a picture on it.
+          detail: "from link",
+          onSelect: () => void this.plugin.capture.captureScanFromClipboard(),
         },
         {
           icon: "layers",

@@ -19,6 +19,7 @@ import {
   parsePageMeta,
   xStatus,
 } from "./resolve";
+import { scanAvailable, scanPage } from "./page-scanner";
 import type { ProgressState } from "./progress";
 import type { PowerGridSettings } from "./settings";
 
@@ -58,14 +59,91 @@ export class CaptureService {
   ) {}
 
   async captureFromClipboard(): Promise<void> {
-    let text = "";
+    const text = await this.clipboardText();
+    if (text !== null) await this.capture(text);
+  }
+
+  async captureScanFromClipboard(): Promise<void> {
+    const text = await this.clipboardText();
+    if (text !== null) await this.captureScan(text);
+  }
+
+  private async clipboardText(): Promise<string | null> {
     try {
-      text = await navigator.clipboard.readText();
+      return await navigator.clipboard.readText();
     } catch {
       new Notice("Power Grid: could not read the clipboard");
+      return null;
+    }
+  }
+
+  /**
+   * Clips a page as a scan: the whole page rendered as one tall image, the
+   * way a visitor sees it, rather than whichever picture it offers crawlers.
+   * For an article, a recipe, a thread, anything whose point is the page.
+   *
+   * No duplicate check, unlike capture(): a page already clipped by its
+   * cover image is exactly the kind you might want a scan of as well.
+   */
+  async captureScan(raw: string): Promise<void> {
+    const url = cleanUrl(raw);
+    if (!isHttpUrl(url)) {
+      new Notice("Power Grid: that is not a link");
       return;
     }
-    await this.capture(text);
+    if (!scanAvailable()) {
+      new Notice("Power Grid: scanning a page needs the desktop app");
+      return;
+    }
+
+    this.report(null, "Loading page…");
+    let scanned;
+    try {
+      scanned = await scanPage(url, (label) => this.report(null, label));
+    } catch (error) {
+      this.onProgress?.(null);
+      new Notice(`Power Grid: could not scan the page (${String(error instanceof Error ? error.message : error)})`);
+      return;
+    }
+
+    this.report(0.8, "Saving scan…");
+    const folder = normalizePath(this.settings().attachmentFolder);
+    if (!(await this.app.vault.adapter.exists(folder))) {
+      await this.app.vault.createFolder(folder);
+    }
+    // scan- rather than pasted-: both prefixes are what sweep.ts accepts as
+    // proof the plugin made a file, and the name should say what it is.
+    const stamp = todayStamp();
+    let attachment = normalizePath(`${folder}/scan-${stamp}.${scanned.encoding.ext}`);
+    let n = 2;
+    while (await this.app.vault.adapter.exists(attachment)) {
+      attachment = normalizePath(`${folder}/scan-${stamp}-${n}.${scanned.encoding.ext}`);
+      n++;
+    }
+    try {
+      await this.app.vault.createBinary(attachment, await scanned.blob.arrayBuffer());
+    } catch (error) {
+      this.onProgress?.(null);
+      new Notice(`Power Grid: could not save the scan (${String(error)})`);
+      return;
+    }
+
+    this.report(0.9, "Creating clipping…");
+    const link: ResolvedLink = {
+      url,
+      title: scanned.title,
+      description: "",
+      author: "",
+      published: "",
+      media: [{ url, kind: "image", localPath: attachment }],
+    };
+    const file = await this.createNote(link);
+    if (!file) {
+      this.onProgress?.(null);
+      return;
+    }
+    await this.index.handleModify(file);
+    this.onFinished?.(link.title.slice(0, 40), file.path);
   }
 
 /**

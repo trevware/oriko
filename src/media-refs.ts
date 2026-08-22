@@ -26,8 +26,8 @@ export interface LiveRefs {
 
 /** Twelve hex characters and a dash: an archived file's name. */
 const ARCHIVED = /^[0-9a-f]{12}-/;
-/** A clipboard capture, named for the day it was pasted. */
-const PASTED = /^pasted-\d{4}-\d{2}-\d{2}/;
+/** A clipboard capture or a page scan, named for the day it was made. */
+const PASTED = /^(pasted|scan)-\d{4}-\d{2}-\d{2}/;
 
 function isRemote(url: string): boolean {
   return /^https?:\/\//i.test(url);
