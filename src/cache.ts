@@ -17,9 +17,23 @@ export interface CacheEntry {
  */
 export class MediaCache {
   private entriesByKey = new Map<string, CacheEntry>();
+  /** The same entries by the file they were archived to, for a note that
+      names the file rather than the URL it came from. */
+  private entriesByFile = new Map<string, CacheEntry>();
 
   get(key: string): CacheEntry | undefined {
     return this.entriesByKey.get(key);
+  }
+
+  byFile(file: string): CacheEntry | undefined {
+    return file ? this.entriesByFile.get(file) : undefined;
+  }
+
+  private index(entry: CacheEntry): void {
+    const previous = this.entriesByKey.get(entry.key);
+    if (previous?.file && previous.file !== entry.file) this.entriesByFile.delete(previous.file);
+    this.entriesByKey.set(entry.key, entry);
+    if (entry.file) this.entriesByFile.set(entry.file, entry);
   }
 
   has(key: string): boolean {
@@ -27,11 +41,13 @@ export class MediaCache {
   }
 
   set(entry: CacheEntry): void {
-    this.entriesByKey.set(entry.key, entry);
+    this.index(entry);
   }
 
   /** Dropped when its file is removed, so the URL is fetched again if reused. */
   delete(key: string): void {
+    const entry = this.entriesByKey.get(key);
+    if (entry?.file) this.entriesByFile.delete(entry.file);
     this.entriesByKey.delete(key);
   }
 
@@ -51,7 +67,7 @@ export class MediaCache {
       bytes: outcome.bytes ?? previous?.bytes ?? 0,
     };
     if (outcome.failed) entry.failed = outcome.failed;
-    this.entriesByKey.set(entry.key, entry);
+    this.index(entry);
   }
 
   setThumb(key: string, thumb: string, width: number, height: number): void {

@@ -140,6 +140,14 @@ describe("needsPageCover", () => {
     expect(needsPageCover(record, nothingArchived)).toBe(true);
   });
 
+  it("skips it when the clipping embeds a file of its own from the vault", () => {
+    const local = {
+      source,
+      media: [{ url: "Attachments/Clippings/df1c6f006c20-cover.jpg", kind: "image" as const, alt: "" }],
+    };
+    expect(needsPageCover(local, nothingArchived)).toBe(false);
+  });
+
   it("wants nothing for a clipping with no source to ask about", () => {
     expect(needsPageCover({ source: "", media: [] }, nothingArchived)).toBe(false);
   });

@@ -604,6 +604,11 @@ export class PowerGridView extends ItemView {
     // Looked up through the same dedupe the archiver used, so the keys
     // match; comparing a raw URL against a normalized key would not.
     for (const media of dedupeMedia(record.media)) {
+      // An embedded vault file is its own archive.
+      if (!/^https?:\/\//i.test(media.url)) {
+        paths.push(media.url);
+        continue;
+      }
       const entry = cache.get(media.key);
       if (entry?.file) paths.push(entry.file);
     }

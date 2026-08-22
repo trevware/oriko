@@ -116,6 +116,10 @@ function localCover(
   };
 }
 
+function isRemote(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 function remoteCover(
   url: string,
   kind: "image" | "video",
@@ -167,6 +171,29 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
   const media: CanonicalMedia[] = dedupeMedia(record.media);
 
   for (const item of media) {
+    // A file in the vault, embedded as a wikilink. The archive knows its
+    // size if it made it; otherwise the tile measures it once it loads.
+    if (!isRemote(item.url)) {
+      const archived = cache.byFile(item.url);
+      if (archived) {
+        const cover = localCover(archived);
+        if (cover) return cover;
+        continue;
+      }
+      // A video needs a poster to stand in for it, and there is none.
+      if (item.kind === "video") continue;
+      return {
+        posterPath: "",
+        filePath: item.url,
+        remote: false,
+        kind: "image",
+        animated: false,
+        width: DEFAULT_RATIO.width,
+        height: DEFAULT_RATIO.height,
+        provisional: true,
+      };
+    }
+
     const entry = cache.get(item.key);
     // A recorded failure means the ref is bad at the source too, so there is
     // no point falling back to its remote URL.

@@ -148,10 +148,10 @@ describe("scanClipping", () => {
     expect(scanClipping("Clippings/X.md", { ...NOOK_FM, media: 42 }, "").media).toEqual([]);
   });
 
-  it("skips data URIs and vault-relative links", () => {
+  it("skips data URIs and relative markdown links, but keeps a wikilink embed", () => {
     const body = "![a](data:image/png;base64,AAAA)\n![b](Attachments/local.png)\n![[embed.png]]";
     const r = scanClipping("Clippings/X.md", NOOK_FM, body);
-    expect(r.media).toHaveLength(0);
+    expect(r.media.map((m) => m.url)).toEqual(["embed.png"]);
   });
 
   it("tolerates missing frontmatter fields", () => {
@@ -256,5 +256,31 @@ describe("scanClipping properties", () => {
     const record = scanClipping("Clippings/a.md", { categories: "solo" }, "");
     expect(record.categories).toEqual(["solo"]);
     expect(record.properties.categories).toEqual(["solo"]);
+  });
+});
+
+describe("scanClipping wikilink embeds", () => {
+  const body = [
+    "some text",
+    "",
+    "![[Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg]]",
+    "",
+    "![[Attachments/Clippings/70c804f27c28-video.mp4|the clip]]",
+    "",
+    "![[Notes/Some other note]]",
+    "",
+    "[[Notes/A plain link]]",
+  ].join("\n");
+  const r = scanClipping("Clippings/A.md", { title: "A", source: "https://example.com/" }, body);
+
+  it("collects embedded files in the vault as local media, kind by extension", () => {
+    expect(r.media).toMatchObject([
+      { url: "Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg", kind: "image", alt: "" },
+      { url: "Attachments/Clippings/70c804f27c28-video.mp4", kind: "video", alt: "the clip" },
+    ]);
+  });
+
+  it("ignores embeds and links that are not media", () => {
+    expect(r.media.some((m) => m.url.includes("Notes/"))).toBe(false);
   });
 });

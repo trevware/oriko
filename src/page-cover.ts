@@ -119,6 +119,9 @@ export function needsPageCover(
   archivedFile: (key: string) => string | undefined
 ): boolean {
   if (!record.source) return false;
+  // A file embedded from the vault is the clipping's own picture, and the
+  // tile shows it ahead of anything fetched for the page.
+  if (record.media.some((media) => !/^https?:\/\//i.test(media.url))) return false;
   if (archivedFile(sourceVideoKeyFor(record.source))) return false;
   return !dedupeMedia(record.media).some((media) => archivedFile(media.key));
 }

@@ -119,3 +119,22 @@ describe("delete", () => {
     expect(() => cache.delete("https://cdn.example.com/nothing.jpg")).not.toThrow();
   });
 });
+
+describe("byFile", () => {
+  it("finds the entry an archived file belongs to, and forgets it when it goes", () => {
+    const cache = new MediaCache();
+    cache.set({ key: "https://a/x.jpg", file: "Attachments/x.jpg", thumb: "", kind: "image", width: 3, height: 4, bytes: 1 });
+    expect(cache.byFile("Attachments/x.jpg")?.key).toBe("https://a/x.jpg");
+    cache.mergeOutcome({ key: "https://a/x.jpg", kind: "image", file: "Attachments/y.jpg" });
+    expect(cache.byFile("Attachments/x.jpg")).toBeUndefined();
+    expect(cache.byFile("Attachments/y.jpg")?.key).toBe("https://a/x.jpg");
+    cache.delete("https://a/x.jpg");
+    expect(cache.byFile("Attachments/y.jpg")).toBeUndefined();
+  });
+
+  it("survives a round trip through JSON", () => {
+    const cache = new MediaCache();
+    cache.set({ key: "k", file: "Attachments/z.jpg", thumb: "", kind: "image", width: 1, height: 1, bytes: 1 });
+    expect(MediaCache.fromJSON(JSON.parse(JSON.stringify(cache))).byFile("Attachments/z.jpg")?.key).toBe("k");
+  });
+});

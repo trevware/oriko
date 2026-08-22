@@ -344,3 +344,46 @@ describe("animated covers", () => {
     expect(buildTiles([record], new MediaCache())[0].animated).toBe(false);
   });
 });
+
+describe("buildTiles with local embeds", () => {
+  const record = scanClipping(
+    "Clippings/Putting Out of Your Mind.md",
+    { title: "Putting Out of Your Mind", source: "https://www.amazon.ca/dp/0743212134" },
+    "![[Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg]]"
+  );
+
+  it("shows a clipping's own embedded file, at the size the archive knows", () => {
+    const cache = cacheWith([
+      [
+        "https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg",
+        { file: "Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg", thumb: "", width: 725, height: 1000 },
+      ],
+    ]);
+    const [tile] = buildTiles([record], cache);
+    expect(tile).toBeDefined();
+    expect(tile.filePath).toBe("Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg");
+    expect(tile.remote).toBe(false);
+    expect(tile.width).toBe(725);
+    expect(tile.height).toBe(1000);
+  });
+
+  it("shows an embedded file the archive has never seen, provisionally", () => {
+    const [tile] = buildTiles([record], new MediaCache());
+    expect(tile.filePath).toBe("Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg");
+    expect(tile.remote).toBe(false);
+    expect(tile.provisional).toBe(true);
+  });
+
+  it("prefers the embedded file over a page cover archived for the source", () => {
+    const cache = cacheWith([
+      ["https://www.amazon.ca/dp/0743212134", { file: "Attachments/Clippings/social.png" }],
+    ]);
+    const [tile] = buildTiles([record], cache);
+    expect(tile.filePath).toBe("Attachments/Clippings/df1c6f006c20-61f8IVzjEDL.jpg");
+  });
+
+  it("has nothing to show for an embedded video with no poster", () => {
+    const video = scanClipping("Clippings/V.md", { title: "V" }, "![[Attachments/Clippings/a.mp4]]");
+    expect(buildTiles([video], new MediaCache())).toEqual([]);
+  });
+});

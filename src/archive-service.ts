@@ -188,6 +188,8 @@ export class ArchiveService {
    */
   async archiveRecord(record: ClippingRecord, retryFailed = false): Promise<void> {
     const canonical = dedupeMedia(record.media).filter((m) => {
+      // An embedded file in the vault is already archived by definition.
+      if (!/^https?:\/\//i.test(m.url)) return false;
       const entry = this.cache.get(m.key);
       if (entry?.file) return false;
       return retryFailed || !entry?.failed;

@@ -49,6 +49,8 @@ const SRC_ATTR = /\bsrc\s*=\s*["']([^"']+)["']/i;
 const SOURCE_SRC = /<source\b[^>]*?\bsrc\s*=\s*["']([^"']+)["'][^>]*>/i;
 const HTML_ALT = /\balt\s*=\s*["']([^"']*)["']/i;
 const ARIA_LABEL = /\baria-label\s*=\s*["']([^"']*)["']/i;
+/** `![[path]]`, `![[path|label]]`, `![[path#heading]]`: an embed of a file in the vault. */
+const WIKI_EMBED = /!\[\[([^\]|#]+)(?:[#|]([^\]]*))?\]\]/g;
 const FENCED_CODE = /(^|\n)(```|~~~)[\s\S]*?\n\2[ \t]*(?=\n|$)/g;
 
 /**
@@ -208,6 +210,19 @@ export function scanClipping(
   for (const m of clean.matchAll(HTML_VIDEO)) {
     const alt = HTML_ALT.exec(m[0])?.[1] ?? ARIA_LABEL.exec(m[0])?.[1] ?? "";
     push(m.index ?? 0, m[1], "video", alt);
+  }
+
+  // The plugin's own notes embed their archived media as wikilinks, paths in
+  // the vault rather than URLs, so they get a pass of their own: the kind is
+  // read off the extension and the label, if any, is the alt. Without this
+  // a link clipping's own picture never reached the tile, and it rendered
+  // only through a second copy fetched as the page's cover.
+  for (const m of clean.matchAll(WIKI_EMBED)) {
+    const target = m[1].trim();
+    const kind = kindForExtension(extensionOf(target));
+    if (!kind || seen.has(target + kind)) continue;
+    seen.add(target + kind);
+    found.push({ index: m.index ?? 0, ref: { url: target, kind, alt: (m[2] ?? "").trim() } });
   }
 
   found.sort((a, b) => a.index - b.index);
