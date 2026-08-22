@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { clampPan, fitZoomRange } from "../src/viewer";
+import {
+  DETAIL_PADDING,
+  DETAIL_SIDEBAR,
+  STACK_PADDING,
+  STACK_SHARE,
+  clampPan,
+  detailLayout,
+  fitZoomRange,
+} from "../src/viewer";
 
 describe("fitZoomRange", () => {
   it("lets a large image zoom up to its native pixels", () => {
@@ -70,5 +78,44 @@ describe("clampPan", () => {
 
   it("leaves the zoom untouched", () => {
     expect(clampPan({ x: 0, y: 0, zoom: 2.75 }, frame).zoom).toBe(2.75);
+  });
+});
+
+describe("detailLayout", () => {
+  const square = { width: 2400, height: 2400 };
+
+  it("puts the details beside the picture in a wide pane", () => {
+    const layout = detailLayout(square, { width: 1400, height: 900 });
+    expect(layout.mode).toBe("beside");
+    // The picture sits in the space left of the sidebar, padded.
+    expect(layout.stage.h).toBe(900 - 2 * DETAIL_PADDING);
+    expect(layout.meta.x).toBeGreaterThanOrEqual(layout.stage.x + layout.stage.w);
+    expect(layout.meta.y).toBe(layout.stage.y);
+    expect(layout.meta.width).toBe(DETAIL_SIDEBAR);
+  });
+
+  it("stacks the details under the picture when beside would squeeze it", () => {
+    const layout = detailLayout(square, { width: 420, height: 900 });
+    expect(layout.mode).toBe("stacked");
+    // The picture takes the pane's width, so it is at least as big as the
+    // tile it opened from rather than a thumbnail in a corner.
+    expect(layout.stage.w).toBe(420 - 2 * STACK_PADDING);
+    expect(layout.stage.x).toBe(STACK_PADDING);
+    expect(layout.meta.y).toBeGreaterThanOrEqual(layout.stage.y + layout.stage.h);
+    expect(layout.meta.x).toBe(layout.stage.x);
+    expect(layout.meta.width).toBe(layout.stage.w);
+  });
+
+  it("caps a tall picture so the details still have room beneath it", () => {
+    const portrait = { width: 1000, height: 3000 };
+    const layout = detailLayout(portrait, { width: 420, height: 900 });
+    expect(layout.mode).toBe("stacked");
+    expect(layout.stage.h).toBeLessThanOrEqual(900 * STACK_SHARE);
+    expect(layout.stage.x + layout.stage.w / 2).toBeCloseTo(210, 5);
+  });
+
+  it("never produces a zero-width stage, however narrow the pane", () => {
+    const layout = detailLayout(square, { width: 120, height: 600 });
+    expect(layout.stage.w).toBeGreaterThan(0);
   });
 });

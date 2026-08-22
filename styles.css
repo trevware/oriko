@@ -1223,6 +1223,15 @@
      debris the returning card flies underneath. */
 }
 
+/* Stacked (narrow pane): the details run under the picture, so they end
+   behind the action bar pinned to the bottom. Enough bottom padding that the
+   last field can scroll clear of it, and no right padding, since the column
+   is already as wide as the picture and nothing sits to its right. */
+.pg-detail.is-stacked .pg-detail-meta {
+  padding-right: 4px;
+  padding-bottom: 96px;
+}
+
 .pg-detail-field {
   margin-bottom: 22px;
 }

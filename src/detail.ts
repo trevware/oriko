@@ -3,14 +3,15 @@ import { KEY_ZOOM_STEP, pinchFactor, zoomAt } from "./camera";
 import { resourceUrl } from "./convert";
 import type { Camera } from "./camera";
 import { facetLabel } from "./filter";
-import { fitRect, flightMidpoint, flipTransform } from "./layout";
+import { flightMidpoint, flipTransform } from "./layout";
 import { visibilityAction } from "./playback";
 import type { Box, FlightShape } from "./layout";
 import type { TileModel } from "./tile";
 import { paintSwatchStrip, readSwatches } from "./swatch-strip";
 import { attachTip } from "./tip";
 import { systemAvailable } from "./system";
-import { clampPan, fitZoomRange } from "./viewer";
+import { clampPan, detailLayout, fitZoomRange } from "./viewer";
+import type { DetailLayout } from "./viewer";
 
 export interface DetailActions {
   onExport: (id: string) => void;
@@ -35,10 +36,6 @@ export interface DetailOrigin {
   at: { x: number; y: number };
 }
 
-const PADDING = 56;
-const SIDEBAR = 300;
-/* Space between the image's right edge and the start of the panel. */
-const META_GAP = 24;
 const FLIGHT_MS = 650;
 /**
  * When the details begin arriving, measured into the card's flight, and how
@@ -253,11 +250,11 @@ export class DetailView {
       },
     };
 
-    const target = fitRect(
-      size,
-      { width: bounds.width - SIDEBAR, height: bounds.height },
-      PADDING
-    );
+    const layout = detailLayout(size, { width: bounds.width, height: bounds.height });
+    const target = layout.stage;
+    // Stacked is a narrow pane: the stylesheet gives the details room to
+    // clear the action bar they would otherwise run under.
+    this.root.toggleClass("is-stacked", layout.mode === "stacked");
 
     this.stage.style.left = `${target.x}px`;
     this.stage.style.top = `${target.y}px`;
@@ -270,7 +267,7 @@ export class DetailView {
     this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
 
     const image = this.paintMedia(model);
-    const panel = this.paintMeta(model, bounds, target);
+    const panel = this.paintMeta(model, layout);
     this.paintActions(model);
     if (image) void this.paintSwatches(panel, image);
 
@@ -396,22 +393,19 @@ export class DetailView {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  private paintMeta(model: TileModel, bounds: DOMRect, stage: Box): HTMLElement | null {
+  private paintMeta(model: TileModel, layout: DetailLayout): HTMLElement | null {
     if (!this.root) return null;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
     this.reveal = DetailView.slideIn(panel, META_DELAY_MS, META_MS);
 
-    // Sit against the image rather than in a fixed right-hand column. The
-    // stage is centred in the space left of the sidebar, so a portrait used
-    // to leave a wide empty channel between the picture and its own details.
-    // Clamped so the panel can never run off the right edge.
-    panel.style.width = `${SIDEBAR}px`;
-    panel.style.left = `${Math.min(stage.x + stage.w + META_GAP, bounds.width - SIDEBAR)}px`;
-    // Top aligned with the image, not with the viewport. The stage is centred
-    // vertically, so a fixed inset left the details floating against nothing
-    // whenever the picture was short. It still runs to the bottom of the
-    // overlay and scrolls, since the details can outrun a landscape image.
-    panel.style.top = `${stage.y}px`;
+    // Where the panel goes is decided with the stage in detailLayout: beside
+    // the picture in a wide pane, sat against its edge rather than in a
+    // fixed column; under it in a narrow one. Either way it runs to the
+    // bottom of the overlay and scrolls, since the details can outrun the
+    // picture.
+    panel.style.width = `${layout.meta.width}px`;
+    panel.style.left = `${layout.meta.x}px`;
+    panel.style.top = `${layout.meta.y}px`;
 
     const field = (label: string, value: string): void => {
       if (!value) return;
