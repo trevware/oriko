@@ -1019,6 +1019,12 @@ export class PowerGridView extends ItemView {
     else this.filters.set(this.activeGrid().name, next);
     // Straight to the narrowing pass; the tiles behind it have not changed.
     this.applyFilter({ replace: true });
+    // Placed at the top, as a grid switch is. Left to relayout, the camera
+    // kept the tile nearest the centre of the wall you were looking at and
+    // followed it to wherever the new set put it, which after clearing a
+    // filter meant somewhere far down the full wall. A narrowed or widened
+    // wall is a different set of things, and it starts from the top.
+    this.grid?.resetView(false);
   }
 
   private openFilter(x: number, y: number): void {
