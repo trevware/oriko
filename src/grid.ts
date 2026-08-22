@@ -1,10 +1,12 @@
 import { App } from "obsidian";
 import { resourceUrl } from "./convert";
 import {
+  KEY_ZOOM_STEP,
   MAX_ZOOM,
   MIN_ZOOM,
   clampCamera,
   initialCamera,
+  pinchFactor,
   preserveAnchor,
   revealCamera,
   visibleContentBand,
@@ -60,8 +62,6 @@ const MAX_OVERSCAN = 1500;
 const MOUNT_ALL_BUDGET = 150;
 /** Movement past which a pointer gesture is a pan, not a click. */
 const CLICK_SLOP = 3;
-/** Trackpad pinch arrives as ctrl+wheel; this tunes how fast it zooms. */
-const PINCH_SENSITIVITY = 0.01;
 /** Degrees a card tips at its edges. Small: it should read as give, not spin. */
 const MAX_TILT_DEG = 5.5;
 
@@ -429,9 +429,7 @@ export class GridRenderer {
 
         // Trackpad pinch and cmd/ctrl+wheel both arrive with ctrlKey set.
         if (event.ctrlKey || event.metaKey) {
-          this.setCamera(
-            zoomAt(this.camera, Math.exp(-event.deltaY * PINCH_SENSITIVITY), pointer)
-          );
+          this.setCamera(zoomAt(this.camera, pinchFactor(event.deltaY), pointer));
           return;
         }
 
@@ -488,10 +486,10 @@ export class GridRenderer {
         this.resetView();
         event.preventDefault();
       } else if (event.key === "=" || event.key === "+") {
-        this.zoomBy(1.2);
+        this.zoomBy(KEY_ZOOM_STEP);
         event.preventDefault();
       } else if (event.key === "-") {
-        this.zoomBy(1 / 1.2);
+        this.zoomBy(1 / KEY_ZOOM_STEP);
         event.preventDefault();
       }
     };

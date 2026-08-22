@@ -20,6 +20,23 @@ export interface Point {
 export const MIN_ZOOM = 0.2;
 export const MAX_ZOOM = 4;
 
+/**
+ * Trackpad pinch and cmd/ctrl+wheel both arrive as a wheel event with
+ * ctrlKey set; this tunes how fast a given delta zooms. One figure for the
+ * wall and the detail view: they had drifted to 0.01 and 0.0022, which made
+ * the same pinch zoom the detail view four and a half times slower than the
+ * wall it was opened from.
+ */
+export const PINCH_SENSITIVITY = 0.01;
+/** One notch of keyboard zoom, cmd+= and cmd+-. */
+export const KEY_ZOOM_STEP = 1.2;
+
+/** The multiplicative zoom step a wheel delta asks for. Negative delta,
+    fingers spreading, zooms in. */
+export function pinchFactor(deltaY: number): number {
+  return Math.exp(-deltaY * PINCH_SENSITIVITY);
+}
+
 function clamp(value: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, value));
 }

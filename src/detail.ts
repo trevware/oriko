@@ -1,5 +1,5 @@
 import { App, setIcon } from "obsidian";
-import { zoomAt } from "./camera";
+import { KEY_ZOOM_STEP, pinchFactor, zoomAt } from "./camera";
 import { resourceUrl } from "./convert";
 import type { Camera } from "./camera";
 import { facetLabel } from "./filter";
@@ -51,10 +51,6 @@ const FLIGHT_MS = 650;
 const META_DELAY_MS = Math.round(FLIGHT_MS * 0.7);
 const META_MS = 340;
 const RETURN_MS = 420;
-/** Trackpad pinch arrives as ctrl+wheel; matches the grid's feel. */
-const PINCH_SENSITIVITY = 0.0022;
-/** One notch of the keyboard zoom. */
-const KEY_ZOOM_STEP = 1.25;
 const FIT: Camera = { x: 0, y: 0, zoom: 1 };
 /**
  * Frontmatter keys the panel already reports in its own words, so enabling one
@@ -642,7 +638,7 @@ export class DetailView {
           this.setView(
             zoomAt(
               this.view,
-              Math.exp(-event.deltaY * PINCH_SENSITIVITY),
+              pinchFactor(event.deltaY),
               this.stagePoint(event.clientX, event.clientY),
               this.range.min,
               this.range.max

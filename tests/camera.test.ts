@@ -5,6 +5,7 @@ import {
   clampCamera,
   clampZoom,
   initialCamera,
+  pinchFactor,
   preserveAnchor,
   toContent,
   visibleContentBand,
@@ -187,5 +188,17 @@ describe("preserveAnchor", () => {
   it("ignores a non-finite anchor rather than flinging the camera", () => {
     const camera = { x: 0, y: -500, zoom: 1 };
     expect(preserveAnchor(camera, Number.NaN, 900)).toEqual(camera);
+  });
+});
+
+describe("pinchFactor", () => {
+  it("turns a wheel delta into a multiplicative zoom step", () => {
+    expect(pinchFactor(0)).toBe(1);
+    expect(pinchFactor(-100)).toBeCloseTo(Math.exp(1), 6);
+    expect(pinchFactor(100)).toBeCloseTo(Math.exp(-1), 6);
+  });
+
+  it("is symmetric: a pinch in undoes a pinch out", () => {
+    expect(pinchFactor(-37) * pinchFactor(37)).toBeCloseTo(1, 9);
   });
 });
