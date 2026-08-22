@@ -655,16 +655,25 @@ export class GridRenderer {
    * Returns false when this wall has no tile for that clipping, so the
    * caller can fall back to opening the note rather than flying nowhere.
    */
-  reveal(id: string): boolean {
+  /**
+   * Brings a tile into view. From the palette it is fitted and selected: you
+   * asked for it by name. A clipping that has just been pasted is only
+   * brought on screen, at the zoom you had and with the selection as it
+   * was; a paste is not a request to look at one thing.
+   */
+  reveal(id: string, options: { fit?: boolean; select?: boolean } = {}): boolean {
     const position = this.positionById.get(id);
     if (!position) return false;
+    const fit = options.fit ?? true;
 
     this.cancelTween();
     this.animateCamera(
-      revealCamera(this.camera, this.viewportSize(), position, this.contentSize())
+      revealCamera(this.camera, this.viewportSize(), position, this.contentSize(), fit)
     );
-    this.selectionAnchor = id;
-    this.applySelection(new Set([id]));
+    if (options.select ?? true) {
+      this.selectionAnchor = id;
+      this.applySelection(new Set([id]));
+    }
     return true;
   }
 

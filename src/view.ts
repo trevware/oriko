@@ -942,7 +942,7 @@ export class PowerGridView extends ItemView {
 
     // A filter can hide what was just clipped. Nothing is cleared for it:
     // clipping something is not a request to undo the narrowing you set.
-    if (!this.grid?.reveal(pending.path)) return;
+    if (!this.grid?.reveal(pending.path, { fit: false, select: false })) return;
     this.pendingReveal = null;
   }
 

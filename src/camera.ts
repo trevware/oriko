@@ -171,15 +171,20 @@ export function revealCamera(
   camera: Camera,
   viewport: Size,
   box: Box,
-  content: Size
+  content: Size,
+  fit = true
 ): Camera {
-  const zoom = clampZoom(
-    clamp(
-      camera.zoom,
-      fillZoom(viewport, box, REVEAL_MIN_FILL),
-      fillZoom(viewport, box, REVEAL_MAX_FILL)
-    )
-  );
+  // `fit` off keeps the zoom exactly as it is: a clipping that has just
+  // landed is brought into view, not made the subject of it.
+  const zoom = fit
+    ? clampZoom(
+        clamp(
+          camera.zoom,
+          fillZoom(viewport, box, REVEAL_MIN_FILL),
+          fillZoom(viewport, box, REVEAL_MAX_FILL)
+        )
+      )
+    : camera.zoom;
 
   return clampCamera(
     {

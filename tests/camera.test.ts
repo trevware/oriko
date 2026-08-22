@@ -7,6 +7,7 @@ import {
   initialCamera,
   pinchFactor,
   preserveAnchor,
+  revealCamera,
   toContent,
   visibleContentBand,
   zoomAt,
@@ -200,5 +201,23 @@ describe("pinchFactor", () => {
 
   it("is symmetric: a pinch in undoes a pinch out", () => {
     expect(pinchFactor(-37) * pinchFactor(37)).toBeCloseTo(1, 9);
+  });
+});
+
+describe("revealCamera", () => {
+  const viewport = { width: 1000, height: 800 };
+  const content = { width: 1000, height: 5000 };
+  const small = { x: 0, y: 4000, w: 100, h: 100 };
+
+  it("zooms a small tile up to fill a readable share of the viewport", () => {
+    const camera = revealCamera({ x: 0, y: 0, zoom: 1 }, viewport, small, content);
+    expect(camera.zoom).toBeGreaterThan(1);
+  });
+
+  it("keeps the zoom exactly as it was when asked not to fit", () => {
+    const camera = revealCamera({ x: 0, y: 0, zoom: 1 }, viewport, small, content, false);
+    expect(camera.zoom).toBe(1);
+    // Still brought on screen: the camera has moved down to it.
+    expect(camera.y).toBeLessThan(0);
   });
 });
