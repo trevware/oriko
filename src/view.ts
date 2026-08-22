@@ -327,7 +327,7 @@ export class PowerGridView extends ItemView {
         // when only four tiles could play at once.
         this.playback?.setEnabled(false);
       };
-      void detail.open(model, origin);
+      void detail.open(model, origin, () => this.grid?.tileRect(model.id) ?? null);
     };
 
     this.grid.onSourceFailed = (id: string, signature: string) => {
@@ -349,7 +349,10 @@ export class PowerGridView extends ItemView {
       if (this.contentEl.scrollLeft !== 0) this.contentEl.scrollLeft = 0;
     });
 
-    this.observer = new ResizeObserver(() => this.grid?.relayout());
+    this.observer = new ResizeObserver(() => {
+      this.grid?.relayout();
+      this.detail?.relayout();
+    });
     this.observer.observe(this.contentEl);
 
     // Paste a link anywhere in the grid to clip it, the way you would drop

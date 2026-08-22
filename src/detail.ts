@@ -1,7 +1,7 @@
 import { App, setIcon } from "obsidian";
 import { KEY_ZOOM_STEP, pinchFactor, zoomAt } from "./camera";
 import { resourceUrl } from "./convert";
-import type { Camera } from "./camera";
+import type { Camera, Size } from "./camera";
 import { facetLabel } from "./filter";
 import { flightMidpoint, flipTransform } from "./layout";
 import { visibilityAction } from "./playback";
@@ -165,6 +165,16 @@ export class DetailView {
   private suspended = false;
   private closing = false;
 
+  /** The media's true size, kept so the pane can be refitted on resize. */
+  private natural: Size = { width: 0, height: 0 };
+  private meta: HTMLElement | null = null;
+  /** Where the card is now, asked on relayout so the return flight heads
+      for the card as the wall has since laid it out, not where it was. */
+  private originNow: (() => Box | null) | null = null;
+  /** A resize that arrived mid-flight, to be applied when the flight lands:
+      the stage's rect is animating and refitting it then would be nonsense. */
+  private relayoutPending = false;
+
   private view: Camera = { ...FIT };
   private range = { min: 1, max: 1 };
   private frame: { width: number; height: number } = { width: 0, height: 0 };
@@ -207,9 +217,14 @@ export class DetailView {
   /** Fires once the closing flight has finished and the overlay is gone. */
   onClosed: (() => void) | null = null;
 
-  async open(model: TileModel, origin: DetailOrigin): Promise<void> {
+  async open(
+    model: TileModel,
+    origin: DetailOrigin,
+    originNow: (() => Box | null) | null = null
+  ): Promise<void> {
     this.close(true);
     this.closing = false;
+    this.originNow = originNow;
 
     const url = model.remote ? model.filePath : this.resource(model.filePath);
     const size = await naturalSize(url, model.kind, {
@@ -250,24 +265,14 @@ export class DetailView {
       },
     };
 
+    this.natural = size;
     const layout = detailLayout(size, { width: bounds.width, height: bounds.height });
     const target = layout.stage;
-    // Stacked is a narrow pane: the stylesheet gives the details room to
-    // clear the action bar they would otherwise run under.
-    this.root.toggleClass("is-stacked", layout.mode === "stacked");
-
-    this.stage.style.left = `${target.x}px`;
-    this.stage.style.top = `${target.y}px`;
-    this.stage.style.width = `${target.w}px`;
-    this.stage.style.height = `${target.h}px`;
-
-    this.frame = { width: target.w, height: target.h };
-    this.stageClient = { x: bounds.left + target.x, y: bounds.top + target.y };
-    this.range = fitZoomRange(size, { width: target.w, height: target.h });
-    this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
+    this.place(layout, bounds);
 
     const image = this.paintMedia(model);
     const panel = this.paintMeta(model, layout);
+    this.meta = panel;
     this.paintActions(model);
     if (image) void this.paintSwatches(panel, image);
 
@@ -391,6 +396,69 @@ export class DetailView {
 
   private static prefersReducedMotion(): boolean {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  /**
+   * Puts the stage and the details where a layout says, and works out
+   * everything that hangs off the stage's rect: the frame zoom pans within,
+   * its client offset, and how far the media can be zoomed inside it.
+   */
+  private place(layout: DetailLayout, bounds: DOMRect): void {
+    if (!this.root || !this.stage) return;
+    const target = layout.stage;
+    this.stage.style.left = `${target.x}px`;
+    this.stage.style.top = `${target.y}px`;
+    this.stage.style.width = `${target.w}px`;
+    this.stage.style.height = `${target.h}px`;
+
+    this.frame = { width: target.w, height: target.h };
+    this.stageClient = { x: bounds.left + target.x, y: bounds.top + target.y };
+    this.range = fitZoomRange(this.natural, { width: target.w, height: target.h });
+    this.root.toggleClass("is-zoomable", this.range.max > this.range.min);
+    // Stacked is a narrow pane: the stylesheet gives the details room to
+    // clear the action bar they would otherwise run under.
+    this.root.toggleClass("is-stacked", layout.mode === "stacked");
+
+    if (this.meta) {
+      this.meta.style.width = `${layout.meta.width}px`;
+      this.meta.style.left = `${layout.meta.x}px`;
+      this.meta.style.top = `${layout.meta.y}px`;
+    }
+  }
+
+  /**
+   * Refits the picture and its details to the pane as it is now. The view
+   * calls this from its resize observer, so dragging the tab into a wider
+   * pane, or the sidebar narrower, rearranges the overlay in place instead
+   * of leaving it in the shape of the pane it opened in.
+   */
+  relayout(): void {
+    if (!this.root || !this.stage || this.closing) return;
+    if (this.flying) {
+      this.relayoutPending = true;
+      return;
+    }
+    const bounds = this.container.getBoundingClientRect();
+    // A pane that has been hidden has no size to fit; it will be asked
+    // again when it comes back.
+    if (!(bounds.width > 0 && bounds.height > 0)) return;
+
+    this.place(detailLayout(this.natural, bounds), bounds);
+
+    // Back to fit: the zoom range was worked out against the old frame, and
+    // a pan offset in the old frame's pixels means nothing in the new one.
+    this.dragging = false;
+    this.view = { ...FIT };
+    this.cancelApply();
+    this.applyView();
+
+    const rect = this.originNow?.();
+    if (rect && this.origin) {
+      this.origin = {
+        at: this.origin.at,
+        rect: { x: rect.x - bounds.left, y: rect.y - bounds.top, w: rect.w, h: rect.h },
+      };
+    }
   }
 
   private paintMeta(model: TileModel, layout: DetailLayout): HTMLElement | null {
@@ -767,6 +835,10 @@ export class DetailView {
     this.flying = true;
     flight.onfinish = () => {
       this.flying = false;
+      if (this.relayoutPending) {
+        this.relayoutPending = false;
+        this.relayout();
+      }
     };
     flight.oncancel = () => {
       this.flying = false;
@@ -849,6 +921,9 @@ export class DetailView {
     this.backdrop = null;
     this.layer = null;
     this.origin = null;
+    this.originNow = null;
+    this.meta = null;
+    this.relayoutPending = false;
     this.hotkeys = [];
     this.flying = false;
     this.dragging = false;

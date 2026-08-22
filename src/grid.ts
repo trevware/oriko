@@ -22,7 +22,7 @@ import {
   shouldMountAll,
   visibleRange,
 } from "./layout";
-import type { LayoutResult, Position } from "./layout";
+import type { Box, LayoutResult, Position } from "./layout";
 import {
   MARQUEE_SLOP,
   idsInRect,
@@ -888,18 +888,27 @@ export class GridRenderer {
       .catch(() => undefined);
   }
 
-  /** Reports the card's rect on screen so the detail view can fly from it. */
-  private openDetail(model: TileModel, event: MouseEvent): void {
-    const position = this.positionById.get(model.id);
-    if (!position) return;
-
+  /**
+   * The card's rect on screen in client coordinates, or null if it is not in
+   * the layout. Worked out from the position and the camera rather than read
+   * off the element, so it answers for a card that is not mounted too.
+   */
+  tileRect(id: string): Box | null {
+    const position = this.positionById.get(id);
+    if (!position) return null;
     const bounds = this.viewport.getBoundingClientRect();
-    const rect = {
+    return {
       x: bounds.left + position.x * this.camera.zoom + this.camera.x,
       y: bounds.top + position.y * this.camera.zoom + this.camera.y,
       w: position.w * this.camera.zoom,
       h: position.h * this.camera.zoom,
     };
+  }
+
+  /** Reports the card's rect on screen so the detail view can fly from it. */
+  private openDetail(model: TileModel, event: MouseEvent): void {
+    const rect = this.tileRect(model.id);
+    if (!rect) return;
 
     const at = {
       x: rect.w > 0 ? Math.max(0, Math.min(1, (event.clientX - rect.x) / rect.w)) : 0.5,
