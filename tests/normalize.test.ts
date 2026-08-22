@@ -126,3 +126,12 @@ describe("sourceVideoKeyFor", () => {
     );
   });
 });
+
+describe("normalizeUrl on Amazon images", () => {
+  it("keys every rendition of a product image to its original", () => {
+    const original = "https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg";
+    expect(normalizeUrl("https://m.media-amazon.com/images/I/61f8IVzjEDL._SL1000_.jpg")).toBe(original);
+    expect(normalizeUrl("https://m.media-amazon.com/images/I/61f8IVzjEDL._SY522_.jpg")).toBe(original);
+    expect(normalizeUrl(original)).toBe(original);
+  });
+});

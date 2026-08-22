@@ -1,5 +1,6 @@
 import { extensionOf, kindForExtension } from "./formats";
-import { readMetaTags } from "./page-cover";
+import { decodeEntities, readMetaTags } from "./page-cover";
+import { AMAZON_IMAGE_HOST, AMAZON_IMAGE_MODIFIER } from "./normalize";
 
 export interface ResolvedMedia {
   url: string;
@@ -233,7 +234,9 @@ export function parsePageMeta(html: string, sourceUrl: string): ResolvedLink {
   add(meta.get("og:image:secure_url") ?? meta.get("og:image:url") ?? meta.get("og:image"), "image");
   add(meta.get("twitter:image"), "image");
 
-  const title = meta.get("og:title") ?? meta.get("twitter:title") ?? "";
+  // The document title is the fallback: a page that declares no og:title,
+  // as shops and older sites do, still has a name at the top of the tab.
+  const title = meta.get("og:title") ?? meta.get("twitter:title") ?? documentTitle(html);
   const description = meta.get("og:description") ?? meta.get("twitter:description") ?? "";
 
   return {
@@ -243,6 +246,101 @@ export function parsePageMeta(html: string, sourceUrl: string): ResolvedLink {
     author: (meta.get("article:author") ?? meta.get("twitter:creator") ?? "").trim(),
     published: (meta.get("article:published_time") ?? "").trim(),
     media,
+  };
+}
+
+const TITLE_TAG = /<title[^>]*>([\s\S]*?)<\/title>/i;
+
+function documentTitle(html: string): string {
+  const raw = TITLE_TAG.exec(html)?.[1] ?? "";
+  return decodeEntities(raw).replace(/\s+/g, " ").trim();
+}
+
+const AMAZON_HOST = /(^|\.)amazon\.[a-z.]+$/i;
+const AMAZON_PRODUCT = /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?]|$)/i;
+
+/**
+ * Identifies a product page on any Amazon storefront. Amazon publishes no
+ * Open Graph tags at all, so the cover and the title have to be read off
+ * the page itself; see parseAmazonPage.
+ */
+export function amazonProduct(url: string): { asin: string } | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!AMAZON_HOST.test(parsed.hostname)) return null;
+  const match = AMAZON_PRODUCT.exec(parsed.pathname);
+  return match ? { asin: match[1].toUpperCase() } : null;
+}
+
+/**
+ * The original behind an Amazon image rendition. The CDN sizes by a
+ * modifier in the filename, 61f8IVzjEDL._SL1000_.jpg, and serves the
+ * original when it is left off.
+ */
+export function amazonOriginal(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (!AMAZON_IMAGE_HOST.test(parsed.hostname)) return url;
+  parsed.pathname = parsed.pathname.replace(AMAZON_IMAGE_MODIFIER, "$1$2");
+  return parsed.toString();
+}
+
+const AMAZON_HIRES_ATTR = /data-old-hires="([^"]+)"/;
+const AMAZON_HIRES_JSON = /"hiRes"\s*:\s*"(https?:[^"]+)"/;
+const AMAZON_DYNAMIC = /data-a-dynamic-image="([^"]+)"/;
+const AMAZON_TITLE = /<span[^>]*id="productTitle"[^>]*>([\s\S]*?)<\/span>/;
+/** The storefront's tail on the document title: ": Books - Amazon.ca". */
+const AMAZON_TITLE_TAIL = /\s*[-:|]\s*Amazon(\.[a-z.]+)?\s*$/i;
+
+/**
+ * Reads a product page's cover and title. The cover is the landing image's
+ * hi-res original, declared three ways on the page, tried in order of how
+ * reliably they are there: the data-old-hires attribute, the hiRes entry in
+ * the image block's data, and the largest rendition in the dynamic image
+ * map. Whichever is found is reduced to the original. The title is the
+ * product's own, or the document title with the storefront's tail removed.
+ */
+export function parseAmazonPage(html: string, sourceUrl: string): ResolvedLink {
+  let cover = AMAZON_HIRES_ATTR.exec(html)?.[1] ?? AMAZON_HIRES_JSON.exec(html)?.[1] ?? "";
+  if (!cover) {
+    const dynamic = AMAZON_DYNAMIC.exec(html)?.[1];
+    if (dynamic) {
+      try {
+        const map = JSON.parse(decodeEntities(dynamic)) as Record<string, [number, number]>;
+        let best = 0;
+        for (const [url, size] of Object.entries(map)) {
+          const area = (size?.[0] ?? 0) * (size?.[1] ?? 0);
+          if (area > best) {
+            best = area;
+            cover = url;
+          }
+        }
+      } catch {
+        cover = "";
+      }
+    }
+  }
+
+  const product = AMAZON_TITLE.exec(html)?.[1];
+  const title = product
+    ? decodeEntities(product).replace(/\s+/g, " ").trim()
+    : documentTitle(html).replace(AMAZON_TITLE_TAIL, "").trim();
+
+  return {
+    url: sourceUrl,
+    title,
+    description: "",
+    author: "",
+    published: "",
+    media: cover ? [{ url: amazonOriginal(decodeEntities(cover)), kind: "image" }] : [],
   };
 }
 

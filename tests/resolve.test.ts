@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  amazonOriginal,
+  amazonProduct,
   cleanUrl,
   directMediaKind,
   directMediaLink,
@@ -7,6 +10,7 @@ import {
   instagramPost,
   isHttpUrl,
   noteNameFor,
+  parseAmazonPage,
   parseFxTweet,
   parsePageMeta,
   supportsSourceDownload,
@@ -309,4 +313,77 @@ describe("instagramPost", () => {
   });
 
 
+});
+
+describe("amazonProduct", () => {
+  it("recognises a product page on any Amazon storefront", () => {
+    expect(amazonProduct("https://www.amazon.ca/Putting-Out-Your-Mind-Rotella/dp/0743212134")).toEqual(
+      { asin: "0743212134" }
+    );
+    expect(amazonProduct("https://www.amazon.co.uk/gp/product/B08N5WRWNW?th=1")).toEqual({
+      asin: "B08N5WRWNW",
+    });
+    expect(amazonProduct("https://amazon.com/dp/B08N5WRWNW/ref=sr_1_1")).toEqual({
+      asin: "B08N5WRWNW",
+    });
+  });
+
+  it("ignores the rest of Amazon, and the rest of the web", () => {
+    expect(amazonProduct("https://www.amazon.ca/s?k=golf")).toBeNull();
+    expect(amazonProduct("https://www.amazonaws.com/dp/B08N5WRWNW")).toBeNull();
+    expect(amazonProduct("https://example.com/dp/B08N5WRWNW")).toBeNull();
+    expect(amazonProduct("not a url")).toBeNull();
+  });
+});
+
+describe("amazonOriginal", () => {
+  it("strips the size modifier so the CDN serves the original", () => {
+    expect(amazonOriginal("https://m.media-amazon.com/images/I/61f8IVzjEDL._SL1000_.jpg")).toBe(
+      "https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg"
+    );
+    expect(
+      amazonOriginal("https://m.media-amazon.com/images/I/41LnLW+QvpL._SX38_SY50_CR,0,0,38,50_.jpg")
+    ).toBe("https://m.media-amazon.com/images/I/41LnLW+QvpL.jpg");
+  });
+
+  it("leaves an image that has no modifier, or is not Amazon's, alone", () => {
+    expect(amazonOriginal("https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg")).toBe(
+      "https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg"
+    );
+    expect(amazonOriginal("https://example.com/a._SL1000_.jpg")).toBe("https://example.com/a._SL1000_.jpg");
+  });
+});
+
+describe("parseAmazonPage", () => {
+  const html = readFileSync(new URL("./fixtures/amazon-product.html", import.meta.url), "utf8");
+  const url = "https://www.amazon.ca/Putting-Out-Your-Mind-Rotella/dp/0743212134";
+
+  it("takes the hi-res cover at its original size", () => {
+    const link = parseAmazonPage(html, url);
+    expect(link.media).toEqual([
+      { url: "https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg", kind: "image" },
+    ]);
+  });
+
+  it("titles the clipping by the product, not the storefront", () => {
+    expect(parseAmazonPage(html, url).title).toBe("Putting Out of Your Mind");
+  });
+
+  it("falls back to the hiRes entry, then the page title, when the landing image is missing", () => {
+    const stripped = html.replace(/data-old-hires="[^"]*"/, "").replace(/<span id="productTitle"[\s\S]*?<\/span>/, "");
+    const link = parseAmazonPage(stripped, url);
+    expect(link.media[0]?.url).toBe("https://m.media-amazon.com/images/I/61f8IVzjEDL.jpg");
+    expect(link.title).toBe("Putting Out of Your Mind: Rotella, Dr. Bob: 9780743212137: Books");
+  });
+
+  it("gives up cleanly on a page with no cover", () => {
+    expect(parseAmazonPage("<html><title>x</title></html>", url).media).toEqual([]);
+  });
+});
+
+describe("parsePageMeta title fallback", () => {
+  it("uses the document title when a page declares no og:title", () => {
+    const link = parsePageMeta("<html><head><title>Plain &amp; simple</title></head></html>", "https://example.com/");
+    expect(link.title).toBe("Plain & simple");
+  });
 });

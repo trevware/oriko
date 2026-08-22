@@ -58,7 +58,7 @@ const META_TAG = /<meta\b[^>]*>/gi;
 const META_KEY = /\b(?:property|name)\s*=\s*["']([^"']+)["']/i;
 const META_CONTENT = /\bcontent\s*=\s*["']([^"']*)["']/i;
 
-function decodeEntities(value: string): string {
+export function decodeEntities(value: string): string {
   return value
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')

@@ -6,6 +6,7 @@ import { isSmartGrid } from "./spaces";
 import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
+  amazonProduct,
   buildNote,
   buildPastedImageNote,
   cleanUrl,
@@ -14,6 +15,7 @@ import {
   fxApiUrl,
   isHttpUrl,
   noteNameFor,
+  parseAmazonPage,
   parseFxTweet,
   instagramPost,
   parsePageMeta,
@@ -254,7 +256,31 @@ export class CaptureService {
     const insta = instagramPost(url);
     if (insta) return this.resolveInstagram(insta, url);
 
+    if (amazonProduct(url)) {
+      const product = await this.resolveAmazon(url);
+      if (product && product.media.length > 0) return product;
+    }
+
     return this.resolvePage(url);
+  }
+
+  /**
+   * Amazon serves its product pages to the plugin's own user agent but
+   * publishes no Open Graph tags on them, so the cover is read off the page.
+   */
+  private async resolveAmazon(url: string): Promise<ResolvedLink | null> {
+    try {
+      const response = await requestUrl({
+        url,
+        method: "GET",
+        headers: { "User-Agent": USER_AGENT },
+        throw: false,
+      });
+      if (response.status < 200 || response.status >= 300) return null;
+      return parseAmazonPage(response.text, url);
+    } catch {
+      return null;
+    }
   }
 
   /**

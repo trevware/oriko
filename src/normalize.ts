@@ -62,6 +62,11 @@ const SIGNATURE_PARAMS = new Set([
   "tag",
 ]);
 
+/** Amazon's image CDNs, where the size lives in the filename. */
+export const AMAZON_IMAGE_HOST = /(^|\.)(media-amazon\.com|ssl-images-amazon\.com)$/i;
+/** `/images/I/<id>.<modifiers>.jpg`: drop the modifiers, keep id and extension. */
+export const AMAZON_IMAGE_MODIFIER = /^(\/images\/I\/[^/.]+)\.[^/]+(\.[A-Za-z0-9]+)$/;
+
 export function normalizeUrl(url: string): string {
   let parsed: URL;
   try {
@@ -71,6 +76,12 @@ export function normalizeUrl(url: string): string {
   }
   parsed.hash = "";
   parsed.hostname = parsed.hostname.toLowerCase();
+  // Amazon sizes its product images in the path rather than the query:
+  // 61f8IVzjEDL._SL1000_.jpg is a rendition of 61f8IVzjEDL.jpg. Every
+  // rendition keys to the original, as the query-sized CDNs above do.
+  if (AMAZON_IMAGE_HOST.test(parsed.hostname)) {
+    parsed.pathname = parsed.pathname.replace(AMAZON_IMAGE_MODIFIER, "$1$2");
+  }
   for (const name of [...parsed.searchParams.keys()]) {
     const lower = name.toLowerCase();
     if (SIZING_PARAMS.has(lower) || SIGNATURE_PARAMS.has(lower)) {
