@@ -154,18 +154,6 @@ export class PowerGridSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Scan pages")
-      .setDesc(
-        "Clip a link to an ordinary page as a scan of the whole page, the way a visitor sees it. Posts, videos and direct media are still clipped as media."
-      )
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.scanPages).onChange(async (value) => {
-          this.plugin.settings.scanPages = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl)
       .setName("Archive automatically")
       .setDesc("Download media for new clippings in the background.")
       .addToggle((toggle) =>

@@ -5,23 +5,6 @@
  * nothing here touches it, so all of this tests.
  */
 
-import { knownHostThumbnail } from "./page-cover";
-import { directMediaKind, instagramPost, isHttpUrl, xStatus } from "./resolve";
-
-/**
- * Whether a pasted link is an ordinary page, whose point is the page, rather
- * than a post or a video, whose point is the media on it. A page is scanned;
- * the rest go through the resolvers, which know how to pull the media out.
- */
-export function prefersScan(url: string): boolean {
-  if (!isHttpUrl(url)) return false;
-  if (directMediaKind(url)) return false;
-  if (xStatus(url)) return false;
-  if (instagramPost(url)) return false;
-  if (knownHostThumbnail(url)) return false;
-  return true;
-}
-
 /** Width the page is laid out at, in CSS pixels. A desktop article width:
     narrow enough to read, wide enough that sites serve their desktop layout. */
 export const SCAN_WIDTH = 1280;
