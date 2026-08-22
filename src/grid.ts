@@ -11,6 +11,8 @@ import {
   zoomAt,
 } from "./camera";
 import type { Camera } from "./camera";
+import { DEFAULT_STAGE, columnWidthFor } from "./density";
+import type { DensityStage } from "./density";
 import {
   columnsForWidth,
   computeLayout,
@@ -48,7 +50,6 @@ const ENTER_MS = 460;
 /** Per-tile delay when several enter at once, capped so a big batch is not slow. */
 const ENTER_STAGGER_MS = 28;
 const ENTER_STAGGER_CAP = 6;
-const TARGET_COLUMN_WIDTH = 300;
 const OVERSCAN = 600;
 const MAX_OVERSCAN = 1500;
 /**
@@ -157,8 +158,16 @@ export class GridRenderer {
     origin: { rect: { x: number; y: number; w: number; h: number }; at: { x: number; y: number } }
   ) => void = () => {};
 
+  /**
+   * Column width the layout aims for. Set through setDensity; the stage it
+   * came from is also stamped on the viewport so the stylesheet can trim the
+   * card chrome that stops fitting as the columns narrow.
+   */
+  private targetColumnWidth = columnWidthFor(DEFAULT_STAGE);
+
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "pg-viewport" });
+    this.viewport.dataset.density = DEFAULT_STAGE;
     this.canvas = this.viewport.createDiv({ cls: "pg-canvas" });
     this.marquee = this.viewport.createDiv({ cls: "pg-marquee" });
     this.installGestures();
@@ -172,6 +181,20 @@ export class GridRenderer {
 
   get zoom(): number {
     return this.camera.zoom;
+  }
+
+  /**
+   * Reflows the wall into the columns a stage asks for. The camera is left
+   * to relayout, which keeps whatever tile was at the centre at the centre,
+   * so stepping through the stages reads as the wall tightening around the
+   * place you were looking rather than jumping back to the top.
+   */
+  setDensity(stage: DensityStage): void {
+    const width = columnWidthFor(stage);
+    this.viewport.dataset.density = stage;
+    if (width === this.targetColumnWidth) return;
+    this.targetColumnWidth = width;
+    if (this.tiles.length > 0) this.relayout();
   }
 
   private viewportSize(): { width: number; height: number } {
@@ -349,7 +372,7 @@ export class GridRenderer {
     const anchor = this.anchor();
     const size = this.viewportSize();
     this.contentWidth = size.width;
-    const columns = columnsForWidth(size.width, TARGET_COLUMN_WIDTH, GAP);
+    const columns = columnsForWidth(size.width, this.targetColumnWidth, GAP);
 
     this.positionById.clear();
     this.layout = computeLayout(

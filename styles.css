@@ -405,6 +405,13 @@
   opacity: 1;
 }
 
+/* At the tightest stage a column is narrower than the title needs, and the
+   gradient would cover most of the picture the stage exists to show more
+   of. The card stays a picture; the title is one hover-tip away. */
+.pg-viewport[data-density="xs"] .pg-meta {
+  display: none;
+}
+
 .pg-title {
   font-size: 13px;
   font-weight: 600;

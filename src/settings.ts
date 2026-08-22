@@ -1,3 +1,4 @@
+import type { DensityStage } from "./density";
 import type { GridSpace } from "./spaces";
 
 export interface PowerGridSettings {
@@ -34,6 +35,12 @@ export interface PowerGridSettings {
   activeGrid: string;
   /** Whether the layer panel is showing, kept so it opens as you left it. */
   panelOpen: boolean;
+  /**
+   * How densely the wall is packed, as a named stage (see density.ts). One
+   * setting for every pane rather than one per grid: it is about how much
+   * room the pane has, not which grid is in it.
+   */
+  tileSize: DensityStage;
 }
 
 export const DEFAULT_SETTINGS: PowerGridSettings = {
@@ -50,4 +57,5 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
   panelOpen: false,
+  tileSize: "m",
 };

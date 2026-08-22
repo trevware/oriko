@@ -47,6 +47,8 @@ import {
 } from "./filter";
 import type { FacetDef, FilterState } from "./filter";
 import { SpaceBar } from "./space-bar";
+import { STAGES, expandStage, shrinkStage, stageLabel } from "./density";
+import type { DensityStage } from "./density";
 import { describeFiles } from "./media-refs";
 import { orphansAfterDeleting, removeMedia } from "./sweep";
 import {
@@ -173,6 +175,7 @@ export class PowerGridView extends ItemView {
     };
 
     this.grid = new GridRenderer(this.app, this.contentEl);
+    this.grid.setDensity(this.plugin.settings.tileSize);
     this.playback = new PlaybackController(
       this.grid.viewportEl,
       this.plugin.settings.autoplayVideo
@@ -1598,40 +1601,95 @@ export class PowerGridView extends ItemView {
     openGridsManager(this.sheet, this.gridsController(), () => this.refresh());
   }
 
-  /** Settings for the grid on screen, with the whole set one step further in. */
+  /**
+   * Settings for the pane and the grid on screen, with the whole set one step
+   * further in. Rebuilt on each tick because the tile size rows are keepOpen,
+   * and the check has to move as you step through them.
+   */
   private openSettings(x: number, y: number): void {
+    this.menu?.open(this.settingsItems(), x, y, () => this.settingsItems());
+  }
+
+  private settingsItems(): MenuItem[] {
     const active = this.activeGrid();
     const isHome = this.activeGridIndex() === -1;
 
-    this.menu?.open(
-      [
-        {
-          icon: "pencil",
-          label: "Edit grid",
-          detail: active.name,
-          onSelect: () => this.editActiveGrid(),
-        },
-        {
-          icon: "trash-2",
-          label: "Delete grid",
-          // Shown rather than hidden, so the row does not appear and vanish
-          // depending on where you are.
-          detail: isHome ? "Home grid" : undefined,
-          disabled: isHome,
-          destructive: !isHome,
-          onSelect: () => this.deleteActiveGrid(),
-        },
-        {
-          icon: "layers",
-          label: "Manage grids",
-          divider: true,
-          detail: `${this.allGrids().length} grids`,
-          onSelect: () => this.manageGrids(),
-        },
-      ],
-      x,
-      y
-    );
+    return [
+      {
+        icon: "layout-dashboard",
+        label: "Tile size",
+        detail: stageLabel(this.plugin.settings.tileSize),
+        submenu: this.tileSizeItems(),
+      },
+      {
+        icon: "pencil",
+        label: "Edit grid",
+        divider: true,
+        detail: active.name,
+        onSelect: () => this.editActiveGrid(),
+      },
+      {
+        icon: "trash-2",
+        label: "Delete grid",
+        // Shown rather than hidden, so the row does not appear and vanish
+        // depending on where you are.
+        detail: isHome ? "Home grid" : undefined,
+        disabled: isHome,
+        destructive: !isHome,
+        onSelect: () => this.deleteActiveGrid(),
+      },
+      {
+        icon: "layers",
+        label: "Manage grids",
+        divider: true,
+        detail: `${this.allGrids().length} grids`,
+        onSelect: () => this.manageGrids(),
+      },
+    ];
+  }
+
+  /**
+   * Two steppers, then the stages by name with the current one ticked. The
+   * steppers are for a pane you are squeezing down a stage at a time while
+   * watching it; the names are for going straight to the one you want. Every
+   * row keeps the menu open, since one press is rarely the last.
+   */
+  private tileSizeItems(): MenuItem[] {
+    const current = this.plugin.settings.tileSize;
+    const first = STAGES[0];
+    const last = STAGES[STAGES.length - 1];
+    const stages: MenuItem[] = STAGES.map((stage, i) => ({
+      icon: "",
+      label: stageLabel(stage),
+      detailIcon: stage === current ? "check" : undefined,
+      divider: i === 0,
+      keepOpen: true,
+      onSelect: () => this.setTileSize(stage),
+    }));
+    return [
+      {
+        icon: "minimize-2",
+        label: "Shrink",
+        disabled: current === first,
+        keepOpen: true,
+        onSelect: () => this.setTileSize(shrinkStage(current)),
+      },
+      {
+        icon: "maximize-2",
+        label: "Expand",
+        disabled: current === last,
+        keepOpen: true,
+        onSelect: () => this.setTileSize(expandStage(current)),
+      },
+      ...stages,
+    ];
+  }
+
+  private setTileSize(stage: DensityStage): void {
+    if (stage === this.plugin.settings.tileSize) return;
+    this.plugin.settings.tileSize = stage;
+    void this.plugin.saveSettings();
+    this.grid?.setDensity(stage);
   }
 
   private openCreate(x: number, y: number): void {

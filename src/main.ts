@@ -3,6 +3,7 @@ import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
+import { isStage } from "./density";
 import { describeFiles } from "./media-refs";
 import { installRepair } from "./repair";
 import { ConfirmSweepModal } from "./confirm";
@@ -239,6 +240,9 @@ export default class PowerGridPlugin extends Plugin {
     this.settings.filterProperties = [
       ...(this.settings.filterProperties ?? DEFAULT_SETTINGS.filterProperties),
     ];
+    // A stage that no longer exists, or a hand-edited data.json, lands on the
+    // default rather than on a wall laid out to an undefined width.
+    if (!isStage(this.settings.tileSize)) this.settings.tileSize = DEFAULT_SETTINGS.tileSize;
   }
 
   async saveSettings(): Promise<void> {
