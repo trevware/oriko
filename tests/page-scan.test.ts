@@ -4,6 +4,7 @@ import {
   OVERLAY_Z_INDEX,
   isOverlay,
   MAX_SCAN_HEIGHT,
+  prefersScan,
   prepareScript,
   scanEncoding,
   scanPlan,
@@ -119,5 +120,24 @@ describe("isOverlay", () => {
     const script = prepareScript(900);
     expect(script).toContain("const isOverlay = function isOverlay(");
     expect(() => new Function(`return ${script}`)).not.toThrow();
+  });
+});
+
+describe("prefersScan", () => {
+  it("scans an ordinary page", () => {
+    expect(prefersScan("https://www.theverge.com/2026/8/21/some-review")).toBe(true);
+    expect(prefersScan("https://cibby.app/")).toBe(true);
+  });
+
+  it("leaves media and posts to the resolvers", () => {
+    expect(prefersScan("https://cdn.example.com/clip.mp4")).toBe(false);
+    expect(prefersScan("https://cdn.example.com/photo.jpg")).toBe(false);
+    expect(prefersScan("https://x.com/someone/status/2089473141126922435")).toBe(false);
+    expect(prefersScan("https://www.instagram.com/p/C1a2b3c4d5e/")).toBe(false);
+    expect(prefersScan("https://www.youtube.com/watch?v=BZZoL_IoBZs")).toBe(false);
+  });
+
+  it("never scans something that is not a link", () => {
+    expect(prefersScan("hello there")).toBe(false);
   });
 });

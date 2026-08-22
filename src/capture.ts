@@ -20,6 +20,7 @@ import {
   parsePageMeta,
   xStatus,
 } from "./resolve";
+import { prefersScan } from "./page-scan";
 import { scanAvailable, scanPage } from "./page-scanner";
 import type { ProgressState } from "./progress";
 import type { PowerGridSettings } from "./settings";
@@ -96,15 +97,25 @@ export class CaptureService {
       new Notice("Power Grid: scanning a page needs the desktop app");
       return;
     }
+    const outcome = await this.scanAndSave(url);
+    if (!outcome.ok) {
+      this.onProgress?.(null);
+      new Notice(`Power Grid: could not scan the page (${outcome.reason})`);
+    }
+  }
 
+  /**
+   * Scans the page and files it as a clipping. Reports progress but shows
+   * no notice itself: the explicit command wants one, and the paste path
+   * wants to fall back to the page's picture instead.
+   */
+  private async scanAndSave(url: string): Promise<{ ok: true } | { ok: false; reason: string }> {
     this.report(null, "Loading page…");
     let scanned;
     try {
       scanned = await scanPage(url, (label) => this.report(null, label));
     } catch (error) {
-      this.onProgress?.(null);
-      new Notice(`Power Grid: could not scan the page (${String(error instanceof Error ? error.message : error)})`);
-      return;
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) };
     }
 
     this.report(0.8, "Saving scan…");
@@ -124,9 +135,7 @@ export class CaptureService {
     try {
       await this.app.vault.createBinary(attachment, await scanned.blob.arrayBuffer());
     } catch (error) {
-      this.onProgress?.(null);
-      new Notice(`Power Grid: could not save the scan (${String(error)})`);
-      return;
+      return { ok: false, reason: `could not save the scan: ${String(error)}` };
     }
 
     this.report(0.9, "Creating clipping…");
@@ -141,12 +150,10 @@ export class CaptureService {
     const file = await this.createNote(link, (grid) =>
       buildScanNote(link.title, url, attachment, today(), grid)
     );
-    if (!file) {
-      this.onProgress?.(null);
-      return;
-    }
+    if (!file) return { ok: false, reason: "could not create the note" };
     await this.index.handleModify(file);
     this.onFinished?.(link.title.slice(0, 40), file.path);
+    return { ok: true };
   }
 
 /**
@@ -269,6 +276,16 @@ export class CaptureService {
       const file = this.app.vault.getAbstractFileByPath(existing.path);
       if (file instanceof TFile) await this.app.workspace.getLeaf(false).openFile(file);
       return;
+    }
+
+    // An ordinary page is scanned whole; a post or a video goes to the
+    // resolvers for its media. A scan that fails, for a page that will not
+    // load or render, falls back to the page's own picture rather than to
+    // nothing.
+    if (this.settings().scanPages && prefersScan(url) && scanAvailable()) {
+      const outcome = await this.scanAndSave(url);
+      if (outcome.ok) return;
+      console.warn(`Power Grid: scan of ${url} failed (${outcome.reason}); clipping its picture`);
     }
 
     this.report(0.1, "Reading link…");

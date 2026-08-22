@@ -15,6 +15,13 @@ export interface PowerGridSettings {
    * image the site gives its own crawlers.
    */
   useResolvers: boolean;
+  /**
+   * Clip an ordinary page as a scan of the whole page rather than as the
+   * picture it offers crawlers. Posts, videos and direct media are still
+   * clipped as media whatever this says. Desktop only; elsewhere a page
+   * falls back to its picture.
+   */
+  scanPages: boolean;
 
   /**
    * Frontmatter keys offered as filter facets, in the order they appear in the
@@ -51,6 +58,7 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   maxBytes: 26214400,
   thumbnailWidth: 400,
   useResolvers: true,
+  scanPages: true,
   filterProperties: ["categories", "status"],
   grids: [],
   homeGridName: "Clippings",
