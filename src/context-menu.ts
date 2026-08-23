@@ -1,4 +1,5 @@
 import { setIcon } from "obsidian";
+import { bottomInset } from "./insets";
 import { cursorAfterNarrowing, placeMenu, stepCursor } from "./layout";
 
 export interface MenuItem {
@@ -147,10 +148,13 @@ export class ContextMenu {
     this.rows = this.fill(this.panel, items);
 
     const bounds = this.container.getBoundingClientRect();
+    // The height given is the height a menu may actually occupy, which on a
+    // phone stops where Obsidian's navbar begins. Clamping to the container
+    // instead lands the last rows underneath it, unreadable and untappable.
     const at = placeMenu(
       { x: clientX - bounds.left, y: clientY - bounds.top },
       this.measure(this.panel),
-      { width: bounds.width, height: bounds.height }
+      { width: bounds.width, height: bounds.height - bottomInset(this.container) }
     );
     this.panel.style.left = `${at.x}px`;
     this.panel.style.top = `${at.y}px`;
@@ -547,9 +551,11 @@ export class ContextMenu {
     }
     x = Math.max(EDGE, Math.min(x, bounds.width - size.width - EDGE));
 
+    // A submenu clears the navbar for the same reason its parent does.
+    const usableHeight = bounds.height - bottomInset(this.container);
     const y = Math.max(
       EDGE,
-      Math.min(anchor.top - bounds.top - PANEL_PADDING, bounds.height - size.height - EDGE)
+      Math.min(anchor.top - bounds.top - PANEL_PADDING, usableHeight - size.height - EDGE)
     );
 
     this.sub.style.left = `${x}px`;

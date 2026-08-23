@@ -1202,7 +1202,9 @@
   /* No top padding: the panel's own top edge is set to the image's in
      paintMeta, so padding here would push the first field below it. Left
      padding stays small for the same reason, the gap being positional. */
-  padding: 0 40px 40px 4px;
+  /* The bottom padding grows by whatever Obsidian's navbar covers, so the
+     last field can be scrolled clear of it rather than ending underneath. */
+  padding: 0 40px calc(40px + var(--pg-bottom-inset, 0px)) 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
   opacity: 0;
