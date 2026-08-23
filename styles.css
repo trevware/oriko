@@ -658,7 +658,7 @@
    rises into view only while something is selected. */
 .pg-actionbar {
   position: absolute;
-  bottom: 22px;
+  bottom: calc(22px + var(--pg-bottom-inset, 0px));
   left: 50%;
   z-index: 30;
   display: flex;
@@ -1345,7 +1345,7 @@
 
 .pg-detail-actions {
   position: absolute;
-  bottom: 26px;
+  bottom: calc(26px + var(--pg-bottom-inset, 0px));
   left: 50%;
   z-index: 2;
   display: flex;
@@ -1428,7 +1428,7 @@
 .pg-spacebar {
   position: absolute;
   right: 22px;
-  bottom: 22px;
+  bottom: calc(22px + var(--pg-bottom-inset, 0px));
   left: 22px;
   z-index: 28;
   display: flex;
@@ -2040,7 +2040,7 @@ buttonbuttonbutton/* The management panel's rows. */
      like every other surface here, rather than a column carved out of it. */
   top: 70px;
   left: 22px;
-  bottom: 72px;
+  bottom: calc(72px + var(--pg-bottom-inset, 0px));
   z-index: 26;
   width: var(--pg-panel-width);
   display: flex;
@@ -2304,3 +2304,8 @@ buttonbuttonbutton/* The management panel's rows. */
   position: relative;
   margin: 0 auto;
 }
+
+/* Obsidian's mobile navbar is laid over the view rather than above it, so
+   every bar that floats at the bottom clears whatever of our bottom edge it
+   covers. The figure is measured in view.ts, because Obsidian publishes no
+   height for it, and is simply absent on desktop. */

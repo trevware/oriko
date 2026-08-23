@@ -1,4 +1,4 @@
-import { ItemView, Notice, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
+import { ItemView, Notice, Platform, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { absolutePath } from "./convert";
 import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
 import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
@@ -220,6 +220,7 @@ export class PowerGridView extends ItemView {
       onFilter: (x, y) => this.openFilter(x, y),
     });
     this.spaceBar.setActive(this.activeGrid());
+    this.watchBottomInset();
 
     this.panel = new LayerPanel(this.contentEl, this.app.vault, {
       // Selection semantics belong to the wall, so the panel forwards rather
@@ -557,6 +558,48 @@ export class PowerGridView extends ItemView {
   togglePalette(): void {
     if (this.detail?.isOpen) return;
     this.palette?.toggle();
+  }
+
+  /**
+   * Keeps the wall's floating controls clear of Obsidian's mobile navbar.
+   *
+   * The navbar is a bar of its own laid over the view, not something the
+   * view is sized above, so the space bar and the action bar sit underneath
+   * it and the filter and create buttons cannot be reached.
+   *
+   * There is no height to read: Obsidian publishes --safe-area-inset-bottom
+   * and --mobile-toolbar-height, but the latter is the editor's toolbar and
+   * neither describes the navbar. So the overlap is measured, which is more
+   * honest than a constant anyway: it answers with nothing at all when the
+   * navbar is hidden, on a phone that has none, and on desktop.
+   */
+  private syncBottomInset(): void {
+    const navbar = document.body.querySelector<HTMLElement>(".mobile-navbar");
+    if (!navbar || !navbar.isShown()) {
+      this.contentEl.style.removeProperty("--pg-bottom-inset");
+      return;
+    }
+
+    const content = this.contentEl.getBoundingClientRect();
+    const bar = navbar.getBoundingClientRect();
+    // How much of our own bottom edge the navbar covers, rather than how
+    // tall it is: the two differ whenever the view does not run to the
+    // bottom of the window.
+    const overlap = Math.max(0, content.bottom - bar.top);
+    this.contentEl.style.setProperty("--pg-bottom-inset", `${Math.round(overlap)}px`);
+  }
+
+  /**
+   * The navbar comes and goes, with the keyboard and with rotation, so the
+   * measurement is repeated rather than taken once at open.
+   */
+  private watchBottomInset(): void {
+    if (!Platform.isMobile) return;
+    this.syncBottomInset();
+    this.registerEvent(this.app.workspace.on("resize", () => this.syncBottomInset()));
+    this.registerDomEvent(window, "orientationchange", () => this.syncBottomInset());
+    // Layout settling after open can move the navbar under us a frame late.
+    this.app.workspace.onLayoutReady(() => this.syncBottomInset());
   }
 
   async onClose(): Promise<void> {
