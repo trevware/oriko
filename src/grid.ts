@@ -1,10 +1,11 @@
-import { App } from "obsidian";
+import { App, Platform } from "obsidian";
 import { resourceUrl } from "./convert";
 import {
   KEY_ZOOM_STEP,
   MAX_ZOOM,
   MIN_ZOOM,
   clampCamera,
+  clampZoom,
   initialCamera,
   pinchCamera,
   pinchFactor,
@@ -140,6 +141,10 @@ export class GridRenderer {
   private touches = new Map<number, Point>();
   private touchPan: { x: number; y: number; camX: number; camY: number } | null = null;
   private pinch: PinchStart | null = null;
+  private readonly nativeScroll: boolean;
+  /** Sized to the scaled wall, so the browser has something to scroll over. */
+  private scroller: HTMLElement | null = null;
+  private onScroll: (() => void) | null = null;
   private longPress = 0;
   /**
    * Touch has no modifier keys, so multi-select is a mode rather than a
@@ -197,7 +202,31 @@ export class GridRenderer {
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "pg-viewport" });
     this.viewport.dataset.density = DEFAULT_STAGE;
-    this.canvas = this.viewport.createDiv({ cls: "pg-canvas" });
+
+    /*
+     * On touch the wall is scrolled by the browser rather than by us.
+     *
+     * WebKit's scroller already has momentum and rubber-banding, written by
+     * the people who decided what those should feel like and running off the
+     * main thread. Reimplementing it means guessing constants and getting a
+     * worse answer, so the viewport becomes a real scroll box and a spacer
+     * sized to the wall gives it something to travel over. The camera stops
+     * being state we animate and becomes a reading of the scroll position.
+     *
+     * Desktop keeps the transform camera: it has a wheel, a held space and a
+     * marquee, none of which a scroll box would improve.
+     */
+    this.nativeScroll = Platform.isMobile;
+    if (this.nativeScroll) {
+      this.viewport.addClass("is-native-scroll");
+      this.scroller = this.viewport.createDiv({ cls: "pg-scroll" });
+      this.canvas = this.scroller.createDiv({ cls: "pg-canvas" });
+      this.onScroll = () => this.readScroll();
+      this.viewport.addEventListener("scroll", this.onScroll, { passive: true });
+    } else {
+      this.canvas = this.viewport.createDiv({ cls: "pg-canvas" });
+    }
+
     this.marquee = this.viewport.createDiv({ cls: "pg-marquee" });
     this.installGestures();
     this.installSelection();
@@ -238,10 +267,61 @@ export class GridRenderer {
     return { width: this.contentWidth, height: this.layout.totalHeight };
   }
 
-  private applyCamera(): void {
+  private applyCamera(smooth = false): void {
+    if (this.nativeScroll) {
+      // Only the zoom is ours to clamp. How far the wall may travel is the
+      // scroller's business, and it is already the authority on that.
+      this.camera = { ...this.camera, zoom: clampZoom(this.camera.zoom) };
+      this.writeScroll(smooth);
+      return;
+    }
     this.camera = clampCamera(this.camera, this.viewportSize(), this.contentSize());
     this.canvas.style.transform =
       `translate3d(${this.camera.x}px, ${this.camera.y}px, 0) scale(${this.camera.zoom})`;
+    this.schedule();
+  }
+
+  /**
+   * Sizes the spacer to the scaled wall and moves the scroller to where the
+   * camera says it should be.
+   *
+   * The scroll position is left alone unless it has actually drifted:
+   * writing back a position the scroller has just reported would interrupt
+   * the fling that is delivering it, which is the one thing this whole
+   * approach exists to avoid.
+   */
+  private writeScroll(smooth: boolean): void {
+    if (!this.scroller) return;
+    const content = this.contentSize();
+    const zoom = this.camera.zoom;
+
+    this.scroller.style.width = `${content.width * zoom}px`;
+    this.scroller.style.height = `${content.height * zoom}px`;
+    this.canvas.style.transform = `scale(${zoom})`;
+
+    const left = -this.camera.x;
+    const top = -this.camera.y;
+    if (
+      Math.abs(this.viewport.scrollLeft - left) > 0.5 ||
+      Math.abs(this.viewport.scrollTop - top) > 0.5
+    ) {
+      this.viewport.scrollTo({ left, top, behavior: smooth ? "smooth" : "auto" });
+    }
+    this.schedule();
+  }
+
+  /**
+   * The camera, read back off the scroller rather than written to it.
+   *
+   * Deliberately not applyCamera: answering a scroll by writing a scroll
+   * would fight the momentum that is producing it.
+   */
+  private readScroll(): void {
+    this.camera = {
+      ...this.camera,
+      x: -this.viewport.scrollLeft,
+      y: -this.viewport.scrollTop,
+    };
     this.schedule();
   }
 
@@ -273,6 +353,13 @@ export class GridRenderer {
    */
   private animateCamera(target: Camera, ms = 240): void {
     this.cancelTween();
+    // A scroller animates itself, and better than writing a position into
+    // it every frame would. Asking it to go somewhere smoothly is the tween.
+    if (this.nativeScroll) {
+      this.camera = target;
+      this.applyCamera(true);
+      return;
+    }
     const start = { ...this.camera };
     const t0 = performance.now();
 
@@ -808,7 +895,8 @@ export class GridRenderer {
       const live = [...this.touches.values()];
       if (live.length === 1) {
         this.panMoved = false;
-        beginPan(live[0]);
+        // The scroller owns one-finger travel where there is one.
+        if (!this.nativeScroll) beginPan(live[0]);
         return;
       }
       // A second finger means the gesture is a zoom, never a tap, so the
@@ -829,7 +917,7 @@ export class GridRenderer {
         return;
       }
 
-      if (live.length !== 1 || !this.touchPan) return;
+      if (this.nativeScroll || live.length !== 1 || !this.touchPan) return;
       const dx = live[0].x - this.touchPan.x;
       const dy = live[0].y - this.touchPan.y;
       if (Math.abs(dx) > TOUCH_SLOP || Math.abs(dy) > TOUCH_SLOP) {
@@ -855,7 +943,10 @@ export class GridRenderer {
 
       const live = [...this.touches.values()];
       if (live.length >= 2) return beginPinch(live[0], live[1]);
-      if (live.length === 1) return beginPan(live[0]);
+      if (live.length === 1) {
+        if (!this.nativeScroll) beginPan(live[0]);
+        return;
+      }
 
       this.touchPan = null;
       this.pinch = null;
@@ -885,6 +976,13 @@ export class GridRenderer {
      * to open a card.
      */
     const claim = (event: TouchEvent): void => {
+      // On a native scroller preventDefault would cancel the very scroll
+      // being handed to the browser, so the gesture is only hidden from
+      // Obsidian's recogniser, never cancelled.
+      if (this.nativeScroll) {
+        event.stopPropagation();
+        return;
+      }
       // Unconditional because the viewport holds only the canvas and the
       // marquee: every overlay that scrolls itself, the sheet and palette
       // and action bar, mounts on the view instead. Nothing inside here
@@ -1386,6 +1484,7 @@ export class GridRenderer {
 
   destroy(): void {
     this.cancelTween();
+    if (this.onScroll) this.viewport.removeEventListener("scroll", this.onScroll);
     if (this.tiltFrame) window.cancelAnimationFrame(this.tiltFrame);
     if (this.onKeyDown) document.removeEventListener("keydown", this.onKeyDown);
     if (this.onKeyUp) document.removeEventListener("keyup", this.onKeyUp);

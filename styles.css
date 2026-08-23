@@ -2278,3 +2278,29 @@ buttonbuttonbutton/* The management panel's rows. */
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
 }
+
+/* Touch scrolls the wall with the browser's own scroller.
+
+   The momentum and the rubber-banding at the edges are WebKit's, written by
+   the people who decided what those should feel like and running off the
+   main thread. Reimplementing them in JavaScript means guessing constants
+   and arriving somewhere worse, so the viewport becomes a real scroll box
+   and pg-scroll is the spacer, sized to the scaled wall, that gives it
+   something to travel over.
+
+   Desktop keeps the transform camera above: it has a wheel, a held space
+   and a marquee, and a scroll box would improve none of them. */
+.pg-viewport.is-native-scroll {
+  overflow: auto;
+  /* Names the pans the browser may take for itself. Pinch is deliberately
+     absent, so a two-finger gesture reaches the pointer handlers as a zoom
+     instead of being swallowed as a page zoom. */
+  touch-action: pan-x pan-y;
+}
+
+/* Centres a wall narrower than the viewport, which is what clampCamera does
+   for the transform camera. */
+.pg-viewport.is-native-scroll .pg-scroll {
+  position: relative;
+  margin: 0 auto;
+}
