@@ -200,6 +200,9 @@ export class PowerGridView extends ItemView {
     this.grid.onSelectionChanged = (ids: string[]) => {
       this.actionBar?.setSelection(ids);
       this.panel?.setSelection(ids);
+      // The wall's own controls give up the bottom to the selection bar,
+      // there being room for only one of them across a phone.
+      if (Platform.isMobile) this.spaceBar?.setHidden(ids.length > 0);
     };
 
     this.menu = new ContextMenu(this.contentEl);

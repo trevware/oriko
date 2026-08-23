@@ -1437,6 +1437,11 @@
   align-items: center;
   justify-content: space-between;
   pointer-events: none;
+  /* Leaves the same way the selection bar arrives, so the two read as one
+     exchange rather than two bars deciding independently. */
+  transition:
+    transform 260ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 180ms ease;
 }
 
 .pg-space-left,
@@ -2326,4 +2331,29 @@ buttonbuttonbutton/* The management panel's rows. */
    end is what used to snap. */
 .pg-viewport.is-pinching {
   overflow: hidden;
+}
+
+/* One bar at a time across a phone.
+
+   The selection bar is centred and the space bar runs the full width beneath
+   it, which on a desktop pane leaves room either side of centre and at 390px
+   does not: the selection bar lands on the grid switcher. So the wall's own
+   controls give up the bottom while a selection is up, which is also how
+   Photos and Files put it, and suits a mode a long press enters and a tap on
+   empty space leaves. Set from view.ts, and only on mobile. */
+.pg-spacebar.is-hidden {
+  transform: translateY(calc(100% + 30px));
+  opacity: 0;
+}
+
+/* The row is transparent to the pointer and its buttons take that back, so
+   stopping the row is not enough to stop them. */
+.pg-spacebar.is-hidden button {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-spacebar {
+    transition: none;
+  }
 }

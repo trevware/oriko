@@ -1009,6 +1009,25 @@ export class GridRenderer {
 
     this.viewport.addEventListener("touchstart", claim, { passive: false });
     this.viewport.addEventListener("touchmove", claim, { passive: false });
+
+    /*
+     * A tap on empty space clears the selection.
+     *
+     * Desktop gets this from the marquee, whose own click handling treats a
+     * press that never moved as a request to select nothing. That stands
+     * down for touch, so without this there is no way out of selection mode
+     * except tapping every selected card off again, and while a selection is
+     * up the wall's own controls have given the bottom bar to the selection
+     * bar. That is a trap, not a mode.
+     */
+    this.viewport.addEventListener("click", (event: MouseEvent) => {
+      if (!this.nativeScroll || this.selection.size === 0) return;
+      // A pan or a pinch that happens to end over empty space is not a tap,
+      // and the cards answer their own.
+      if (this.panMoved) return;
+      if ((event.target as HTMLElement | null)?.closest(".pg-tile")) return;
+      this.clearSelection();
+    });
   }
 
   /**

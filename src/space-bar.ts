@@ -92,6 +92,20 @@ export class SpaceBar {
   }
 
   /** Reflects whichever grid is on screen. */
+  /**
+   * Stands the bar down while a selection is up.
+   *
+   * Only ever asked for on a phone. The selection bar is centred and this
+   * one runs the full width beneath it, which on a desktop pane leaves room
+   * either side of centre and at 390px does not: the selection bar lands on
+   * the grid switcher. One bar at a time is also how Photos and Files put
+   * it, and it suits a mode that a long press enters and a tap on empty
+   * space leaves.
+   */
+  setHidden(hidden: boolean): void {
+    this.root.toggleClass("is-hidden", hidden);
+  }
+
   setActive(grid: GridSpace): void {
     setIcon(this.icon, grid.icon);
     this.label.setText(grid.name);
