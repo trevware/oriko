@@ -3,6 +3,8 @@ import { attachTip } from "./tip";
 
 export interface ActionBarHandlers {
   onDelete: () => void;
+  /** Leaves selection mode with nothing selected. */
+  onDone: () => void;
 }
 
 /**
@@ -16,6 +18,19 @@ export class ActionBar {
 
   constructor(container: HTMLElement, handlers: ActionBarHandlers) {
     this.root = container.createDiv({ cls: "pg-actionbar" });
+
+    /*
+     * A visible way out, ahead of the count.
+     *
+     * Tapping empty space clears the selection too, and on desktop that is
+     * the whole story. On a phone it cannot be: a densely packed wall may
+     * have no empty space within reach of a thumb, and while a selection is
+     * up this bar has taken the bottom from the wall's own controls, so
+     * being unable to leave would strand them.
+     */
+    this.button("x", "Done", "esc", handlers.onDone);
+
+    this.root.createDiv({ cls: "pg-bar-divider" });
 
     this.count = this.root.createDiv({ cls: "pg-actionbar-count" });
 

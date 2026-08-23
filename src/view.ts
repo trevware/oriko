@@ -196,6 +196,7 @@ export class PowerGridView extends ItemView {
 
     this.actionBar = new ActionBar(this.contentEl, {
       onDelete: () => this.confirmDelete(this.grid?.selectedIds() ?? []),
+      onDone: () => this.grid?.clearSelection(),
     });
     this.grid.onSelectionChanged = (ids: string[]) => {
       this.actionBar?.setSelection(ids);
@@ -702,6 +703,16 @@ export class PowerGridView extends ItemView {
     const destroy: MenuItem[] = [];
 
     if (n === 1) {
+      // Touch has no modifier key, so this is the way into selecting more
+      // than one thing. Only offered where that is true, and only for a
+      // single card, since a menu opened on a selection is already in it.
+      if (Platform.isMobile) {
+        reach.push({
+          icon: "check-circle",
+          label: "Select",
+          onSelect: () => this.grid?.beginTouchSelection(ids[0]),
+        });
+      }
       reach.push({
         icon: "file-text",
         label: "Open note",

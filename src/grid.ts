@@ -1103,20 +1103,35 @@ export class GridRenderer {
   }
 
   /**
-   * Starts the clock on a press. Touch has no modifier keys, so a long
-   * press is the only way in to multi-select; it turns the mode on and
-   * taps then add and remove until the selection empties.
+   * Starts the clock on a press, which opens the card's menu.
+   *
+   * Touch has no right button, so a press is the only thing a context menu
+   * can hang off. Selection mode is reached from inside that menu rather
+   * than from the press itself: one gesture cannot mean two things, and of
+   * the two the menu is the one worth reaching in a single motion.
    */
-  private armLongPress(id: string): void {
+  private armLongPress(id: string, at: Point): void {
     this.clearLongPress();
     this.longPress = window.setTimeout(() => {
       this.longPress = 0;
-      this.touchSelecting = true;
-      this.selectOnly(id, new Set([id]));
-      // The press is answered now. Suppressing the click that follows the
-      // lift stops the card it just selected from opening on top of it.
+      // Pressing outside the selection acts on that card alone, which is
+      // what the right-click on a desktop does and what a file manager does
+      // everywhere.
+      if (!this.selection.has(id)) this.selectOnly(id, new Set([id]));
+      // The press has been answered. Suppressing the click that follows the
+      // lift stops the card opening behind the menu that just appeared.
       this.panMoved = true;
+      this.onContextRequested([...this.selection], at.x, at.y);
     }, LONG_PRESS_MS);
+  }
+
+  /**
+   * Turns on the mode in which a tap adds and removes rather than opening.
+   * Offered from the card's menu, touch having no modifier key to hold.
+   */
+  beginTouchSelection(id: string): void {
+    this.touchSelecting = true;
+    this.selectOnly(id, new Set([id]));
   }
 
   private clearLongPress(): void {
@@ -1479,7 +1494,7 @@ export class GridRenderer {
     // viewport, which sees the whole gesture.
     element.root.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
-      this.armLongPress(model.id);
+      this.armLongPress(model.id, { x: event.clientX, y: event.clientY });
     });
 
     element.root.oncontextmenu = (event: MouseEvent) => {

@@ -72,6 +72,17 @@ const SUBMENU_GAP = 6;
 /** Panel padding, so a submenu's first row lines up with its parent row. */
 const PANEL_PADDING = 10;
 const EDGE = 8;
+/*
+ * How long after opening a click on the backdrop is treated as the gesture
+ * that opened it rather than a dismissal.
+ *
+ * A long press opens the menu while the finger is still down, and the lift
+ * that follows arrives as a synthesised click on the backdrop, which covers
+ * everything. Without this the menu would close in the same motion that
+ * summoned it. Nobody dismisses a menu faster than they can see it, so a
+ * click this soon is the tail of the press and not an intent.
+ */
+const SETTLE_MS = 350;
 /**
  * How long a dismissed panel is left in the document to fade. Must match the
  * exit transition in styles.css; a value shorter than the CSS cuts the fade
@@ -164,7 +175,11 @@ export class ContextMenu {
       clientY - bounds.top - at.y
     }px`;
 
-    this.backdrop.onclick = () => this.close();
+    const openedAt = performance.now();
+    this.backdrop.onclick = () => {
+      if (performance.now() - openedAt < SETTLE_MS) return;
+      this.close();
+    };
     this.backdrop.oncontextmenu = (event: MouseEvent) => {
       event.preventDefault();
       this.close();
