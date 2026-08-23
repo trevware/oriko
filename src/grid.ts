@@ -4,12 +4,7 @@ import {
   KEY_ZOOM_STEP,
   MAX_ZOOM,
   MIN_ZOOM,
-  FLING_MIN_SPEED,
-  cameraOvershoot,
   clampCamera,
-  decayFactor,
-  elasticCamera,
-  flingVelocity,
   initialCamera,
   pinchCamera,
   pinchFactor,
@@ -20,7 +15,7 @@ import {
   visibleContentBand,
   zoomAt,
 } from "./camera";
-import type { Camera, PinchStart, Point, Sample } from "./camera";
+import type { Camera, PinchStart, Point } from "./camera";
 import { DEFAULT_STAGE, columnWidthFor } from "./density";
 import type { DensityStage } from "./density";
 import {
@@ -81,15 +76,6 @@ const LONG_PRESS_MS = 450;
  * travel than a click before it is reclassified as a pan.
  */
 const TOUCH_SLOP = 10;
-/** How long the wall takes to return after being pulled past an edge. */
-const SETTLE_MS = 400;
-/**
- * A frame longer than this was the app being away, not the wall moving
- * slowly. Coasting across the whole gap would teleport it.
- */
-const MAX_FRAME_MS = 64;
-/** Enough of the drag's tail to read a flick from; older samples are noise. */
-const SAMPLE_LIMIT = 8;
 /** Degrees a card tips at its edges. Small: it should read as give, not spin. */
 const MAX_TILT_DEG = 5.5;
 
@@ -154,10 +140,6 @@ export class GridRenderer {
   private touches = new Map<number, Point>();
   private touchPan: { x: number; y: number; camX: number; camY: number } | null = null;
   private pinch: PinchStart | null = null;
-  /** The tail of the current drag, for reading the speed it ends at. */
-  private samples: Sample[] = [];
-  private velocity = { vx: 0, vy: 0 };
-  private momentumFrame = 0;
   private longPress = 0;
   /**
    * Touch has no modifier keys, so multi-select is a mode rather than a
@@ -258,17 +240,6 @@ export class GridRenderer {
 
   private applyCamera(): void {
     this.camera = clampCamera(this.camera, this.viewportSize(), this.contentSize());
-    this.paintCamera();
-  }
-
-  /**
-   * Writes the camera out as it stands, bounds unenforced.
-   *
-   * Everything that is not a touch gesture wants applyCamera, which holds
-   * the wall against its edges. A finger is the exception: it may pull the
-   * wall past them, and settle brings it back when the finger goes.
-   */
-  private paintCamera(): void {
     this.canvas.style.transform =
       `translate3d(${this.camera.x}px, ${this.camera.y}px, 0) scale(${this.camera.zoom})`;
     this.schedule();
@@ -817,10 +788,6 @@ export class GridRenderer {
     const beginPan = (from: Point): void => {
       this.pinch = null;
       this.touchPan = { x: from.x, y: from.y, camX: this.camera.x, camY: this.camera.y };
-      // The trail belongs to this finger's travel, not the last one's, or
-      // lifting out of a pinch flings the wall on stale samples.
-      this.samples = [];
-      this.sample(from);
     };
 
     const beginPinch = (a: Point, b: Point): void => {
@@ -835,17 +802,12 @@ export class GridRenderer {
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
       this.cancelTween();
-      // Catching a coasting wall stops it dead, the way a finger on a
-      // spinning record does.
-      this.stopMomentum();
       this.touches.set(event.pointerId, at(event));
       this.viewport.setPointerCapture(event.pointerId);
 
       const live = [...this.touches.values()];
       if (live.length === 1) {
         this.panMoved = false;
-        this.samples = [];
-        this.sample(live[0]);
         beginPan(live[0]);
         return;
       }
@@ -875,17 +837,12 @@ export class GridRenderer {
         this.panMoved = true;
         this.clearLongPress();
       }
-
-      this.sample(live[0]);
-      // Softened from where the finger has asked for, never from where the
-      // wall already is: applying the curve to its own output every frame
-      // would compound it into treacle.
-      this.camera = elasticCamera(
-        { ...this.camera, x: this.touchPan.camX + dx, y: this.touchPan.camY + dy },
-        this.viewportSize(),
-        this.contentSize()
-      );
-      this.paintCamera();
+      this.camera = {
+        ...this.camera,
+        x: this.touchPan.camX + dx,
+        y: this.touchPan.camY + dy,
+      };
+      this.applyCamera();
     });
 
     const lift = (event: PointerEvent): void => {
@@ -902,9 +859,6 @@ export class GridRenderer {
 
       this.touchPan = null;
       this.pinch = null;
-      const { vx, vy } = flingVelocity(this.samples);
-      this.samples = [];
-      this.fling(vx, vy);
       // Cleared after the click that follows the last lift, exactly as the
       // mouse pan does: a drag ending over a card must not also open it.
       window.setTimeout(() => {
@@ -943,107 +897,6 @@ export class GridRenderer {
 
     this.viewport.addEventListener("touchstart", claim, { passive: false });
     this.viewport.addEventListener("touchmove", claim, { passive: false });
-  }
-
-  /** Adds a point to the drag's trail, keeping only its tail. */
-  private sample(point: Point): void {
-    this.samples.push({ x: point.x, y: point.y, t: performance.now() });
-    if (this.samples.length > SAMPLE_LIMIT) this.samples.shift();
-  }
-
-  /**
-   * Hands the wall to its own momentum when the last finger leaves.
-   *
-   * A release past an edge has nowhere to coast to, only somewhere to
-   * return to, and a release that was not moving has nothing to coast
-   * with. Either way the answer is to settle.
-   */
-  private fling(vx: number, vy: number): void {
-    this.stopMomentum();
-
-    const viewport = this.viewportSize();
-    const content = this.contentSize();
-    const past = cameraOvershoot(this.camera, viewport, content);
-    if (past.x !== 0 || past.y !== 0 || Math.hypot(vx, vy) < FLING_MIN_SPEED) {
-      this.settle();
-      return;
-    }
-
-    this.velocity = { vx, vy };
-    let last = performance.now();
-
-    const step = (now: number): void => {
-      // A frame longer than MAX_FRAME_MS was the app being away rather than
-      // the wall running slowly, and coasting across it would teleport.
-      const dt = Math.min(MAX_FRAME_MS, now - last);
-      last = now;
-
-      const factor = decayFactor(dt);
-      this.velocity = { vx: this.velocity.vx * factor, vy: this.velocity.vy * factor };
-
-      const next = {
-        ...this.camera,
-        x: this.camera.x + this.velocity.vx * dt,
-        y: this.camera.y + this.velocity.vy * dt,
-      };
-      const over = cameraOvershoot(next, viewport, content);
-      // An axis that has run out of wall stops there rather than coasting
-      // on into the rubber band, which would make the bounce grow with the
-      // speed it arrived at.
-      if (over.x !== 0) this.velocity.vx = 0;
-      if (over.y !== 0) this.velocity.vy = 0;
-
-      this.camera = elasticCamera(next, viewport, content);
-      this.paintCamera();
-
-      const spent = Math.hypot(this.velocity.vx, this.velocity.vy) < FLING_MIN_SPEED;
-      if (over.x !== 0 || over.y !== 0 || spent) {
-        this.momentumFrame = 0;
-        this.settle();
-        return;
-      }
-      this.momentumFrame = window.requestAnimationFrame(step);
-    };
-
-    this.momentumFrame = window.requestAnimationFrame(step);
-  }
-
-  /**
-   * Eases the wall back inside its bounds after a pull or a bounce.
-   *
-   * Deliberately not animateCamera, which applies the camera every frame
-   * and so clamps it. Every frame of a return is out of bounds by
-   * definition, so that would snap the wall back on the first one and the
-   * ease would never be seen. Runs on tweenFrame all the same, so the next
-   * touch cancels it like any other camera animation.
-   */
-  private settle(): void {
-    const target = clampCamera(this.camera, this.viewportSize(), this.contentSize());
-    if (target.x === this.camera.x && target.y === this.camera.y) return;
-
-    this.cancelTween();
-    const start = { ...this.camera };
-    const t0 = performance.now();
-
-    const step = (now: number): void => {
-      const k = Math.min(1, (now - t0) / SETTLE_MS);
-      const e = 1 - Math.pow(1 - k, 3);
-      this.camera = {
-        ...this.camera,
-        x: start.x + (target.x - start.x) * e,
-        y: start.y + (target.y - start.y) * e,
-      };
-      this.paintCamera();
-      this.tweenFrame = k < 1 ? window.requestAnimationFrame(step) : 0;
-    };
-
-    this.tweenFrame = window.requestAnimationFrame(step);
-  }
-
-  private stopMomentum(): void {
-    if (this.momentumFrame) window.cancelAnimationFrame(this.momentumFrame);
-    this.momentumFrame = 0;
-    this.velocity = { vx: 0, vy: 0 };
   }
 
   /**
@@ -1533,7 +1386,6 @@ export class GridRenderer {
 
   destroy(): void {
     this.cancelTween();
-    this.stopMomentum();
     if (this.tiltFrame) window.cancelAnimationFrame(this.tiltFrame);
     if (this.onKeyDown) document.removeEventListener("keydown", this.onKeyDown);
     if (this.onKeyUp) document.removeEventListener("keyup", this.onKeyUp);

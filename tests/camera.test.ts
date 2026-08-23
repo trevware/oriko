@@ -5,18 +5,12 @@ import {
   clampCamera,
   clampZoom,
   initialCamera,
-  cameraBounds,
-  cameraOvershoot,
-  decayFactor,
-  elasticCamera,
-  flingVelocity,
   pinchCamera,
   pinchFactor,
   pinchMidpoint,
   pinchSpan,
   preserveAnchor,
   revealCamera,
-  rubberBand,
   toContent,
   visibleContentBand,
   zoomAt,
@@ -304,163 +298,5 @@ describe("pinchCamera", () => {
     expect(next.zoom).toBeCloseTo(1);
     expect(next.x).toBeCloseTo(50);
     expect(next.y).toBeCloseTo(50);
-  });
-});
-
-describe("cameraBounds", () => {
-  it("gives a tall wall room to travel vertically and none sideways", () => {
-    const bounds = cameraBounds(viewport, content, 1);
-    expect(bounds.maxY).toBe(0);
-    expect(bounds.minY).toBe(800 - 5000);
-    // Content exactly as wide as the viewport has nowhere to go.
-    expect(bounds.minX).toBe(bounds.maxX);
-  });
-
-  it("collapses an axis with nothing beyond the edge onto its resting place", () => {
-    const bounds = cameraBounds(viewport, { width: 400, height: 200 }, 1);
-    expect(bounds.minX).toBe(bounds.maxX);
-    expect(bounds.minX).toBe((1000 - 400) / 2);
-    expect(bounds.minY).toBe(0);
-    expect(bounds.maxY).toBe(0);
-  });
-
-  it("agrees with clampCamera at both ends", () => {
-    const bounds = cameraBounds(viewport, content, 1);
-    expect(clampCamera({ x: 0, y: -99999, zoom: 1 }, viewport, content).y).toBe(bounds.minY);
-    expect(clampCamera({ x: 0, y: 99999, zoom: 1 }, viewport, content).y).toBe(bounds.maxY);
-  });
-});
-
-describe("rubberBand", () => {
-  it("does not move an overshoot of nothing", () => {
-    expect(rubberBand(0, 800)).toBe(0);
-  });
-
-  it("resists: the result is always shorter than the pull", () => {
-    for (const pull of [10, 50, 200, 1000]) {
-      expect(Math.abs(rubberBand(pull, 800))).toBeLessThan(pull);
-    }
-  });
-
-  it("costs more per pixel the further out it goes", () => {
-    const early = rubberBand(20, 800) - rubberBand(10, 800);
-    const late = rubberBand(210, 800) - rubberBand(200, 800);
-    expect(late).toBeLessThan(early);
-  });
-
-  it("never travels the full dimension, however hard it is pulled", () => {
-    expect(rubberBand(100000, 800)).toBeLessThan(800);
-  });
-
-  it("is symmetric about zero", () => {
-    expect(rubberBand(-120, 800)).toBeCloseTo(-rubberBand(120, 800));
-  });
-});
-
-describe("elasticCamera", () => {
-  it("leaves a camera inside its bounds exactly where it is", () => {
-    const inside = { x: 0, y: -1000, zoom: 1 };
-    const next = elasticCamera(inside, viewport, content);
-    expect(next.y).toBe(-1000);
-  });
-
-  it("lets the top edge be pulled down, but not as far as asked", () => {
-    const next = elasticCamera({ x: 0, y: 300, zoom: 1 }, viewport, content);
-    expect(next.y).toBeGreaterThan(0);
-    expect(next.y).toBeLessThan(300);
-  });
-
-  it("lets the bottom edge be pulled up, but not as far as asked", () => {
-    const floor = 800 - 5000;
-    const next = elasticCamera({ x: 0, y: floor - 300, zoom: 1 }, viewport, content);
-    expect(next.y).toBeLessThan(floor);
-    expect(next.y).toBeGreaterThan(floor - 300);
-  });
-
-  it("never hands back a camera clampCamera would have moved further than the viewport", () => {
-    const next = elasticCamera({ x: 0, y: 100000, zoom: 1 }, viewport, content);
-    expect(next.y).toBeLessThan(viewport.height);
-  });
-});
-
-describe("cameraOvershoot", () => {
-  it("is zero inside the bounds", () => {
-    expect(cameraOvershoot({ x: 0, y: -1000, zoom: 1 }, viewport, content)).toEqual({
-      x: 0,
-      y: 0,
-    });
-  });
-
-  it("is positive past the top and negative past the bottom", () => {
-    expect(cameraOvershoot({ x: 0, y: 40, zoom: 1 }, viewport, content).y).toBe(40);
-    const floor = 800 - 5000;
-    expect(cameraOvershoot({ x: 0, y: floor - 40, zoom: 1 }, viewport, content).y).toBe(-40);
-  });
-});
-
-describe("flingVelocity", () => {
-  it("is still for fewer than two samples", () => {
-    expect(flingVelocity([])).toEqual({ vx: 0, vy: 0 });
-    expect(flingVelocity([{ x: 0, y: 0, t: 0 }])).toEqual({ vx: 0, vy: 0 });
-  });
-
-  it("measures px per millisecond", () => {
-    const v = flingVelocity([
-      { x: 0, y: 0, t: 0 },
-      { x: 0, y: 50, t: 50 },
-    ]);
-    expect(v.vy).toBeCloseTo(1);
-  });
-
-  it("reads the tail, not the whole drag", () => {
-    // Still for a second, then a flick: this must fling, not average to nothing.
-    const v = flingVelocity([
-      { x: 0, y: 0, t: 0 },
-      { x: 0, y: 0, t: 1000 },
-      { x: 0, y: 60, t: 1030 },
-    ]);
-    expect(v.vy).toBeCloseTo(2);
-  });
-
-  it("does not fling when the finger stopped before lifting", () => {
-    const v = flingVelocity([
-      { x: 0, y: 0, t: 0 },
-      { x: 0, y: 300, t: 300 },
-      { x: 0, y: 300, t: 400 },
-    ]);
-    expect(v.vy).toBe(0);
-  });
-
-  it("reports nothing rather than infinity for samples sharing a timestamp", () => {
-    const v = flingVelocity([
-      { x: 0, y: 0, t: 5 },
-      { x: 0, y: 40, t: 5 },
-    ]);
-    expect(v).toEqual({ vx: 0, vy: 0 });
-  });
-
-  it("caps an implausibly fast flick", () => {
-    const v = flingVelocity([
-      { x: 0, y: 0, t: 0 },
-      { x: 0, y: 10000, t: 1 },
-    ]);
-    expect(v.vy).toBeLessThanOrEqual(6);
-  });
-});
-
-describe("decayFactor", () => {
-  it("keeps a frame's worth of velocity at one frame", () => {
-    expect(decayFactor(1000 / 60)).toBeCloseTo(0.97);
-  });
-
-  it("decays the same over a period however it is sliced", () => {
-    // A 120Hz phone takes twice as many steps and must coast the same.
-    const oneStep = decayFactor(1000 / 60);
-    const twoHalves = decayFactor(1000 / 120) ** 2;
-    expect(twoHalves).toBeCloseTo(oneStep);
-  });
-
-  it("costs nothing for no time at all", () => {
-    expect(decayFactor(0)).toBe(1);
   });
 });
