@@ -868,6 +868,35 @@ export class GridRenderer {
 
     this.viewport.addEventListener("pointerup", lift);
     this.viewport.addEventListener("pointercancel", lift);
+
+    /*
+     * Obsidian mobile watches for a downward drag in a view and opens the
+     * command palette on it. A one-finger pan is that drag, so scrolling the
+     * wall down was opening the palette on top of it.
+     *
+     * `touch-action: none` only tells the *browser* not to scroll; it says
+     * nothing to a recogniser written in JavaScript. Claiming the gesture
+     * means handling the touch event: propagation stops here so no ancestor
+     * listener sees it, on touchstart as well, since a recogniser that never
+     * arms cannot fire wherever it happens to listen for the movement.
+     *
+     * preventDefault is confined to touchmove on purpose. On touchstart it
+     * also suppresses the synthetic click, and a tap still needs that click
+     * to open a card.
+     */
+    const claim = (event: TouchEvent): void => {
+      // Unconditional because the viewport holds only the canvas and the
+      // marquee: every overlay that scrolls itself, the sheet and palette
+      // and action bar, mounts on the view instead. Nothing inside here
+      // wants a touch the wall should not have. Checking the tracked
+      // touches instead would tie this to whether pointerdown or touchstart
+      // fires first, which the two engines do not agree on.
+      event.stopPropagation();
+      if (event.type === "touchmove") event.preventDefault();
+    };
+
+    this.viewport.addEventListener("touchstart", claim, { passive: false });
+    this.viewport.addEventListener("touchmove", claim, { passive: false });
   }
 
   /**
