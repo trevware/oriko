@@ -67,16 +67,37 @@ export function clampZoom(zoom: number, min = MIN_ZOOM, max = MAX_ZOOM): number 
  */
 export function clampCamera(camera: Camera, viewport: Size, content: Size): Camera {
   const zoom = clampZoom(camera.zoom);
-  const scaledWidth = content.width * zoom;
-  const scaledHeight = content.height * zoom;
-
+  const bounds = cameraBounds(viewport, content, zoom);
   return {
     zoom,
-    x:
-      scaledWidth > viewport.width
-        ? clamp(camera.x, viewport.width - scaledWidth, 0)
-        : (viewport.width - scaledWidth) / 2,
-    y: scaledHeight > viewport.height ? clamp(camera.y, viewport.height - scaledHeight, 0) : 0,
+    x: clamp(camera.x, bounds.minX, bounds.maxX),
+    y: clamp(camera.y, bounds.minY, bounds.maxY),
+  };
+}
+
+/** The range the camera may occupy: the rule clampCamera enforces, as numbers. */
+export interface CameraBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+/**
+ * The travel available at a given zoom. An axis with nothing beyond the
+ * viewport edge has none, and its two ends collapse onto the single
+ * resting place clampCamera would have pinned it to.
+ */
+export function cameraBounds(viewport: Size, content: Size, zoom: number): CameraBounds {
+  const scaledWidth = content.width * zoom;
+  const scaledHeight = content.height * zoom;
+  const restX = (viewport.width - scaledWidth) / 2;
+
+  return {
+    minX: scaledWidth > viewport.width ? viewport.width - scaledWidth : restX,
+    maxX: scaledWidth > viewport.width ? 0 : restX,
+    minY: scaledHeight > viewport.height ? viewport.height - scaledHeight : 0,
+    maxY: 0,
   };
 }
 
@@ -243,4 +264,127 @@ export function pinchCamera(
   const anchor = toContent(start.camera, start.midpoint);
   const now = pinchMidpoint(a, b);
   return { zoom, x: now.x - anchor.x * zoom, y: now.y - anchor.y * zoom };
+}
+
+/**
+ * How hard the wall resists being pulled past its edge. Apple's own figure
+ * for UIScrollView; lower drags heavier.
+ */
+export const RUBBER_TENSION = 0.55;
+/**
+ * Velocity retained per 60fps frame while a flick decelerates. iOS uses
+ * a "normal" deceleration rate of 0.998 per millisecond, which is this
+ * per frame, and it is the single number that decides whether a flick
+ * feels like paper sliding or like it hit sand.
+ */
+export const SCROLL_FRICTION = 0.97;
+/** Below this the wall is not moving in any way a person can see. */
+export const FLING_MIN_SPEED = 0.02;
+/**
+ * A flick should report the speed the finger was doing when it left, not
+ * the average of the whole drag, so only the tail is measured.
+ */
+export const FLING_WINDOW_MS = 90;
+/** Nothing may be flung faster than this, however fast the finger left. */
+export const FLING_MAX_SPEED = 6;
+
+/**
+ * Apple's rubber-band curve: the first pixels past the edge come easily
+ * and each one after costs more, so the wall can always be pulled a little
+ * and never pulled far.
+ *
+ * `(1 - 1 / (x * tension / dimension + 1)) * dimension`, which approaches
+ * `dimension` asymptotically and so cannot be dragged off the screen no
+ * matter how determined the finger is.
+ */
+export function rubberBand(overshoot: number, dimension: number, tension = RUBBER_TENSION): number {
+  if (overshoot === 0 || dimension <= 0) return 0;
+  const distance = Math.abs(overshoot);
+  const resisted = (1 - 1 / ((distance * tension) / dimension + 1)) * dimension;
+  return Math.sign(overshoot) * resisted;
+}
+
+/**
+ * Like clampCamera, but the edges give.
+ *
+ * Inside its bounds the wall tracks the finger exactly; past them it
+ * follows with resistance. This is the whole difference between a canvas
+ * that stops dead at the last row and one that feels physical.
+ */
+export function elasticCamera(camera: Camera, viewport: Size, content: Size): Camera {
+  const zoom = clampZoom(camera.zoom);
+  const bounds = cameraBounds(viewport, content, zoom);
+
+  const soften = (value: number, lo: number, hi: number, dimension: number): number => {
+    if (value < lo) return lo + rubberBand(value - lo, dimension);
+    if (value > hi) return hi + rubberBand(value - hi, dimension);
+    return value;
+  };
+
+  return {
+    zoom,
+    x: soften(camera.x, bounds.minX, bounds.maxX, viewport.width),
+    y: soften(camera.y, bounds.minY, bounds.maxY, viewport.height),
+  };
+}
+
+/** How far outside its bounds a camera currently sits, per axis. */
+export function cameraOvershoot(
+  camera: Camera,
+  viewport: Size,
+  content: Size
+): { x: number; y: number } {
+  const bounds = cameraBounds(viewport, content, clampZoom(camera.zoom));
+  return {
+    x: camera.x < bounds.minX ? camera.x - bounds.minX : Math.max(0, camera.x - bounds.maxX),
+    y: camera.y < bounds.minY ? camera.y - bounds.minY : Math.max(0, camera.y - bounds.maxY),
+  };
+}
+
+/** Where the finger was, and when. */
+export interface Sample {
+  x: number;
+  y: number;
+  t: number;
+}
+
+/**
+ * The velocity a flick ends at, in px/ms, measured across the tail of the
+ * drag rather than all of it: a long slow drag that finishes with a flick
+ * should fling, and one that finishes stationary should not.
+ */
+export function flingVelocity(
+  samples: Sample[],
+  window = FLING_WINDOW_MS,
+  max = FLING_MAX_SPEED
+): { vx: number; vy: number } {
+  if (samples.length < 2) return { vx: 0, vy: 0 };
+
+  const last = samples[samples.length - 1];
+  // The oldest sample still inside the window, or the one before last when
+  // every earlier sample has aged out.
+  let first = samples[samples.length - 2];
+  for (let i = samples.length - 2; i >= 0; i--) {
+    if (last.t - samples[i].t > window) break;
+    first = samples[i];
+  }
+
+  const dt = last.t - first.t;
+  // Two samples in the same millisecond say nothing about speed, and
+  // dividing by that gap is how a flick becomes infinite.
+  if (dt <= 0) return { vx: 0, vy: 0 };
+
+  const cap = (v: number): number => Math.max(-max, Math.min(max, v));
+  return { vx: cap((last.x - first.x) / dt), vy: cap((last.y - first.y) / dt) };
+}
+
+/**
+ * What a velocity is worth after `dt` milliseconds of deceleration.
+ *
+ * Raised to dt/frame rather than applied per frame, so the wall coasts the
+ * same distance on a 120Hz phone as on a 60Hz one, and a dropped frame
+ * does not extend the glide.
+ */
+export function decayFactor(dt: number, friction = SCROLL_FRICTION): number {
+  return Math.pow(friction, dt / (1000 / 60));
 }
