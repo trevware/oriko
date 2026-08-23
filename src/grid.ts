@@ -145,6 +145,21 @@ export class GridRenderer {
   /** Sized to the scaled wall, so the browser has something to scroll over. */
   private scroller: HTMLElement | null = null;
   private onScroll: (() => void) | null = null;
+  /**
+   * A pinch in progress on the native scroller, held as the state needed to
+   * turn it into a scroll position once the fingers leave.
+   */
+  private pinchVisual: {
+    zoom: number;
+    scrollLeft: number;
+    scrollTop: number;
+    rect: DOMRect;
+    /** Gesture start midpoint, viewport-local. */
+    origin: Point;
+    /** Latest scale and midpoint, so the release can commit what is on screen. */
+    scale: number;
+    at: Point;
+  } | null = null;
   private longPress = 0;
   /**
    * Touch has no modifier keys, so multi-select is a mode rather than a
@@ -884,6 +899,7 @@ export class GridRenderer {
         span: pinchSpan(a, b),
         midpoint: pinchMidpoint(a, b),
       };
+      if (this.nativeScroll) this.beginVisualPinch(a, b);
     };
 
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
@@ -913,6 +929,10 @@ export class GridRenderer {
 
       const live = [...this.touches.values()];
       if (live.length >= 2 && this.pinch) {
+        if (this.nativeScroll) {
+          this.moveVisualPinch(live[0], live[1]);
+          return;
+        }
         this.setCamera(pinchCamera(this.pinch, live[0], live[1], MIN_ZOOM, MAX_ZOOM));
         return;
       }
@@ -943,6 +963,9 @@ export class GridRenderer {
 
       const live = [...this.touches.values()];
       if (live.length >= 2) return beginPinch(live[0], live[1]);
+      // Down to one finger or none: the zoom is over, so what is on screen
+      // as a transform becomes a real scroll position and a real scale.
+      if (this.pinchVisual) this.commitVisualPinch();
       if (live.length === 1) {
         if (!this.nativeScroll) beginPan(live[0]);
         return;
@@ -995,6 +1018,95 @@ export class GridRenderer {
 
     this.viewport.addEventListener("touchstart", claim, { passive: false });
     this.viewport.addEventListener("touchmove", claim, { passive: false });
+  }
+
+  /*
+   * Pinching a native scroller, without laying anything out.
+   *
+   * Writing the zoom through applyCamera on every frame resized the spacer
+   * and wrote a scroll position, so each finger movement forced a layout of
+   * the scroll container and then fought the scroller for the position. That
+   * is what made it feel rough.
+   *
+   * So the gesture is shown rather than applied: the scrolled content takes
+   * one transform, which the compositor can do without laying out or
+   * painting anything, and only when the fingers leave does that become a
+   * real scale and a real scroll position. It is how a photo viewer does it,
+   * and the reason a pinch there is smooth.
+   */
+  private beginVisualPinch(a: Point, b: Point): void {
+    if (!this.scroller) return;
+    // A change in the number of fingers restarts the gesture. Whatever is
+    // on screen from the last one becomes real first, so the new one
+    // measures from a base that matches what is actually drawn instead of
+    // stacking a second transform on an uncommitted one.
+    if (this.pinchVisual) this.commitVisualPinch();
+    const rect = this.viewport.getBoundingClientRect();
+    const mid = pinchMidpoint(a, b);
+    const origin = { x: mid.x - rect.left, y: mid.y - rect.top };
+
+    this.pinchVisual = {
+      zoom: this.camera.zoom,
+      scrollLeft: this.viewport.scrollLeft,
+      scrollTop: this.viewport.scrollTop,
+      rect,
+      origin,
+      scale: 1,
+      at: origin,
+    };
+
+    // Stated in the scrolled content's own coordinates, which are the
+    // viewport's offset by how far it has been scrolled.
+    this.scroller.style.transformOrigin =
+      `${origin.x + this.viewport.scrollLeft}px ${origin.y + this.viewport.scrollTop}px`;
+    this.viewport.addClass("is-pinching");
+  }
+
+  private moveVisualPinch(a: Point, b: Point): void {
+    const state = this.pinchVisual;
+    if (!state || !this.scroller || !this.pinch) return;
+
+    // Held inside the zoom range as it goes, so what is on screen is always
+    // something the release can commit to rather than something that snaps.
+    const asked = pinchSpan(a, b) / (this.pinch.span || 1);
+    const scale = clampZoom(state.zoom * asked) / state.zoom;
+
+    const mid = pinchMidpoint(a, b);
+    const at = { x: mid.x - state.rect.left, y: mid.y - state.rect.top };
+    state.scale = scale;
+    state.at = at;
+
+    // Scaled about the midpoint the gesture began at, then carried by
+    // however far that midpoint has since travelled, so a pinch that also
+    // drifts takes the wall with it.
+    this.scroller.style.transform =
+      `translate3d(${at.x - state.origin.x}px, ${at.y - state.origin.y}px, 0) scale(${scale})`;
+  }
+
+  /**
+   * Turns the shown gesture into the real one, in a single pass so there is
+   * no frame drawn at the old zoom and the new position.
+   */
+  private commitVisualPinch(): void {
+    const state = this.pinchVisual;
+    this.pinchVisual = null;
+    if (!state || !this.scroller) return;
+
+    this.scroller.style.transform = "";
+    this.scroller.style.transformOrigin = "";
+    this.viewport.removeClass("is-pinching");
+
+    const zoom = clampZoom(state.zoom * state.scale);
+    // The content point the gesture started on, in the wall's own unscaled
+    // space, has to end up under wherever the fingers finished.
+    const cx = (state.scrollLeft + state.origin.x) / state.zoom;
+    const cy = (state.scrollTop + state.origin.y) / state.zoom;
+
+    this.camera = { zoom, x: -(cx * zoom - state.at.x), y: -(cy * zoom - state.at.y) };
+    this.applyCamera();
+    // The scroller has the last word on how far it would actually go.
+    this.readScroll();
+    this.onZoomChanged(this.camera.zoom);
   }
 
   /**

@@ -1,5 +1,13 @@
 import { App, setIcon } from "obsidian";
-import { KEY_ZOOM_STEP, pinchFactor, zoomAt } from "./camera";
+import {
+  KEY_ZOOM_STEP,
+  pinchCamera,
+  pinchFactor,
+  pinchMidpoint,
+  pinchSpan,
+  zoomAt,
+} from "./camera";
+import type { PinchStart, Point } from "./camera";
 import { resourceUrl } from "./convert";
 import type { Camera, Size } from "./camera";
 import { facetLabel } from "./filter";
@@ -193,6 +201,9 @@ export class DetailView {
   private dragging = false;
   private zoomedNow = false;
   private dragFrom = { x: 0, y: 0, viewX: 0, viewY: 0 };
+  /** Live touches on the stage, by pointer id. Two of them are a pinch. */
+  private touches = new Map<number, Point>();
+  private pinchStart: PinchStart | null = null;
   private hotkeys: Array<{ match: (event: KeyboardEvent) => boolean; run: () => void }> = [];
 
   constructor(
@@ -742,7 +753,87 @@ export class DetailView {
       );
     });
 
+    /*
+     * Two fingers zoom the picture.
+     *
+     * Everything below is drag-panning, which needs the view already zoomed
+     * in to have anywhere to go, so on a phone there was no way to zoom in
+     * the first place: the only route was the wheel. This is the way in.
+     *
+     * Measured in stage-local coordinates because that is the space the
+     * zoom layer's own transform lives in, and routed through setView like
+     * every other change, so it inherits the clamping, the frame deferral
+     * and the single transform write.
+     */
+    const pinchPoints = (): [Point, Point] | null => {
+      const live = [...this.touches.values()];
+      return live.length >= 2 ? [live[0], live[1]] : null;
+    };
+
     stage.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.pointerType !== "touch" || this.flying || !this.canZoom()) return;
+      this.touches.set(
+        event.pointerId,
+        this.stagePoint(event.clientX, event.clientY)
+      );
+      const pair = pinchPoints();
+      if (!pair) return;
+
+      // A second finger ends any drag in progress: the gesture has become a
+      // zoom, and letting the pan carry on would fight the anchor.
+      this.dragging = false;
+      root.removeClass("is-panning");
+      this.pinchStart = {
+        camera: this.view,
+        span: pinchSpan(pair[0], pair[1]),
+        midpoint: pinchMidpoint(pair[0], pair[1]),
+      };
+      stage.setPointerCapture(event.pointerId);
+    });
+
+    stage.addEventListener("pointermove", (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      if (!this.touches.has(event.pointerId)) return;
+      this.touches.set(
+        event.pointerId,
+        this.stagePoint(event.clientX, event.clientY)
+      );
+
+      const pair = pinchPoints();
+      if (!pair || !this.pinchStart) return;
+      event.preventDefault();
+      this.setView(
+        pinchCamera(this.pinchStart, pair[0], pair[1], this.range.min, this.range.max)
+      );
+    });
+
+    const endPinch = (event: PointerEvent): void => {
+      if (event.pointerType !== "touch") return;
+      if (!this.touches.delete(event.pointerId)) return;
+      if (stage.hasPointerCapture(event.pointerId)) {
+        stage.releasePointerCapture(event.pointerId);
+      }
+
+      const pair = pinchPoints();
+      if (!pair) {
+        this.pinchStart = null;
+        return;
+      }
+      // Still two fingers down, so rebase rather than carry on measuring
+      // against a finger that has gone.
+      this.pinchStart = {
+        camera: this.view,
+        span: pinchSpan(pair[0], pair[1]),
+        midpoint: pinchMidpoint(pair[0], pair[1]),
+      };
+    };
+
+    stage.addEventListener("pointerup", endPinch);
+    stage.addEventListener("pointercancel", endPinch);
+
+    stage.addEventListener("pointerdown", (event: PointerEvent) => {
+      // A pinch owns the gesture once a second finger is down.
+      if (this.touches.size >= 2) return;
       if (this.flying || this.view.zoom <= this.range.min) return;
       // A video fills the stage, so a drag here would land on its controls.
       // Zoom and scroll-panning still work; only drag-panning steps aside.

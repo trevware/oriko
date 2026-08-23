@@ -2311,3 +2311,17 @@ buttonbuttonbutton/* The management panel's rows. */
    every bar that floats at the bottom clears whatever of our bottom edge it
    covers. The figure is measured in view.ts, because Obsidian publishes no
    height for it, and is simply absent on desktop. */
+
+/* Two fingers zoom the picture, so the browser must not read the gesture as
+   a page zoom. The detail view is an overlay rather than a scroller, so it
+   wants none of the browser's panning either. */
+.pg-detail-stage {
+  touch-action: none;
+}
+
+/* A pinch is shown as one transform on the scrolled content and only becomes
+   a real scale and scroll position when the fingers leave, so the whole
+   gesture stays on the compositor. */
+.pg-viewport.is-pinching .pg-scroll {
+  will-change: transform;
+}
