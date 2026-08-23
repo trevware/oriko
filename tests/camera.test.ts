@@ -8,6 +8,7 @@ import {
   pinchCamera,
   pinchFactor,
   pinchMidpoint,
+  pinchScroll,
   pinchSpan,
   preserveAnchor,
   revealCamera,
@@ -298,5 +299,63 @@ describe("pinchCamera", () => {
     expect(next.zoom).toBeCloseTo(1);
     expect(next.x).toBeCloseTo(50);
     expect(next.y).toBeCloseTo(50);
+  });
+});
+
+describe("pinchScroll", () => {
+  // A wall exactly as wide as its viewport: the fitted zoom, no centring.
+  const start = {
+    zoom: 1,
+    scrollLeft: 0,
+    scrollTop: 400,
+    origin: { x: 500, y: 300 },
+    offset: 0,
+  };
+
+  it("leaves the scroll alone when nothing changed", () => {
+    const next = pinchScroll(start, 1, 0, start.origin);
+    expect(next.left).toBeCloseTo(0);
+    expect(next.top).toBeCloseTo(400);
+  });
+
+  it("keeps the content under the starting midpoint under the finishing one", () => {
+    // The point at content y = (400 + 300) / 1 = 700 must stay under the
+    // fingers, which have not moved, at twice the zoom.
+    const next = pinchScroll(start, 2, 0, start.origin);
+    expect(next.top).toBeCloseTo(700 * 2 - 300);
+  });
+
+  it("follows a pinch that drifts as well as spreads", () => {
+    const next = pinchScroll(start, 2, 0, { x: 500, y: 500 });
+    expect(next.top).toBeCloseTo(700 * 2 - 500);
+  });
+
+  it("accounts for the centring offset at the zoom it lands on", () => {
+    // Zoomed out, the wall is narrower than the viewport and gets centred,
+    // and the scroll position has to be stated relative to that.
+    const plain = pinchScroll(start, 0.5, 0, start.origin);
+    const centred = pinchScroll(start, 0.5, 250, start.origin);
+    expect(centred.left - plain.left).toBeCloseTo(250);
+  });
+
+  it("accounts for the centring offset the gesture started from", () => {
+    // Pinching a second time, from an already zoomed-out wall: the offset
+    // in force at the start is part of where the content point was.
+    const fromCentred = { ...start, zoom: 0.5, offset: 250 };
+    const next = pinchScroll(fromCentred, 0.5, 250, start.origin);
+    expect(next.left).toBeCloseTo(start.scrollLeft);
+    expect(next.top).toBeCloseTo(start.scrollTop);
+  });
+
+  it("round-trips: out then back in returns to where it started", () => {
+    const out = pinchScroll(start, 0.5, 250, start.origin);
+    const back = pinchScroll(
+      { zoom: 0.5, scrollLeft: out.left, scrollTop: out.top, origin: start.origin, offset: 250 },
+      1,
+      0,
+      start.origin
+    );
+    expect(back.left).toBeCloseTo(start.scrollLeft);
+    expect(back.top).toBeCloseTo(start.scrollTop);
   });
 });

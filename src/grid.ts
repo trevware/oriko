@@ -10,6 +10,7 @@ import {
   pinchCamera,
   pinchFactor,
   pinchMidpoint,
+  pinchScroll,
   pinchSpan,
   preserveAnchor,
   revealCamera,
@@ -156,6 +157,8 @@ export class GridRenderer {
     rect: DOMRect;
     /** Gesture start midpoint, viewport-local. */
     origin: Point;
+    /** Centring offset at the zoom the gesture began at. */
+    offset: number;
     /** Latest scale and midpoint, so the release can commit what is on screen. */
     scale: number;
     at: Point;
@@ -1034,6 +1037,21 @@ export class GridRenderer {
    * real scale and a real scroll position. It is how a photo viewer does it,
    * and the reason a pinch there is smooth.
    */
+  /**
+   * How far the scrolled content is pushed in from the viewport's left edge.
+   *
+   * `margin: 0 auto` centres the wall whenever the scaled content is
+   * narrower than the viewport, which is every zoom below the fit. That
+   * centring sits between viewport coordinates and the wall's own, so every
+   * conversion between them has to account for it. It is zero at fit and
+   * above, which is exactly why leaving it out looked correct until the
+   * first pinch outwards.
+   */
+  private scrollerOffset(zoom: number): number {
+    const scaled = this.contentSize().width * zoom;
+    return Math.max(0, (this.viewportSize().width - scaled) / 2);
+  }
+
   private beginVisualPinch(a: Point, b: Point): void {
     if (!this.scroller) return;
     // A change in the number of fingers restarts the gesture. Whatever is
@@ -1045,20 +1063,24 @@ export class GridRenderer {
     const mid = pinchMidpoint(a, b);
     const origin = { x: mid.x - rect.left, y: mid.y - rect.top };
 
+    const offset = this.scrollerOffset(this.camera.zoom);
     this.pinchVisual = {
       zoom: this.camera.zoom,
       scrollLeft: this.viewport.scrollLeft,
       scrollTop: this.viewport.scrollTop,
       rect,
       origin,
+      offset,
       scale: 1,
       at: origin,
     };
 
-    // Stated in the scrolled content's own coordinates, which are the
-    // viewport's offset by how far it has been scrolled.
+    // Stated in the scrolled content's own coordinates: the viewport's, less
+    // where the content has been centred, plus how far it has been scrolled.
     this.scroller.style.transformOrigin =
-      `${origin.x + this.viewport.scrollLeft}px ${origin.y + this.viewport.scrollTop}px`;
+      `${origin.x - offset + this.viewport.scrollLeft}px ${
+        origin.y + this.viewport.scrollTop
+      }px`;
     this.viewport.addClass("is-pinching");
   }
 
@@ -1098,11 +1120,11 @@ export class GridRenderer {
 
     const zoom = clampZoom(state.zoom * state.scale);
     // The content point the gesture started on, in the wall's own unscaled
-    // space, has to end up under wherever the fingers finished.
-    const cx = (state.scrollLeft + state.origin.x) / state.zoom;
-    const cy = (state.scrollTop + state.origin.y) / state.zoom;
-
-    this.camera = { zoom, x: -(cx * zoom - state.at.x), y: -(cy * zoom - state.at.y) };
+    // space, has to end up under wherever the fingers finished. Both
+    // directions go through the centring offset, taken at the zoom that
+    // applied on each side of the gesture.
+    const { left, top } = pinchScroll(state, zoom, this.scrollerOffset(zoom), state.at);
+    this.camera = { zoom, x: -left, y: -top };
     this.applyCamera();
     // The scroller has the last word on how far it would actually go.
     this.readScroll();
