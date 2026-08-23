@@ -8,7 +8,6 @@ import {
   pinchCamera,
   pinchFactor,
   pinchMidpoint,
-  pinchScroll,
   pinchSpan,
   preserveAnchor,
   revealCamera,
@@ -302,60 +301,46 @@ describe("pinchCamera", () => {
   });
 });
 
-describe("pinchScroll", () => {
-  // A wall exactly as wide as its viewport: the fitted zoom, no centring.
-  const start = {
-    zoom: 1,
-    scrollLeft: 0,
-    scrollTop: 400,
-    origin: { x: 500, y: 300 },
-    offset: 0,
-  };
+describe("camera and scroll describe the same positions", () => {
+  /*
+   * On touch the wall comes off the browser's scroller for the length of a
+   * pinch and goes back when the fingers leave. Both hand-offs are the same
+   * pair of conversions:
+   *
+   *   scrollLeft = offset(zoom) - camera.x       camera.y = -scrollTop
+   *
+   * They are only lossless if every position clampCamera is willing to
+   * produce is one the scroller can actually reach. Where it is not, the
+   * release lands somewhere the camera never showed, which is the snap this
+   * exists to prevent.
+   */
+  const offsetFor = (content: { width: number }, zoom: number): number =>
+    Math.max(0, (viewport.width - content.width * zoom) / 2);
 
-  it("leaves the scroll alone when nothing changed", () => {
-    const next = pinchScroll(start, 1, 0, start.origin);
-    expect(next.left).toBeCloseTo(0);
-    expect(next.top).toBeCloseTo(400);
-  });
+  const cases = [
+    { label: "a wall taller than the viewport", size: content },
+    { label: "a wall smaller than the viewport", size: { width: 400, height: 300 } },
+    { label: "a wall exactly the viewport", size: { width: 1000, height: 800 } },
+  ];
 
-  it("keeps the content under the starting midpoint under the finishing one", () => {
-    // The point at content y = (400 + 300) / 1 = 700 must stay under the
-    // fingers, which have not moved, at twice the zoom.
-    const next = pinchScroll(start, 2, 0, start.origin);
-    expect(next.top).toBeCloseTo(700 * 2 - 300);
-  });
+  for (const { label, size } of cases) {
+    it(`stays inside the scroller's range for ${label}`, () => {
+      for (const zoom of [MIN_ZOOM, 0.5, 1, 2, MAX_ZOOM]) {
+        for (const x of [99999, 500, 0, -2000, -99999]) {
+          for (const y of [99999, 500, 0, -2000, -99999]) {
+            const camera = clampCamera({ x, y, zoom }, viewport, size);
+            const left = offsetFor(size, camera.zoom) - camera.x;
+            const top = -camera.y;
+            const maxLeft = Math.max(0, size.width * camera.zoom - viewport.width);
+            const maxTop = Math.max(0, size.height * camera.zoom - viewport.height);
 
-  it("follows a pinch that drifts as well as spreads", () => {
-    const next = pinchScroll(start, 2, 0, { x: 500, y: 500 });
-    expect(next.top).toBeCloseTo(700 * 2 - 500);
-  });
-
-  it("accounts for the centring offset at the zoom it lands on", () => {
-    // Zoomed out, the wall is narrower than the viewport and gets centred,
-    // and the scroll position has to be stated relative to that.
-    const plain = pinchScroll(start, 0.5, 0, start.origin);
-    const centred = pinchScroll(start, 0.5, 250, start.origin);
-    expect(centred.left - plain.left).toBeCloseTo(250);
-  });
-
-  it("accounts for the centring offset the gesture started from", () => {
-    // Pinching a second time, from an already zoomed-out wall: the offset
-    // in force at the start is part of where the content point was.
-    const fromCentred = { ...start, zoom: 0.5, offset: 250 };
-    const next = pinchScroll(fromCentred, 0.5, 250, start.origin);
-    expect(next.left).toBeCloseTo(start.scrollLeft);
-    expect(next.top).toBeCloseTo(start.scrollTop);
-  });
-
-  it("round-trips: out then back in returns to where it started", () => {
-    const out = pinchScroll(start, 0.5, 250, start.origin);
-    const back = pinchScroll(
-      { zoom: 0.5, scrollLeft: out.left, scrollTop: out.top, origin: start.origin, offset: 250 },
-      1,
-      0,
-      start.origin
-    );
-    expect(back.left).toBeCloseTo(start.scrollLeft);
-    expect(back.top).toBeCloseTo(start.scrollTop);
-  });
+            expect(left).toBeGreaterThanOrEqual(-0.001);
+            expect(left).toBeLessThanOrEqual(maxLeft + 0.001);
+            expect(top).toBeGreaterThanOrEqual(-0.001);
+            expect(top).toBeLessThanOrEqual(maxTop + 0.001);
+          }
+        }
+      }
+    });
+  }
 });

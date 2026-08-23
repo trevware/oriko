@@ -2319,9 +2319,11 @@ buttonbuttonbutton/* The management panel's rows. */
   touch-action: none;
 }
 
-/* A pinch is shown as one transform on the scrolled content and only becomes
-   a real scale and scroll position when the fingers leave, so the whole
-   gesture stays on the compositor. */
-.pg-viewport.is-pinching .pg-scroll {
-  will-change: transform;
+/* For the length of a pinch the wall comes off the scroller and onto the
+   camera, so it is exactly what it is on desktop and what the detail view is
+   always: one transform, clamped as it goes. The scroller cannot represent
+   every position a transform can show, and handing between the two at the
+   end is what used to snap. */
+.pg-viewport.is-pinching {
+  overflow: hidden;
 }

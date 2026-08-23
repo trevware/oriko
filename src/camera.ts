@@ -244,38 +244,3 @@ export function pinchCamera(
   const now = pinchMidpoint(a, b);
   return { zoom, x: now.x - anchor.x * zoom, y: now.y - anchor.y * zoom };
 }
-
-/** Where a pinch on a scrolled wall began, in the scroller's terms. */
-export interface PinchScrollStart {
-  zoom: number;
-  scrollLeft: number;
-  scrollTop: number;
-  /** Gesture start midpoint, viewport-local. */
-  origin: Point;
-  /** How far the content was centred at the starting zoom. */
-  offset: number;
-}
-
-/**
- * The scroll position a pinch leaves behind, once the fingers go.
- *
- * A pinch on a native scroller is shown as a transform and only becomes real
- * on release, so this is the conversion between the two: it puts the content
- * point the gesture started on back underneath wherever the fingers finished.
- *
- * The centring offset is the part that is easy to leave out and wrong to.
- * A wall narrower than its viewport is centred by the layout, which sits
- * between viewport coordinates and the content's own. That offset is zero at
- * the fitted zoom, so omitting it looks perfectly correct until the first
- * pinch outwards, and then puts the wall sideways.
- */
-export function pinchScroll(
-  start: PinchScrollStart,
-  zoom: number,
-  offset: number,
-  at: Point
-): { left: number; top: number } {
-  const cx = (start.scrollLeft + start.origin.x - start.offset) / start.zoom;
-  const cy = (start.scrollTop + start.origin.y) / start.zoom;
-  return { left: cx * zoom + offset - at.x, top: cy * zoom - at.y };
-}

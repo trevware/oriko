@@ -10,7 +10,6 @@ import {
   pinchCamera,
   pinchFactor,
   pinchMidpoint,
-  pinchScroll,
   pinchSpan,
   preserveAnchor,
   revealCamera,
@@ -147,22 +146,10 @@ export class GridRenderer {
   private scroller: HTMLElement | null = null;
   private onScroll: (() => void) | null = null;
   /**
-   * A pinch in progress on the native scroller, held as the state needed to
-   * turn it into a scroll position once the fingers leave.
+   * True while a pinch has the wall off the scroller and on the camera.
+   * See takeFromScroller.
    */
-  private pinchVisual: {
-    zoom: number;
-    scrollLeft: number;
-    scrollTop: number;
-    rect: DOMRect;
-    /** Gesture start midpoint, viewport-local. */
-    origin: Point;
-    /** Centring offset at the zoom the gesture began at. */
-    offset: number;
-    /** Latest scale and midpoint, so the release can commit what is on screen. */
-    scale: number;
-    at: Point;
-  } | null = null;
+  private pinching = false;
   private longPress = 0;
   /**
    * Touch has no modifier keys, so multi-select is a mode rather than a
@@ -286,7 +273,7 @@ export class GridRenderer {
   }
 
   private applyCamera(smooth = false): void {
-    if (this.nativeScroll) {
+    if (this.nativeScroll && !this.pinching) {
       // Only the zoom is ours to clamp. How far the wall may travel is the
       // scroller's business, and it is already the authority on that.
       this.camera = { ...this.camera, zoom: clampZoom(this.camera.zoom) };
@@ -317,7 +304,7 @@ export class GridRenderer {
     this.scroller.style.height = `${content.height * zoom}px`;
     this.canvas.style.transform = `scale(${zoom})`;
 
-    const left = -this.camera.x;
+    const left = this.scrollerOffset(zoom) - this.camera.x;
     const top = -this.camera.y;
     if (
       Math.abs(this.viewport.scrollLeft - left) > 0.5 ||
@@ -335,9 +322,10 @@ export class GridRenderer {
    * would fight the momentum that is producing it.
    */
   private readScroll(): void {
+    if (this.pinching) return;
     this.camera = {
       ...this.camera,
-      x: -this.viewport.scrollLeft,
+      x: this.scrollerOffset(this.camera.zoom) - this.viewport.scrollLeft,
       y: -this.viewport.scrollTop,
     };
     this.schedule();
@@ -346,7 +334,6 @@ export class GridRenderer {
   setCamera(camera: Camera): void {
     this.camera = camera;
     this.applyCamera();
-    this.onZoomChanged(this.camera.zoom);
   }
 
   zoomBy(factor: number, pointer?: { x: number; y: number }): void {
@@ -897,12 +884,15 @@ export class GridRenderer {
 
     const beginPinch = (a: Point, b: Point): void => {
       this.touchPan = null;
+      // Taken off the scroller first: the gesture is measured against the
+      // camera, so the camera has to be the one saying where the wall is
+      // before the start is recorded.
+      if (this.nativeScroll) this.takeFromScroller();
       this.pinch = {
         camera: this.camera,
         span: pinchSpan(a, b),
         midpoint: pinchMidpoint(a, b),
       };
-      if (this.nativeScroll) this.beginVisualPinch(a, b);
     };
 
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
@@ -932,10 +922,8 @@ export class GridRenderer {
 
       const live = [...this.touches.values()];
       if (live.length >= 2 && this.pinch) {
-        if (this.nativeScroll) {
-          this.moveVisualPinch(live[0], live[1]);
-          return;
-        }
+        // Identical on both platforms while the pinch is on: the wall is a
+        // camera, and applyCamera clamps it as it goes.
         this.setCamera(pinchCamera(this.pinch, live[0], live[1], MIN_ZOOM, MAX_ZOOM));
         return;
       }
@@ -966,9 +954,9 @@ export class GridRenderer {
 
       const live = [...this.touches.values()];
       if (live.length >= 2) return beginPinch(live[0], live[1]);
-      // Down to one finger or none: the zoom is over, so what is on screen
-      // as a transform becomes a real scroll position and a real scale.
-      if (this.pinchVisual) this.commitVisualPinch();
+      // Down to one finger or none: the zoom is over, so the wall goes back
+      // to the scroller and gets its momentum and its edges back.
+      if (this.nativeScroll) this.giveToScroller();
       if (live.length === 1) {
         if (!this.nativeScroll) beginPan(live[0]);
         return;
@@ -1023,111 +1011,75 @@ export class GridRenderer {
     this.viewport.addEventListener("touchmove", claim, { passive: false });
   }
 
-  /*
-   * Pinching a native scroller, without laying anything out.
-   *
-   * Writing the zoom through applyCamera on every frame resized the spacer
-   * and wrote a scroll position, so each finger movement forced a layout of
-   * the scroll container and then fought the scroller for the position. That
-   * is what made it feel rough.
-   *
-   * So the gesture is shown rather than applied: the scrolled content takes
-   * one transform, which the compositor can do without laying out or
-   * painting anything, and only when the fingers leave does that become a
-   * real scale and a real scroll position. It is how a photo viewer does it,
-   * and the reason a pinch there is smooth.
-   */
   /**
    * How far the scrolled content is pushed in from the viewport's left edge.
    *
    * `margin: 0 auto` centres the wall whenever the scaled content is
    * narrower than the viewport, which is every zoom below the fit. That
    * centring sits between viewport coordinates and the wall's own, so every
-   * conversion between them has to account for it. It is zero at fit and
-   * above, which is exactly why leaving it out looked correct until the
-   * first pinch outwards.
+   * conversion between them goes through it. It is zero at fit and above,
+   * which is why leaving it out looks correct until the first pinch outwards.
+   *
+   * clampCamera centres an axis with no travel by exactly the same rule,
+   * which is what lets the camera and the scroller mean the same thing.
    */
   private scrollerOffset(zoom: number): number {
     const scaled = this.contentSize().width * zoom;
     return Math.max(0, (this.viewportSize().width - scaled) / 2);
   }
 
-  private beginVisualPinch(a: Point, b: Point): void {
-    if (!this.scroller) return;
-    // A change in the number of fingers restarts the gesture. Whatever is
-    // on screen from the last one becomes real first, so the new one
-    // measures from a base that matches what is actually drawn instead of
-    // stacking a second transform on an uncommitted one.
-    if (this.pinchVisual) this.commitVisualPinch();
-    const rect = this.viewport.getBoundingClientRect();
-    const mid = pinchMidpoint(a, b);
-    const origin = { x: mid.x - rect.left, y: mid.y - rect.top };
-
-    const offset = this.scrollerOffset(this.camera.zoom);
-    this.pinchVisual = {
-      zoom: this.camera.zoom,
-      scrollLeft: this.viewport.scrollLeft,
-      scrollTop: this.viewport.scrollTop,
-      rect,
-      origin,
-      offset,
-      scale: 1,
-      at: origin,
-    };
-
-    // Stated in the scrolled content's own coordinates: the viewport's, less
-    // where the content has been centred, plus how far it has been scrolled.
-    this.scroller.style.transformOrigin =
-      `${origin.x - offset + this.viewport.scrollLeft}px ${
-        origin.y + this.viewport.scrollTop
-      }px`;
-    this.viewport.addClass("is-pinching");
-  }
-
-  private moveVisualPinch(a: Point, b: Point): void {
-    const state = this.pinchVisual;
-    if (!state || !this.scroller || !this.pinch) return;
-
-    // Held inside the zoom range as it goes, so what is on screen is always
-    // something the release can commit to rather than something that snaps.
-    const asked = pinchSpan(a, b) / (this.pinch.span || 1);
-    const scale = clampZoom(state.zoom * asked) / state.zoom;
-
-    const mid = pinchMidpoint(a, b);
-    const at = { x: mid.x - state.rect.left, y: mid.y - state.rect.top };
-    state.scale = scale;
-    state.at = at;
-
-    // Scaled about the midpoint the gesture began at, then carried by
-    // however far that midpoint has since travelled, so a pinch that also
-    // drifts takes the wall with it.
-    this.scroller.style.transform =
-      `translate3d(${at.x - state.origin.x}px, ${at.y - state.origin.y}px, 0) scale(${scale})`;
-  }
-
-  /**
-   * Turns the shown gesture into the real one, in a single pass so there is
-   * no frame drawn at the old zoom and the new position.
+  /*
+   * A pinch takes the wall off the scroller and puts it on the camera.
+   *
+   * Zoom and a scroll container do not get on: the travel available depends
+   * on the zoom, so changing one has to resize the other, and doing that per
+   * frame both costs a layout and argues with the scroller about where the
+   * content should be. Showing the gesture as a transform and turning it
+   * into a scroll position at the end was worse, because the two are not the
+   * same thing: a transform can show a position the scroller cannot
+   * represent, and the release then clamps it. That is what snapped.
+   *
+   * So for the length of the gesture the wall is exactly what it is on
+   * desktop, and what the detail view is always: a camera written as one
+   * transform, clamped as it goes. Both hand-offs are conversions between
+   * two ways of saying the same position, and because the camera is held to
+   * what the scroller can represent throughout, handing back is an identity
+   * rather than a correction. Nothing is left to snap to.
    */
-  private commitVisualPinch(): void {
-    const state = this.pinchVisual;
-    this.pinchVisual = null;
-    if (!state || !this.scroller) return;
+  private takeFromScroller(): void {
+    if (!this.scroller || this.pinching) return;
+    const zoom = this.camera.zoom;
 
-    this.scroller.style.transform = "";
-    this.scroller.style.transformOrigin = "";
-    this.viewport.removeClass("is-pinching");
+    // Where the scroller is showing, said as a camera.
+    this.camera = {
+      zoom,
+      x: this.scrollerOffset(zoom) - this.viewport.scrollLeft,
+      y: -this.viewport.scrollTop,
+    };
+    this.pinching = true;
+    this.viewport.addClass("is-pinching");
 
-    const zoom = clampZoom(state.zoom * state.scale);
-    // The content point the gesture started on, in the wall's own unscaled
-    // space, has to end up under wherever the fingers finished. Both
-    // directions go through the centring offset, taken at the zoom that
-    // applied on each side of the gesture.
-    const { left, top } = pinchScroll(state, zoom, this.scrollerOffset(zoom), state.at);
-    this.camera = { zoom, x: -left, y: -top };
+    // The canvas has to start at the viewport's own origin for the camera to
+    // mean anything, so the spacer stops taking up room and stops being
+    // centred. Scrolled to zero for the same reason, and it can be: the
+    // viewport is not scrollable while this class is on it.
+    this.scroller.style.margin = "0";
+    this.scroller.style.width = "0px";
+    this.scroller.style.height = "0px";
+    this.viewport.scrollTo({ left: 0, top: 0, behavior: "auto" });
+
     this.applyCamera();
-    // The scroller has the last word on how far it would actually go.
-    this.readScroll();
+  }
+
+  /** Hands the wall back, at the position the camera is already showing. */
+  private giveToScroller(): void {
+    if (!this.scroller || !this.pinching) return;
+    this.pinching = false;
+    this.viewport.removeClass("is-pinching");
+    this.scroller.style.margin = "";
+    // Sizes the spacer and scrolls to the camera's position, which the
+    // scroller can reach because clampCamera never let it be anywhere else.
+    this.applyCamera();
     this.onZoomChanged(this.camera.zoom);
   }
 
