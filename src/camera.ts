@@ -196,3 +196,51 @@ export function revealCamera(
     content
   );
 }
+
+/**
+ * How far apart two touches are, which is the only thing a pinch measures.
+ */
+export function pinchSpan(a: Point, b: Point): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+/** The point a pinch scales about: dead centre between the two fingers. */
+export function pinchMidpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+/** Where a two-finger gesture began, held for its duration. */
+export interface PinchStart {
+  camera: Camera;
+  span: number;
+  midpoint: Point;
+}
+
+/**
+ * The camera a two-finger gesture asks for.
+ *
+ * Both halves of the gesture are one calculation: the fingers spreading
+ * scales the wall, and the pair travelling across the screen moves it. A
+ * pinch that also drifts should do both at once, and computing them
+ * separately makes the anchor fight the pan.
+ *
+ * Everything is measured against where the gesture *started* rather than
+ * against the previous frame, so rounding cannot accumulate over a long
+ * pinch and the wall returns exactly where it began if the fingers do.
+ */
+export function pinchCamera(
+  start: PinchStart,
+  a: Point,
+  b: Point,
+  min = MIN_ZOOM,
+  max = MAX_ZOOM
+): Camera {
+  // Two touches at the same point have no span and no direction to grow in.
+  // Treating that as a factor of 1 leaves the pan working on its own.
+  const factor = start.span > 0 ? pinchSpan(a, b) / start.span : 1;
+  const zoom = clampZoom(start.camera.zoom * factor, min, max);
+
+  const anchor = toContent(start.camera, start.midpoint);
+  const now = pinchMidpoint(a, b);
+  return { zoom, x: now.x - anchor.x * zoom, y: now.y - anchor.y * zoom };
+}

@@ -5,7 +5,10 @@ import {
   clampCamera,
   clampZoom,
   initialCamera,
+  pinchCamera,
   pinchFactor,
+  pinchMidpoint,
+  pinchSpan,
   preserveAnchor,
   revealCamera,
   toContent,
@@ -219,5 +222,81 @@ describe("revealCamera", () => {
     expect(camera.zoom).toBe(1);
     // Still brought on screen: the camera has moved down to it.
     expect(camera.y).toBeLessThan(0);
+  });
+});
+
+describe("pinchSpan", () => {
+  it("measures the distance between two touches", () => {
+    expect(pinchSpan({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+  });
+
+  it("is zero for two touches at the same point", () => {
+    expect(pinchSpan({ x: 7, y: 7 }, { x: 7, y: 7 })).toBe(0);
+  });
+});
+
+describe("pinchMidpoint", () => {
+  it("sits halfway between the touches", () => {
+    expect(pinchMidpoint({ x: 0, y: 0 }, { x: 10, y: 20 })).toEqual({ x: 5, y: 10 });
+  });
+});
+
+describe("pinchCamera", () => {
+  const camera = { x: 0, y: 0, zoom: 1 };
+  const start = { camera, span: 100, midpoint: { x: 500, y: 400 } };
+
+  it("holds the fingers still when nothing moves", () => {
+    const next = pinchCamera(start, { x: 450, y: 400 }, { x: 550, y: 400 });
+    expect(next.zoom).toBeCloseTo(1);
+    expect(next.x).toBeCloseTo(0);
+    expect(next.y).toBeCloseTo(0);
+  });
+
+  it("zooms in as the fingers spread", () => {
+    const next = pinchCamera(start, { x: 400, y: 400 }, { x: 600, y: 400 });
+    expect(next.zoom).toBeCloseTo(2);
+  });
+
+  it("zooms out as the fingers close", () => {
+    const next = pinchCamera(start, { x: 475, y: 400 }, { x: 525, y: 400 });
+    expect(next.zoom).toBeCloseTo(0.5);
+  });
+
+  it("keeps the content under the starting midpoint pinned there", () => {
+    const anchor = toContent(camera, start.midpoint);
+    const next = pinchCamera(start, { x: 400, y: 400 }, { x: 600, y: 400 });
+    // The same content point must land back under the midpoint, which has
+    // not moved: this is what stops the wall sliding out from under a pinch.
+    expect(next.x + anchor.x * next.zoom).toBeCloseTo(500);
+    expect(next.y + anchor.y * next.zoom).toBeCloseTo(400);
+  });
+
+  it("pans when the pair travels without spreading", () => {
+    const next = pinchCamera(start, { x: 550, y: 500 }, { x: 650, y: 500 });
+    expect(next.zoom).toBeCloseTo(1);
+    expect(next.x).toBeCloseTo(100);
+    expect(next.y).toBeCloseTo(100);
+  });
+
+  it("zooms and pans together", () => {
+    const next = pinchCamera(start, { x: 500, y: 500 }, { x: 700, y: 500 });
+    expect(next.zoom).toBeCloseTo(2);
+    // Midpoint moved to (600, 500), and the anchor is pinned under it.
+    const anchor = toContent(camera, start.midpoint);
+    expect(next.x + anchor.x * next.zoom).toBeCloseTo(600);
+    expect(next.y + anchor.y * next.zoom).toBeCloseTo(500);
+  });
+
+  it("clamps the zoom at both ends", () => {
+    expect(pinchCamera(start, { x: 0, y: 400 }, { x: 4000, y: 400 }).zoom).toBe(MAX_ZOOM);
+    expect(pinchCamera(start, { x: 500, y: 400 }, { x: 501, y: 400 }).zoom).toBe(MIN_ZOOM);
+  });
+
+  it("treats a zero starting span as pure pan rather than dividing by it", () => {
+    const degenerate = { camera, span: 0, midpoint: { x: 100, y: 100 } };
+    const next = pinchCamera(degenerate, { x: 150, y: 150 }, { x: 150, y: 150 });
+    expect(next.zoom).toBeCloseTo(1);
+    expect(next.x).toBeCloseTo(50);
+    expect(next.y).toBeCloseTo(50);
   });
 });

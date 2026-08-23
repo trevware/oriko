@@ -6,13 +6,16 @@ import {
   MIN_ZOOM,
   clampCamera,
   initialCamera,
+  pinchCamera,
   pinchFactor,
+  pinchMidpoint,
+  pinchSpan,
   preserveAnchor,
   revealCamera,
   visibleContentBand,
   zoomAt,
 } from "./camera";
-import type { Camera } from "./camera";
+import type { Camera, PinchStart, Point } from "./camera";
 import { DEFAULT_STAGE, columnWidthFor } from "./density";
 import type { DensityStage } from "./density";
 import {
@@ -62,6 +65,17 @@ const MAX_OVERSCAN = 1500;
 const MOUNT_ALL_BUDGET = 150;
 /** Movement past which a pointer gesture is a pan, not a click. */
 const CLICK_SLOP = 3;
+/**
+ * How long a finger must rest on a card before it starts a selection.
+ * Long enough not to fire on a slow flick, short enough that the gesture
+ * feels answered rather than ignored.
+ */
+const LONG_PRESS_MS = 450;
+/**
+ * A finger wanders further than a mouse does, so a press survives more
+ * travel than a click before it is reclassified as a pan.
+ */
+const TOUCH_SLOP = 10;
 /** Degrees a card tips at its edges. Small: it should read as give, not spin. */
 const MAX_TILT_DEG = 5.5;
 
@@ -118,6 +132,21 @@ export class GridRenderer {
   private spaceHeld = false;
   private panning = false;
   private panMoved = false;
+  /**
+   * Live touches by pointer id. A finger is the only pointer the wall
+   * tracks by identity: mouse gestures are told apart by button and
+   * modifier, but two touches are distinguishable only by their ids.
+   */
+  private touches = new Map<number, Point>();
+  private touchPan: { x: number; y: number; camX: number; camY: number } | null = null;
+  private pinch: PinchStart | null = null;
+  private longPress = 0;
+  /**
+   * Touch has no modifier keys, so multi-select is a mode rather than a
+   * chord: a long press turns it on and taps then add and remove, the way
+   * Photos and Files do it. Cleared when the selection empties.
+   */
+  private touchSelecting = false;
   private panOrigin = { x: 0, y: 0, camX: 0, camY: 0 };
   private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
   private onKeyUp: ((event: KeyboardEvent) => void) | null = null;
@@ -173,6 +202,7 @@ export class GridRenderer {
     this.installGestures();
     this.installSelection();
     this.installTilt();
+    this.installTouch();
   }
 
   get viewportEl(): HTMLElement {
@@ -573,6 +603,10 @@ export class GridRenderer {
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
       // Panning owns space-drag and middle-click; a tile owns its own click.
       if (this.spaceHeld || event.button !== 0) return;
+      // A touch reports button 0 like a left click, so without this a finger
+      // drag rubber-band selects instead of moving the wall, and the capture
+      // below swallows the rest of the gesture. installTouch owns touch.
+      if (event.pointerType === "touch") return;
       if ((event.target as HTMLElement | null)?.closest(".pg-tile")) return;
 
       this.selecting = true;
@@ -636,6 +670,9 @@ export class GridRenderer {
     const changed =
       next.size !== this.selection.size || [...next].some((id) => !this.selection.has(id));
     this.selection = next;
+    // Nothing selected is the way out of touch selection mode, so a tap on
+    // the last selected card leaves taps opening cards again.
+    if (next.size === 0) this.touchSelecting = false;
     this.paintSelection();
     if (changed) this.onSelectionChanged([...next]);
   }
@@ -731,6 +768,131 @@ export class GridRenderer {
   }
 
   /**
+   * The wall's touch gestures.
+   *
+   * The camera moves on a wheel, a held space or the middle button, and a
+   * finger produces none of the three, so before this there was no way to
+   * move the wall on a phone at all. `touch-action: none` on the viewport
+   * means the browser will not scroll for us either, which is right for a
+   * canvas that owns its gestures and fatal for one that does not.
+   *
+   * Touches are tracked by pointer id because that is the only thing that
+   * tells two fingers apart. One finger pans, two pinch, and the count
+   * changing mid-gesture restarts whichever is now in effect from where
+   * the surviving fingers actually are: rebasing rather than continuing is
+   * what stops the wall jumping when a finger lifts out of a pinch.
+   */
+  private installTouch(): void {
+    const at = (event: PointerEvent): Point => ({ x: event.clientX, y: event.clientY });
+
+    const beginPan = (from: Point): void => {
+      this.pinch = null;
+      this.touchPan = { x: from.x, y: from.y, camX: this.camera.x, camY: this.camera.y };
+    };
+
+    const beginPinch = (a: Point, b: Point): void => {
+      this.touchPan = null;
+      this.pinch = {
+        camera: this.camera,
+        span: pinchSpan(a, b),
+        midpoint: pinchMidpoint(a, b),
+      };
+    };
+
+    this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      this.cancelTween();
+      this.touches.set(event.pointerId, at(event));
+      this.viewport.setPointerCapture(event.pointerId);
+
+      const live = [...this.touches.values()];
+      if (live.length === 1) {
+        this.panMoved = false;
+        beginPan(live[0]);
+        return;
+      }
+      // A second finger means the gesture is a zoom, never a tap, so the
+      // click that eventually follows must not open anything.
+      this.clearLongPress();
+      this.panMoved = true;
+      beginPinch(live[0], live[1]);
+    });
+
+    this.viewport.addEventListener("pointermove", (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      if (!this.touches.has(event.pointerId)) return;
+      this.touches.set(event.pointerId, at(event));
+
+      const live = [...this.touches.values()];
+      if (live.length >= 2 && this.pinch) {
+        this.setCamera(pinchCamera(this.pinch, live[0], live[1], MIN_ZOOM, MAX_ZOOM));
+        return;
+      }
+
+      if (live.length !== 1 || !this.touchPan) return;
+      const dx = live[0].x - this.touchPan.x;
+      const dy = live[0].y - this.touchPan.y;
+      if (Math.abs(dx) > TOUCH_SLOP || Math.abs(dy) > TOUCH_SLOP) {
+        // Past the slop this is a pan, not a press held slightly unsteadily.
+        this.panMoved = true;
+        this.clearLongPress();
+      }
+      this.camera = {
+        ...this.camera,
+        x: this.touchPan.camX + dx,
+        y: this.touchPan.camY + dy,
+      };
+      this.applyCamera();
+    });
+
+    const lift = (event: PointerEvent): void => {
+      if (event.pointerType !== "touch") return;
+      if (!this.touches.delete(event.pointerId)) return;
+      if (this.viewport.hasPointerCapture(event.pointerId)) {
+        this.viewport.releasePointerCapture(event.pointerId);
+      }
+      this.clearLongPress();
+
+      const live = [...this.touches.values()];
+      if (live.length >= 2) return beginPinch(live[0], live[1]);
+      if (live.length === 1) return beginPan(live[0]);
+
+      this.touchPan = null;
+      this.pinch = null;
+      // Cleared after the click that follows the last lift, exactly as the
+      // mouse pan does: a drag ending over a card must not also open it.
+      window.setTimeout(() => {
+        this.panMoved = false;
+      }, 0);
+    };
+
+    this.viewport.addEventListener("pointerup", lift);
+    this.viewport.addEventListener("pointercancel", lift);
+  }
+
+  /**
+   * Starts the clock on a press. Touch has no modifier keys, so a long
+   * press is the only way in to multi-select; it turns the mode on and
+   * taps then add and remove until the selection empties.
+   */
+  private armLongPress(id: string): void {
+    this.clearLongPress();
+    this.longPress = window.setTimeout(() => {
+      this.longPress = 0;
+      this.touchSelecting = true;
+      this.selectOnly(id, new Set([id]));
+      // The press is answered now. Suppressing the click that follows the
+      // lift stops the card it just selected from opening on top of it.
+      this.panMoved = true;
+    }, LONG_PRESS_MS);
+  }
+
+  private clearLongPress(): void {
+    if (this.longPress) window.clearTimeout(this.longPress);
+    this.longPress = 0;
+  }
+
+  /**
    * Tips the card under the cursor away from it, as though the edge being
    * pointed at were pressed in. Worked out in content space from the camera,
    * so no element is measured and nothing is read from layout per frame.
@@ -739,6 +901,9 @@ export class GridRenderer {
     this.viewport.addEventListener(
       "pointermove",
       (event: PointerEvent) => {
+        // A finger is not a hover. Following it tips whichever card is
+        // under the drag, which reads as the wall coming apart in your hand.
+        if (event.pointerType === "touch") return;
         this.pointer = { x: event.clientX, y: event.clientY };
         this.scheduleTilt();
       },
@@ -1077,6 +1242,14 @@ export class GridRenderer {
       sub.createSpan({ text: model.record.categories.join(", ") });
     }
 
+    // Armed on the card because the id is in scope here; every way out of
+    // a press (a second finger, movement past the slop, the lift) is on the
+    // viewport, which sees the whole gesture.
+    element.root.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      this.armLongPress(model.id);
+    });
+
     element.root.oncontextmenu = (event: MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1091,6 +1264,13 @@ export class GridRenderer {
     element.root.onclick = (event: MouseEvent) => {
       // A pan that ends over a tile must not also open it.
       if (this.panMoved) return;
+
+      // Once a long press has opened selection mode, a tap adds and removes
+      // rather than opening. It is cmd-click, without a cmd key to hold.
+      if (this.touchSelecting) {
+        this.selectOnly(model.id, toggleSelection(this.selection, model.id));
+        return;
+      }
 
       if (event.metaKey || event.ctrlKey) {
         this.selectOnly(model.id, toggleSelection(this.selection, model.id));
