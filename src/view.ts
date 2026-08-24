@@ -933,8 +933,18 @@ export class PowerGridView extends ItemView {
    * rather than staring at a wall that no longer has a name.
    */
   refreshGrids(): void {
-    this.spaceBar?.setActive(this.activeGrid());
-    this.activate(this.activeGrid().name);
+    // Deliberately not activate(), which returns early when the name has not
+    // changed, and after a sync it usually has not: the grid you are standing
+    // in is still called what it was called. What changed is what is in it,
+    // or its rules, or which other grids exist beside it, so the wall is
+    // repainted outright.
+    //
+    // activeGrid falls back to home, so a grid deleted on the other device
+    // leaves this one on home rather than staring at a wall with no name.
+    const space = this.activeGrid();
+    this.plugin.settings.activeGrid = space.name;
+    this.spaceBar?.setActive(space);
+    this.refresh({ replace: true });
   }
 
   applyLiveSettings(): void {
