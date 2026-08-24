@@ -242,6 +242,7 @@ export class PowerGridView extends ItemView {
      * scrolling by even the appearance of intent.
      */
     this.registerDomEvent(this.contentEl, "touchstart", () => {}, { passive: true });
+    this.watchVisualHeight();
 
     this.panel = new LayerPanel(this.contentEl, this.app.vault, {
       // Selection semantics belong to the wall, so the panel forwards rather
@@ -621,6 +622,37 @@ export class PowerGridView extends ItemView {
     this.registerDomEvent(window, "orientationchange", () => this.syncBottomInset());
     // Layout settling after open can move the navbar under us a frame late.
     this.app.workspace.onLayoutReady(() => this.syncBottomInset());
+  }
+
+  /**
+   * Publishes how much of the screen is actually visible, as
+   * --pg-visual-height.
+   *
+   * `vh` on iOS means the viewport as though no keyboard existed, so a panel
+   * sized in it keeps its full height and puts its own footer behind the
+   * keys. The create-grid sheet is the case: its confirm button sat under
+   * the keyboard you were typing the name with. visualViewport is the only
+   * thing that reports the space the keyboard has left.
+   */
+  private watchVisualHeight(): void {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const publish = (): void => {
+      this.contentEl.style.setProperty("--pg-visual-height", `${Math.round(viewport.height)}px`);
+    };
+    publish();
+    // Attached by hand rather than through registerDomEvent, which types its
+    // target as a Window, Document or HTMLElement and a VisualViewport is
+    // none of the three. Unregistered on close all the same.
+    viewport.addEventListener("resize", publish);
+    // The keyboard scrolls the visual viewport as well as resizing it, and a
+    // panel measured against the old height would still overhang.
+    viewport.addEventListener("scroll", publish);
+    this.register(() => {
+      viewport.removeEventListener("resize", publish);
+      viewport.removeEventListener("scroll", publish);
+    });
   }
 
   async onClose(): Promise<void> {
