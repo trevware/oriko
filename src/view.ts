@@ -226,6 +226,23 @@ export class PowerGridView extends ItemView {
     this.spaceBar.setActive(this.activeGrid());
     this.watchBottomInset();
 
+    /*
+     * Wakes up :active on the wall's chrome, on touch.
+     *
+     * WebKit applies :active to an element only when a touch handler is
+     * attached to it or to something above it. The plugin's one touch
+     * handler is on the viewport, and every floating control, the space bar,
+     * the selection bar, the panel toggle, the detail view's own buttons,
+     * is a sibling of the viewport rather than a descendant. So none of them
+     * were ever in the active state, their press transitions had nothing to
+     * animate, and every tap landed with no feedback at all.
+     *
+     * This handler exists to be attached and does nothing else, which is the
+     * documented way to ask for the behaviour. Passive, so it cannot affect
+     * scrolling by even the appearance of intent.
+     */
+    this.registerDomEvent(this.contentEl, "touchstart", () => {}, { passive: true });
+
     this.panel = new LayerPanel(this.contentEl, this.app.vault, {
       // Selection semantics belong to the wall, so the panel forwards rather
       // than deciding what a shift-click means.

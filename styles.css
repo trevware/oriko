@@ -401,8 +401,12 @@
   pointer-events: none;
 }
 
-.pg-tile:hover .pg-meta {
-  opacity: 1;
+/* Same reason as the tips: a tapped card would keep its hover state, and
+   the title it reveals, long after the finger had gone. */
+@media (hover: hover) {
+  .pg-tile:hover .pg-meta {
+    opacity: 1;
+  }
 }
 
 /* At the tightest stage a column is narrower than the title needs, and the
@@ -613,21 +617,26 @@
   z-index: 4;
 }
 
-.pg-tile:hover .pg-frame {
-  transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
-    scale(var(--pg-sx, 1), var(--pg-sy, 1));
-  box-shadow: var(--pg-tile-lift);
-  /* While engaged, short enough to follow the cursor. Leaving hover falls
-     back to the resting transition above, which is the gentle one. */
-  transition:
-    transform 120ms cubic-bezier(0.22, 0.9, 0.28, 1),
-    outline-color 190ms ease,
-    box-shadow 190ms ease;
-}
+/* The lift answers a cursor, and the tilt inside it is driven by where that
+   cursor is. A finger has neither, and a tapped card would keep the raised
+   shadow after the finger had gone, so on touch a card simply stays flat. */
+@media (hover: hover) {
+  .pg-tile:hover .pg-frame {
+    transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
+      scale(var(--pg-sx, 1), var(--pg-sy, 1));
+    box-shadow: var(--pg-tile-lift);
+    /* While engaged, short enough to follow the cursor. Leaving hover falls
+       back to the resting transition above, which is the gentle one. */
+    transition:
+      transform 120ms cubic-bezier(0.22, 0.9, 0.28, 1),
+      outline-color 190ms ease,
+      box-shadow 190ms ease;
+  }
 
-/* Selection outranks hover, so a selected card keeps its ring and depth. */
-.pg-tile.is-selected:hover .pg-frame {
-  box-shadow: var(--pg-tile-lift-strong);
+  /* Selection outranks hover, so a selected card keeps its ring and depth. */
+  .pg-tile.is-selected:hover .pg-frame {
+    box-shadow: var(--pg-tile-lift-strong);
+  }
 }
 
 /* Dragging should not leave a trail of tiles popping under the cursor. */
@@ -775,13 +784,19 @@
     transform 120ms ease;
 }
 
-.pg-actionbar-button:hover .pg-tip,
-.pg-detail-button:hover .pg-tip,
-.pg-detail-back:hover .pg-tip,
-.pg-spacebar button:hover .pg-tip,
-.pg-panel-toggle:hover .pg-tip {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+/* Only where there is a pointer that can hover. A touch applies :hover on
+   tap and leaves it applied until something else is tapped, so on a phone
+   these labels would appear on use and then sit there, captioning a button
+   nobody is pointing at. */
+@media (hover: hover) {
+  .pg-actionbar-button:hover .pg-tip,
+  .pg-detail-button:hover .pg-tip,
+  .pg-detail-back:hover .pg-tip,
+  .pg-spacebar button:hover .pg-tip,
+  .pg-panel-toggle:hover .pg-tip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* The wall's own controls stand alone rather than inside a bar, so there is
