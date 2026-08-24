@@ -200,10 +200,6 @@ export class DetailView {
   private flying = false;
   private dragging = false;
   private zoomedNow = false;
-  /** Narrow pane: the details scroll and take the picture with them. */
-  private stacked = false;
-  /** How far that scroll has carried the picture, for stage-local maths. */
-  private scrolled = 0;
   private dragFrom = { x: 0, y: 0, viewX: 0, viewY: 0 };
   /** Live touches on the stage, by pointer id. Two of them are a pinch. */
   private touches = new Map<number, Point>();
@@ -434,9 +430,11 @@ export class DetailView {
     // clear the action bar they would otherwise run under.
     this.root.toggleClass("is-stacked", layout.mode === "stacked");
 
-    this.stacked = layout.mode === "stacked";
-    if (this.meta) this.placeMeta(this.meta, layout);
-    this.syncStageScroll();
+    if (this.meta) {
+      this.meta.style.width = `${layout.meta.width}px`;
+      this.meta.style.left = `${layout.meta.x}px`;
+      this.meta.style.top = `${layout.meta.y}px`;
+    }
   }
 
   /**
@@ -474,71 +472,19 @@ export class DetailView {
     }
   }
 
-  /*
-   * Where the details sit, and in a narrow pane what scrolls.
-   *
-   * Beside the picture, the details are their own column and scroll on their
-   * own; the picture is not going anywhere and there is room for both.
-   *
-   * Stacked, they run underneath it, and scrolling only them left the picture
-   * pinned to the top of a phone screen with the text sliding about beneath
-   * it. So the panel starts at the top of the overlay instead, reserving the
-   * picture's height as padding, and the picture is carried up by however far
-   * that panel has scrolled. One gesture moves the whole thing, which is what
-   * a page of one picture and its details should do, and the picture stays an
-   * absolutely positioned element that the flight and the zoom can still
-   * reason about.
-   */
-  private placeMeta(panel: HTMLElement, layout: DetailLayout): void {
-    panel.style.width = `${layout.meta.width}px`;
-    panel.style.left = `${layout.meta.x}px`;
-    if (layout.mode === "stacked") {
-      panel.style.top = "0px";
-      panel.style.paddingTop = `${layout.meta.y}px`;
-    } else {
-      panel.style.top = `${layout.meta.y}px`;
-      panel.style.paddingTop = "";
-    }
-  }
-
-  /**
-   * Carries the picture with the details it is stacked above.
-   *
-   * The stage's transform is also the flight's, so this stays off it while
-   * one is playing and while the details are a column of their own beside
-   * the picture. Writing an identity in either case would cancel a flight
-   * mid-air.
-   */
-  private syncStageScroll(): void {
-    if (!this.stage || this.flying) return;
-
-    if (!this.stacked || !this.meta) {
-      // Only when there is something to undo, so a beside layout that never
-      // scrolled is left entirely alone.
-      if (this.scrolled === 0) return;
-      this.scrolled = 0;
-      this.stage.style.transform = "";
-      return;
-    }
-
-    const offset = this.meta.scrollTop;
-    if (offset === this.scrolled) return;
-    this.scrolled = offset;
-    this.stage.style.transform = offset ? `translate3d(0, ${-offset}px, 0)` : "";
-  }
-
   private paintMeta(model: TileModel, layout: DetailLayout): HTMLElement | null {
     if (!this.root) return null;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
     this.reveal = DetailView.slideIn(panel, META_DELAY_MS, META_MS);
-    panel.addEventListener("scroll", () => this.syncStageScroll(), { passive: true });
 
     // Where the panel goes is decided with the stage in detailLayout: beside
     // the picture in a wide pane, sat against its edge rather than in a
     // fixed column; under it in a narrow one. Either way it runs to the
     // bottom of the overlay and scrolls, since the details can outrun the
     // picture.
-    this.placeMeta(panel, layout);
+    panel.style.width = `${layout.meta.width}px`;
+    panel.style.left = `${layout.meta.x}px`;
+    panel.style.top = `${layout.meta.y}px`;
 
     const field = (label: string, value: string): void => {
       if (!value) return;
@@ -702,13 +648,7 @@ export class DetailView {
   /** Client coordinates to stage-local, which is also the zoom layer's own
       untransformed space since the layer is inset 0 with a 0 0 origin. */
   private stagePoint(clientX: number, clientY: number): { x: number; y: number } {
-    // stageClient is where place() put the stage. Scrolling moves it without
-    // laying it out again, so the offset has to be added back or every pinch
-    // and drag would be measured against where the picture used to be.
-    return {
-      x: clientX - this.stageClient.x,
-      y: clientY - this.stageClient.y + this.scrolled,
-    };
+    return { x: clientX - this.stageClient.x, y: clientY - this.stageClient.y };
   }
 
   /**

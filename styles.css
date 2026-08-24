@@ -1240,18 +1240,16 @@
      debris the returning card flies underneath. */
 }
 
-/* Stacked (narrow pane): the details run under the picture and scroll it with
-   them, so this panel is the scroller for the whole overlay. It starts at the
-   top with the picture's height reserved as padding, set in placeMeta.
-
-   The bottom padding clears the action bar pinned above it and whatever
-   Obsidian's navbar covers below that. The inset has to be repeated here: the
-   shorthand in the rule above sets padding-bottom, and this longhand would
-   otherwise drop it and put the last field back under the navbar. No right
-   padding, the column being already as wide as the picture with nothing to
-   its right. */
+/* Stacked (narrow pane): the details run under the picture, so they end
+   behind the action bar pinned to the bottom. Enough bottom padding that the
+   last field can scroll clear of it, and no right padding, since the column
+   is already as wide as the picture and nothing sits to its right. */
 .pg-detail.is-stacked .pg-detail-meta {
   padding-right: 4px;
+  /* The inset is repeated rather than inherited: this longhand overrides the
+     padding shorthand above, so without it the last field goes back under
+     Obsidian's navbar and 0.1.7 is undone in the one layout that most needs
+     it. */
   padding-bottom: calc(96px + var(--pg-bottom-inset, 0px));
 }
 
@@ -1666,12 +1664,7 @@ buttonbuttonbutton/* The management panel's rows. */
   top: 14vh;
   left: 50%;
   width: min(620px, calc(100% - 32px));
-  /* Bounded by what is actually on screen, not by the screen. On iOS `vh`
-     is the viewport as though no keyboard existed, so at 62vh the sheet kept
-     its full height with the keyboard up and put its own footer behind the
-     keys. --pg-visual-height is published by view.ts from visualViewport,
-     and is simply absent where there is no keyboard to make room for. */
-  max-height: min(62vh, calc(var(--pg-visual-height, 100vh) - 14vh - 24px));
+  max-height: 62vh;
   display: flex;
   flex-direction: column;
   padding: var(--pg-surface-pad);
@@ -2382,18 +2375,4 @@ buttonbuttonbutton/* The management panel's rows. */
   .pg-spacebar {
     transition: none;
   }
-}
-
-/* Stacked and not zoomed in, one finger scrolls the whole overlay, picture
-   included, so the stage hands vertical panning back to the browser. Two
-   fingers still reach the pointer handlers, which is what keeps pinch working.
-
-   Zoomed in, the finger belongs to the picture: it pans within it, and the
-   way back to scrolling the page is to zoom out. Photos makes the same trade. */
-.pg-detail.is-stacked .pg-detail-stage {
-  touch-action: pan-y;
-}
-
-.pg-detail.is-stacked.is-zoomed .pg-detail-stage {
-  touch-action: none;
 }
