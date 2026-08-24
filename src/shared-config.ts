@@ -24,9 +24,23 @@ export interface SharedConfig {
   filterProperties: string[];
 }
 
-/** Named with a leading underscore, the vault's own mark for a file in the
-    clippings folder that is not a clipping. See vault CLAUDE.md §9. */
-export const SHARED_FILE = "_Power Grid.json";
+/*
+ * Markdown, holding JSON in a fenced block, rather than a .json file.
+ *
+ * Not for reading pleasure: it is what every sync path carries without being
+ * asked. Obsidian Sync syncs notes by default and treats .json as an
+ * unsupported type that is off until someone finds the toggle, which is
+ * exactly how the first version of this file failed to reach a phone. Every
+ * other transport carries .md too, so this survives changing sync method
+ * later.
+ *
+ * The leading underscore is the vault's own mark for a file in the clippings
+ * folder that is not a clipping, and isInFolder already skips those, so the
+ * index never sees it despite it now being a note.
+ */
+export const SHARED_FILE = "_Power Grid.md";
+/** The .json this replaced, read once so an early vault is not stranded. */
+export const LEGACY_SHARED_FILE = "_Power Grid.json";
 
 export function sharedOf(settings: PowerGridSettings): SharedConfig {
   // Copied, not referenced. The caller pushes grids onto this list, and
@@ -121,8 +135,36 @@ export function defaultShared(): SharedConfig {
   return sharedOf(DEFAULT_SETTINGS);
 }
 
+const FENCE = "```";
+
 /** Serialised the way it is written, so a caller can tell its own write back
     from one that arrived by sync without re-reading the file. */
 export function serializeShared(shared: SharedConfig): string {
-  return JSON.stringify(shared, null, 2);
+  return [
+    "# Power Grid",
+    "",
+    "The grids in this vault, shared by every device that opens it. Written by the Power Grid plugin; change them in the app rather than here.",
+    "",
+    `${FENCE}json`,
+    JSON.stringify(shared, null, 2),
+    FENCE,
+    "",
+  ].join("\n");
+}
+
+/**
+ * Pulls the configuration out of a file, whichever of the two forms it is in.
+ *
+ * The fenced block is the current one. A file that is bare JSON is the .json
+ * this replaced, read so that a vault which already published one is carried
+ * over rather than starting again.
+ */
+export function extractShared(text: string): unknown {
+  const fenced = new RegExp(`${FENCE}json\\s*\\n([\\s\\S]*?)${FENCE}`).exec(text);
+  const body = fenced ? fenced[1] : text;
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    return null;
+  }
 }

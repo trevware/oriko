@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultShared,
+  extractShared,
   isDefaultShared,
   parseShared,
   serializeShared,
@@ -96,10 +97,6 @@ describe("parseShared", () => {
     expect(parseShared({ homeGridName: "" }, fallback).homeGridName).toBe(fallback.homeGridName);
   });
 
-  it("round-trips through the form it is written in", () => {
-    const shared = { ...fallback, grids: [{ name: "Shots", icon: "image", rules: { kind: ["image"] } }] };
-    expect(parseShared(JSON.parse(serializeShared(shared)), defaultShared())).toEqual(shared);
-  });
 });
 
 describe("isDefaultShared", () => {
@@ -132,5 +129,41 @@ describe("sharedOf copies", () => {
     const shared = sharedOf(DEFAULT_SETTINGS);
     shared.grids.push({ name: "Scratch", icon: "star" });
     expect(DEFAULT_SETTINGS.grids).toHaveLength(0);
+  });
+});
+
+describe("extractShared", () => {
+  const shared = {
+    ...fallback,
+    grids: [{ name: "Shots", icon: "image", rules: { kind: ["image"] } }],
+  };
+
+  it("round-trips through the markdown it is written as", () => {
+    const written = serializeShared(shared);
+    expect(parseShared(extractShared(written), defaultShared())).toEqual(shared);
+  });
+
+  it("writes a note, not a blob, so every sync carries it", () => {
+    const written = serializeShared(shared);
+    expect(written.startsWith("# Power Grid")).toBe(true);
+    expect(written).toContain("```json");
+  });
+
+  it("reads the bare JSON of the file this replaced", () => {
+    expect(extractShared(JSON.stringify(shared))).toEqual(shared);
+  });
+
+  it("ignores prose around the block", () => {
+    const written = `# Power Grid\n\nSome note someone added.\n\n\`\`\`json\n${JSON.stringify(shared)}\n\`\`\`\n\nAnd more after it.\n`;
+    expect(extractShared(written)).toEqual(shared);
+  });
+
+  it("is null for a file with no configuration in it", () => {
+    expect(extractShared("# Power Grid\n\nnothing here\n")).toBeNull();
+    expect(extractShared("")).toBeNull();
+  });
+
+  it("is null for a block that is not valid JSON, rather than throwing", () => {
+    expect(extractShared("```json\n{ nope\n```")).toBeNull();
   });
 });

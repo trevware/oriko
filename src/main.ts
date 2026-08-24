@@ -13,7 +13,9 @@ import { ClippingIndex } from "./index-store";
 import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { isStage } from "./density";
 import {
+  LEGACY_SHARED_FILE,
   SHARED_FILE,
+  extractShared,
   isDefaultShared,
   parseShared,
   serializeShared,
@@ -268,6 +270,11 @@ export default class PowerGridPlugin extends Plugin {
     return normalizePath(`${this.settings.clippingsFolder}/${SHARED_FILE}`);
   }
 
+  /** Where it lived before it was markdown. */
+  private legacySharedPath(): string {
+    return normalizePath(`${this.settings.clippingsFolder}/${LEGACY_SHARED_FILE}`);
+  }
+
   /**
    * Reads the shared half out of the vault, and writes it there the first
    * time if it is missing.
@@ -285,16 +292,38 @@ export default class PowerGridPlugin extends Plugin {
       try {
         const body = await adapter.read(path);
         this.wroteShared = body;
-        const raw = JSON.parse(body) as unknown;
-        this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
-        return;
+        const raw = extractShared(body);
+        if (raw !== null) {
+          this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
+          return;
+        }
       } catch {
-        // Unreadable or half-written by a sync in progress. What this device
-        // already has is a better answer than nothing, and the next save
-        // republishes it.
-        new Notice("Power Grid: could not read the shared grid configuration.");
-        return;
+        // Fall through to the notice below.
       }
+      // Unreadable, or half-written by a sync still in flight. What this
+      // device already has beats nothing, and the next save republishes it.
+      new Notice("Power Grid: could not read the shared grid configuration.");
+      return;
+    }
+
+    // The .json this replaced. Read once, so a vault that already published
+    // one carries over instead of starting again, and then retired: leaving
+    // both would be two files claiming to define the same grids.
+    const legacy = this.legacySharedPath();
+    if (await adapter.exists(legacy)) {
+      try {
+        const raw = extractShared(await adapter.read(legacy));
+        if (raw !== null) {
+          this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
+        }
+      } catch {
+        // Nothing to carry over; the write below publishes what we have.
+      }
+      await this.writeShared();
+      // To the trash rather than deleted outright: it is the plugin's own
+      // file, but it is in the user's vault.
+      await this.app.vault.adapter.trashLocal(legacy).catch(() => {});
+      return;
     }
 
     // Whoever writes the file first wins it, so a device that has nothing but
@@ -333,12 +362,9 @@ export default class PowerGridPlugin extends Plugin {
       // Our own write coming back. Acting on it would be harmless but would
       // rebuild every open wall for nothing.
       if (body === this.wroteShared) return;
-      try {
-        const shared = parseShared(JSON.parse(body) as unknown, sharedOf(this.settings));
-        this.settings = withShared(this.settings, shared);
-      } catch {
-        return;
-      }
+      const raw = extractShared(body);
+      if (raw === null) return;
+      this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
       // Now what is on disk, as far as this device knows, so the next save
       // does not write the same thing straight back at whoever sent it.
       this.wroteShared = body;
