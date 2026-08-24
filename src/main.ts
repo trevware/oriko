@@ -1,9 +1,25 @@
-import { Notice, Plugin, TAbstractFile, TFile, WorkspaceLeaf, parseYaml } from "obsidian";
+import {
+  Notice,
+  Plugin,
+  TAbstractFile,
+  TFile,
+  WorkspaceLeaf,
+  normalizePath,
+  parseYaml,
+} from "obsidian";
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
 import { isStage } from "./density";
+import {
+  SHARED_FILE,
+  isDefaultShared,
+  parseShared,
+  serializeShared,
+  sharedOf,
+  withShared,
+} from "./shared-config";
 import { describeFiles } from "./media-refs";
 import { installRepair } from "./repair";
 import { ConfirmSweepModal } from "./confirm";
@@ -16,9 +32,15 @@ export default class PowerGridPlugin extends Plugin {
   index!: ClippingIndex;
   archiver!: ArchiveService;
   capture!: CaptureService;
+  /** The last shared file this device wrote, to recognise its own echo. */
+  private wroteShared = "";
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    // After the settings, because it needs the clippings folder to know where
+    // to look, and before anything reads a grid.
+    await this.syncShared();
+    this.watchShared();
 
     this.index = new ClippingIndex(
       this.app,
@@ -241,6 +263,94 @@ export default class PowerGridPlugin extends Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_GRID, active: true });
   }
 
+  /** Where the vault's half of the settings lives. */
+  private sharedPath(): string {
+    return normalizePath(`${this.settings.clippingsFolder}/${SHARED_FILE}`);
+  }
+
+  /**
+   * Reads the shared half out of the vault, and writes it there the first
+   * time if it is missing.
+   *
+   * The write is the migration: a vault that predates this has its grids in
+   * data.json and nowhere else, and the first device to open it publishes
+   * them. Devices that already had none, a phone that only ever received the
+   * plugin through BRAT, then read that file rather than starting empty.
+   */
+  private async syncShared(): Promise<void> {
+    const path = this.sharedPath();
+    const adapter = this.app.vault.adapter;
+
+    if (await adapter.exists(path)) {
+      try {
+        const body = await adapter.read(path);
+        this.wroteShared = body;
+        const raw = JSON.parse(body) as unknown;
+        this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
+        return;
+      } catch {
+        // Unreadable or half-written by a sync in progress. What this device
+        // already has is a better answer than nothing, and the next save
+        // republishes it.
+        new Notice("Power Grid: could not read the shared grid configuration.");
+        return;
+      }
+    }
+
+    // Whoever writes the file first wins it, so a device that has nothing but
+    // the defaults does not get to. See isDefaultShared.
+    if (!isDefaultShared(sharedOf(this.settings))) await this.writeShared();
+  }
+
+  private async writeShared(): Promise<void> {
+    const body = serializeShared(sharedOf(this.settings));
+    // saveSettings also runs for the device's own half, the tile size and the
+    // panel among them, and rewriting an identical file for those is sync
+    // churn on every device rather than a change to anything.
+    if (body === this.wroteShared) return;
+    // Remembered so the modify event our own write raises can be told apart
+    // from one that arrived by sync.
+    this.wroteShared = body;
+    const path = this.sharedPath();
+    const folder = this.settings.clippingsFolder;
+    if (folder && !(await this.app.vault.adapter.exists(normalizePath(folder)))) return;
+    await this.app.vault.adapter.write(path, body);
+  }
+
+  /**
+   * Picks up a shared file that has changed underneath us, which is what a
+   * sync delivering another device's grids looks like from here.
+   */
+  private watchShared(): void {
+    const reread = async (path: string): Promise<void> => {
+      if (path !== this.sharedPath()) return;
+      let body: string;
+      try {
+        body = await this.app.vault.adapter.read(this.sharedPath());
+      } catch {
+        return;
+      }
+      // Our own write coming back. Acting on it would be harmless but would
+      // rebuild every open wall for nothing.
+      if (body === this.wroteShared) return;
+      try {
+        const shared = parseShared(JSON.parse(body) as unknown, sharedOf(this.settings));
+        this.settings = withShared(this.settings, shared);
+      } catch {
+        return;
+      }
+      // Now what is on disk, as far as this device knows, so the next save
+      // does not write the same thing straight back at whoever sent it.
+      this.wroteShared = body;
+      for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+        if (leaf.view instanceof PowerGridView) leaf.view.refreshGrids();
+      }
+    };
+
+    this.registerEvent(this.app.vault.on("modify", (file) => void reread(file.path)));
+    this.registerEvent(this.app.vault.on("create", (file) => void reread(file.path)));
+  }
+
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     // Object.assign copies the reference, not the array. Without this, a vault
@@ -256,7 +366,14 @@ export default class PowerGridPlugin extends Plugin {
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    // The vault's half goes to the vault and is kept out of data.json, so
+    // there is one place a grid is defined rather than two that can disagree.
+    const local = { ...this.settings } as Partial<PowerGridSettings>;
+    for (const key of Object.keys(sharedOf(this.settings))) {
+      delete local[key as keyof PowerGridSettings];
+    }
+    await this.saveData(local);
+    await this.writeShared();
 
     // Saving is also how an open wall hears about it. Every caller of this
     // already means "the settings have changed", so there is no second thing

@@ -923,6 +923,20 @@ export class PowerGridView extends ItemView {
    * telling it, so the toggle wrote a value the open wall went on ignoring
    * until the view was reopened.
    */
+  /**
+   * Takes on a grid list that changed outside this device, which is what a
+   * sync delivering another device's configuration looks like from here.
+   *
+   * Re-activating rather than repainting, because the switcher, the hotkey
+   * order and the wall all read the list: activeGrid already falls back to
+   * home, so a grid deleted on the other device leaves this one on home
+   * rather than staring at a wall that no longer has a name.
+   */
+  refreshGrids(): void {
+    this.spaceBar?.setActive(this.activeGrid());
+    this.activate(this.activeGrid().name);
+  }
+
   applyLiveSettings(): void {
     // Not while the detail view is up. It turns playback off deliberately and
     // restores it on close, so obeying the setting here would set the wall
