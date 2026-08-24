@@ -1,4 +1,4 @@
-import { setIcon } from "obsidian";
+import { Platform, setIcon } from "obsidian";
 import { bottomInset } from "./insets";
 import { cursorAfterNarrowing, placeMenu, stepCursor } from "./layout";
 
@@ -178,6 +178,29 @@ export class ContextMenu {
     const openedAt = performance.now();
     this.backdrop.onclick = () => {
       if (performance.now() - openedAt < SETTLE_MS) return;
+
+      /*
+       * On touch, tapping away backs out one level rather than throwing the
+       * whole menu away.
+       *
+       * A mouse has somewhere else to be: clicking off a menu is aimed at
+       * whatever was clicked, and dismissing everything is what was meant.
+       * A finger has nowhere else to be. The area around an open submenu is
+       * mostly the parent menu's own panel and the wall behind it, so the
+       * tap that means "I am done with this list" and the tap that means
+       * "I am done with all of this" land in the same place, and answering
+       * both with a full dismissal loses a menu that took a press and a tap
+       * to reach.
+       *
+       * This is the ladder Escape already climbs, minus the query rung: a
+       * tap outside is a gesture about this panel, and clearing a search
+       * field in answer to it would leave the panel open and look like
+       * nothing had happened at all.
+       */
+      if (Platform.isMobile && this.sub) {
+        this.closeSub();
+        return;
+      }
       this.close();
     };
     this.backdrop.oncontextmenu = (event: MouseEvent) => {
