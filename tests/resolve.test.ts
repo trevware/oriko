@@ -6,6 +6,7 @@ import {
   cleanUrl,
   directMediaKind,
   directMediaLink,
+  firstHttpUrl,
   fxApiUrl,
   instagramPost,
   isHttpUrl,
@@ -385,5 +386,43 @@ describe("parsePageMeta title fallback", () => {
   it("uses the document title when a page declares no og:title", () => {
     const link = parsePageMeta("<html><head><title>Plain &amp; simple</title></head></html>", "https://example.com/");
     expect(link.title).toBe("Plain & simple");
+  });
+});
+
+describe("firstHttpUrl", () => {
+  it("returns a bare URL as itself", () => {
+    expect(firstHttpUrl("https://www.instagram.com/reel/abc/")).toBe(
+      "https://www.instagram.com/reel/abc/"
+    );
+  });
+
+  it("pulls the URL out of share-sheet prose", () => {
+    expect(firstHttpUrl("Check this out! https://x.com/user/status/123 so good")).toBe(
+      "https://x.com/user/status/123"
+    );
+  });
+
+  it("takes the first URL when there are several", () => {
+    expect(firstHttpUrl("https://a.com/1 and https://b.com/2")).toBe("https://a.com/1");
+  });
+
+  it("drops sentence punctuation stuck to the end", () => {
+    expect(firstHttpUrl("look: https://a.com/post.")).toBe("https://a.com/post");
+    expect(firstHttpUrl("(see https://a.com/post)")).toBe("https://a.com/post");
+  });
+
+  it("keeps query strings and fragments intact", () => {
+    expect(firstHttpUrl("https://a.com/watch?v=x&t=1#top here")).toBe(
+      "https://a.com/watch?v=x&t=1#top"
+    );
+  });
+
+  it("returns null when there is no link at all", () => {
+    expect(firstHttpUrl("just some words")).toBeNull();
+    expect(firstHttpUrl("")).toBeNull();
+  });
+
+  it("ignores non-web schemes", () => {
+    expect(firstHttpUrl("mailto:a@b.com ftp://x")).toBeNull();
   });
 });

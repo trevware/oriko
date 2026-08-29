@@ -61,6 +61,21 @@ export function isHttpUrl(value: string): boolean {
 }
 
 /**
+ * The first web URL in a piece of text, or null when there is none.
+ *
+ * Share sheets and copied captions wrap the link in prose — "Check this
+ * out! https://…" — and a capture path that demands a bare URL refuses
+ * exactly the text mobile apps hand over. Trailing sentence punctuation is
+ * not part of a shared link in practice, so it is stripped.
+ */
+export function firstHttpUrl(text: string): string | null {
+  const match = /https?:\/\/[^\s<>"']+/.exec(text);
+  if (!match) return null;
+  const url = match[0].replace(/[.,;:!?)\]}]+$/, "");
+  return isHttpUrl(url) ? url : null;
+}
+
+/**
  * True when the pasted URL is the asset itself rather than a page about it.
  * Threads never exposes its video URL, so copying the video address and
  * pasting that is the only route to archiving it.

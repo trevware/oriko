@@ -24,6 +24,7 @@ import {
 } from "./shared-config";
 import { describeFiles } from "./media-refs";
 import { installRepair } from "./repair";
+import { firstHttpUrl } from "./resolve";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
 import { PowerGridSettingTab } from "./settings-tab";
@@ -67,6 +68,21 @@ export default class PowerGridPlugin extends Plugin {
       VIEW_TYPE_GRID,
       (leaf: WorkspaceLeaf) => new PowerGridView(leaf, this)
     );
+
+    // obsidian://power-grid?url=… — the share-sheet route in. An iOS
+    // Shortcut hands the shared link straight here, so clipping from
+    // another app never touches the clipboard. Prose around the link is
+    // tolerated because share sheets send captions, not bare URLs.
+    this.registerObsidianProtocolHandler("power-grid", (params) => {
+      const url = firstHttpUrl(params.url ?? params.text ?? "");
+      if (!url) {
+        new Notice("Power Grid: no link in the shared text");
+        return;
+      }
+      // The view first, so the capture's progress bar has a wall to sit on
+      // and the clipped tile has somewhere to fly in.
+      void this.activateView().then(() => this.capture.capture(url));
+    });
 
     this.addSettingTab(new PowerGridSettingTab(this.app, this));
     installRepair(this);
