@@ -198,6 +198,21 @@ export function revealCamera(
 }
 
 /**
+ * Whether everything in the tracked-touch set is provably dead.
+ *
+ * A touch state machine assumes every pointerdown eventually meets its
+ * pointerup or pointercancel, and iOS breaks that assumption: when system
+ * UI takes a touch — the long-press menu, notably — the lift is sometimes
+ * never delivered, and the orphaned entry makes every later one-finger
+ * drag read as a pinch against a frozen point. A new primary touch is the
+ * browser stating no other touch exists, so anything still tracked at that
+ * moment is stale and must be purged, never paired with.
+ */
+export function staleTouches(isPrimary: boolean, tracked: number): boolean {
+  return isPrimary && tracked > 0;
+}
+
+/**
  * How far apart two touches are, which is the only thing a pinch measures.
  */
 export function pinchSpan(a: Point, b: Point): number {

@@ -14,6 +14,7 @@ import {
   toContent,
   visibleContentBand,
   zoomAt,
+  staleTouches,
 } from "../src/camera";
 
 const viewport = { width: 1000, height: 800 };
@@ -343,4 +344,24 @@ describe("camera and scroll describe the same positions", () => {
       }
     });
   }
+});
+
+describe("staleTouches", () => {
+  it("declares tracked touches stale when a fresh primary touch arrives over them", () => {
+    // iOS can end a touch without delivering pointerup or pointercancel,
+    // for instance when the long-press menu takes the gesture. The next
+    // gesture's first finger is primary, which is the browser saying no
+    // other touch exists — so whatever is still tracked was orphaned, and
+    // keeping it would turn a one-finger drag into a pinch.
+    expect(staleTouches(true, 1)).toBe(true);
+    expect(staleTouches(true, 2)).toBe(true);
+  });
+
+  it("keeps tracked touches when a second finger joins a live gesture", () => {
+    expect(staleTouches(false, 1)).toBe(false);
+  });
+
+  it("has nothing to purge on a clean first touch", () => {
+    expect(staleTouches(true, 0)).toBe(false);
+  });
 });

@@ -13,6 +13,7 @@ import {
   pinchSpan,
   preserveAnchor,
   revealCamera,
+  staleTouches,
   visibleContentBand,
   zoomAt,
 } from "./camera";
@@ -898,6 +899,15 @@ export class GridRenderer {
     this.viewport.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
       this.cancelTween();
+      // A primary touch means no other finger is down, whatever the map
+      // says: a lift iOS never delivered (the long-press menu taking the
+      // touch, typically) leaves an orphan here, and pairing the new finger
+      // with it would turn this one-finger drag into a pinch.
+      if (staleTouches(event.isPrimary, this.touches.size)) {
+        this.touches.clear();
+        this.pinch = null;
+        this.touchPan = null;
+      }
       this.touches.set(event.pointerId, at(event));
       this.viewport.setPointerCapture(event.pointerId);
 

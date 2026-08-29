@@ -5,6 +5,7 @@ import {
   pinchFactor,
   pinchMidpoint,
   pinchSpan,
+  staleTouches,
   zoomAt,
 } from "./camera";
 import type { PinchStart, Point } from "./camera";
@@ -772,6 +773,14 @@ export class DetailView {
 
     stage.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.pointerType !== "touch" || this.flying || !this.canZoom()) return;
+      // A primary touch means no other finger is down: anything still
+      // tracked was orphaned by a lift iOS never delivered, and pairing
+      // this finger with it would turn a drag into a pinch. Same guard as
+      // the wall's.
+      if (staleTouches(event.isPrimary, this.touches.size)) {
+        this.touches.clear();
+        this.pinchStart = null;
+      }
       this.touches.set(
         event.pointerId,
         this.stagePoint(event.clientX, event.clientY)
