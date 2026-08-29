@@ -9,6 +9,8 @@ export interface CacheEntry {
   height: number;
   bytes: number;
   failed?: string;
+  /** Why deriving a thumb failed, so a hopeless render is not repaid on every pass. */
+  thumbFailed?: string;
 }
 
 /**
@@ -74,10 +76,22 @@ export class MediaCache {
     const entry = this.entriesByKey.get(key);
     if (!entry) return;
     entry.thumb = thumb;
+    delete entry.thumbFailed;
     // Video has no parseable header, so the poster capture is the only
     // source of its intrinsic size.
     if (width > 0) entry.width = width;
     if (height > 0) entry.height = height;
+  }
+
+  setThumbFailed(key: string, reason: string): void {
+    const entry = this.entriesByKey.get(key);
+    if (!entry) return;
+    entry.thumbFailed = reason;
+  }
+
+  /** For the explicit archive-everything command, which retries what a pass skips. */
+  clearThumbFailures(): void {
+    for (const entry of this.entriesByKey.values()) delete entry.thumbFailed;
   }
 
   toJSON(): { version: number; entries: CacheEntry[] } {

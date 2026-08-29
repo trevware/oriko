@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { posterPath, scaledSize, thumbPath } from "../src/derive";
+import { posterPath, previewPath, scaledSize, thumbPath } from "../src/derive";
 
 describe("thumbPath", () => {
   it("appends a thumb suffix before the extension", () => {
@@ -48,5 +48,19 @@ describe("scaledSize", () => {
 
   it("handles the real portrait video shape", () => {
     expect(scaledSize(886, 1920, 400)).toEqual({ width: 400, height: 867 });
+  });
+});
+
+describe("previewPath", () => {
+  it("appends a preview suffix before the extension", () => {
+    expect(previewPath("Attachments/Clippings/abc-shot.heic")).toBe(
+      "Attachments/Clippings/abc-shot.preview.png"
+    );
+  });
+
+  it("handles files with no extension", () => {
+    expect(previewPath("Attachments/Clippings/abc")).toBe(
+      "Attachments/Clippings/abc.preview.png"
+    );
   });
 });

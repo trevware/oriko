@@ -209,7 +209,10 @@ export class CaptureService {
       link.url,
       link.media,
       (done, total) =>
-        this.report(0.3 + (done / Math.max(1, total)) * 0.5, `Downloading ${done}/${total}…`)
+        this.report(0.3 + (done / Math.max(1, total)) * 0.5, `Downloading ${done}/${total}…`),
+      // The work after the downloads announces itself, so the bar can never
+      // sit on "Downloading 1/1" while something else is what's running.
+      (label) => this.report(0.8, label)
     );
 
     const media = link.media.map((item) => ({

@@ -138,3 +138,57 @@ describe("byFile", () => {
     expect(MediaCache.fromJSON(JSON.parse(JSON.stringify(cache))).byFile("Attachments/z.jpg")?.key).toBe("k");
   });
 });
+
+describe("thumbFailed", () => {
+  const entry = () => ({
+    key: "k",
+    file: "Attachments/v.mp4",
+    thumb: "",
+    kind: "video" as const,
+    width: 0,
+    height: 0,
+    bytes: 1,
+  });
+
+  it("marks an entry whose render failed and clears it when a thumb lands", () => {
+    const cache = new MediaCache();
+    cache.set(entry());
+    cache.setThumbFailed("k", "no frame");
+    expect(cache.get("k")?.thumbFailed).toBe("no frame");
+    cache.setThumb("k", "Attachments/v.poster.webp", 100, 50);
+    expect(cache.get("k")?.thumbFailed).toBeUndefined();
+  });
+
+  it("is reset by a fresh download outcome", () => {
+    const cache = new MediaCache();
+    cache.set(entry());
+    cache.setThumbFailed("k", "no frame");
+    cache.mergeOutcome({ key: "k", kind: "video", file: "Attachments/v.mp4", bytes: 2 });
+    expect(cache.get("k")?.thumbFailed).toBeUndefined();
+  });
+
+  it("clears every mark at once for an explicit retry", () => {
+    const cache = new MediaCache();
+    cache.set(entry());
+    cache.set({ ...entry(), key: "k2", file: "Attachments/w.mp4" });
+    cache.setThumbFailed("k", "a");
+    cache.setThumbFailed("k2", "b");
+    cache.clearThumbFailures();
+    expect(cache.get("k")?.thumbFailed).toBeUndefined();
+    expect(cache.get("k2")?.thumbFailed).toBeUndefined();
+  });
+
+  it("survives a round trip through JSON", () => {
+    const cache = new MediaCache();
+    cache.set(entry());
+    cache.setThumbFailed("k", "no frame");
+    expect(MediaCache.fromJSON(JSON.parse(JSON.stringify(cache))).get("k")?.thumbFailed).toBe(
+      "no frame"
+    );
+  });
+
+  it("shrugs at a key it never held", () => {
+    const cache = new MediaCache();
+    expect(() => cache.setThumbFailed("missing", "x")).not.toThrow();
+  });
+});

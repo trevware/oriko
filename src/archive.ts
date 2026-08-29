@@ -32,6 +32,22 @@ export interface ArchiveOutcome {
   failed?: string;
 }
 
+/**
+ * Extensions a source-video download can land under, mp4 first because that
+ * is what yt-dlp is asked for. Ordered, so the first existing candidate wins.
+ */
+const SOURCE_VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "m4v", "mkv"];
+
+/**
+ * Every path a source video for this key could live at. Caches are
+ * per-device but the attachment folder syncs, so a device that cannot run
+ * yt-dlp can still adopt the file another device downloaded.
+ */
+export function sourceVideoCandidates(key: string, folder: string): string[] {
+  const hash = hashUrl(key);
+  return SOURCE_VIDEO_EXTENSIONS.map((ext) => `${folder}/${hash}-video.${ext}`);
+}
+
 /** Statuses that hotlink protection returns and that a Referer may fix. */
 const RETRYABLE = new Set([401, 403, 429]);
 const UNSAFE_CHARS = /[^a-zA-Z0-9._-]/g;

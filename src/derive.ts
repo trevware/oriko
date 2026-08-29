@@ -12,6 +12,10 @@ export function posterPath(originalPath: string): string {
   return replaceExtension(originalPath, ".poster.webp");
 }
 
+export function previewPath(originalPath: string): string {
+  return replaceExtension(originalPath, ".preview.png");
+}
+
 export function scaledSize(
   width: number,
   height: number,

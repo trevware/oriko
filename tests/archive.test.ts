@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { archiveAll, archiveFilename, archiveOne } from "../src/archive";
+import { archiveAll, archiveFilename, archiveOne, sourceVideoCandidates } from "../src/archive";
+import { hashUrl } from "../src/hash";
 import type { ArchiveDeps, Fetcher } from "../src/archive";
 import type { CanonicalMedia } from "../src/normalize";
 
@@ -358,5 +359,22 @@ describe("archiveAll", () => {
     const out = await archiveAll(list, "https://ref", d, 1);
     expect(out.filter((o) => o.failed)).toHaveLength(1);
     expect(out.filter((o) => o.file)).toHaveLength(8);
+  });
+});
+
+describe("sourceVideoCandidates", () => {
+  it("lists one path per playable extension, under the folder, keyed by hash", () => {
+    const paths = sourceVideoCandidates("source-video:https://a/reel/1", "Attachments/Clippings");
+    const hash = hashUrl("source-video:https://a/reel/1");
+    expect(paths).toContain(`Attachments/Clippings/${hash}-video.mp4`);
+    expect(paths.every((p) => p.startsWith(`Attachments/Clippings/${hash}-video.`))).toBe(true);
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+
+  it("matches the filename downloadSourceVideoFor writes", () => {
+    const hash = hashUrl("source-video:https://a/reel/1");
+    expect(sourceVideoCandidates("source-video:https://a/reel/1", "F")[0]).toBe(
+      `F/${hash}-video.mp4`
+    );
   });
 });
