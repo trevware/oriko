@@ -2387,3 +2387,65 @@ buttonbuttonbutton/* The management panel's rows. */
   width: 420px;
   height: 760px;
 }
+
+/* ---------------------------------------------------------------------------
+   Mobile: the wall's controls gather into one centered surface, the shape
+   the detail view's action bar already has. Two clusters pinned to opposite
+   corners read as scattered buttons on a phone; one pill reads as a bar.
+   --------------------------------------------------------------------------- */
+
+body.is-mobile .pg-spacebar {
+  right: auto;
+  left: 50%;
+  justify-content: center;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 7px 10px;
+  border-radius: var(--pg-surface-radius);
+  background-color: var(--pg-surface);
+  background-image: none;
+  backdrop-filter: var(--pg-surface-blur);
+  -webkit-backdrop-filter: var(--pg-surface-blur);
+  box-shadow: var(--pg-surface-ring), var(--pg-surface-lift);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* The hidden slide keeps the centring it now needs to preserve. */
+body.is-mobile .pg-spacebar.is-hidden {
+  transform: translate(-50%, calc(100% + 30px));
+}
+
+body.is-mobile .pg-space-left,
+body.is-mobile .pg-space-right {
+  gap: 4px;
+}
+
+/* One rule where the clusters meet, as the detail bar draws between groups. */
+body.is-mobile .pg-space-right::before {
+  content: "";
+  width: 1px;
+  align-self: stretch;
+  margin: 3px 4px;
+  background: var(--pg-rule);
+}
+
+/* Inside one surface the buttons go flat, like the detail bar's: the glass
+   belongs to the bar now, not to each control. */
+body.is-mobile .pg-spacebar button {
+  border-radius: var(--pg-inner-radius);
+  background-color: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+body.is-mobile .pg-spacebar button:hover {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+body.is-mobile .pg-spacebar button:active {
+  background-color: var(--pg-inner-hover);
+  transform: scale(0.93);
+}
