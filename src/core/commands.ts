@@ -241,7 +241,7 @@ function gridCommands(context: PaletteContext): PaletteCommand[] {
     icon: "layers",
     section: "Grids",
     detail: `${context.grids.length} grids`,
-    keywords: "reorder rename panel all",
+    keywords: "reorder rename all",
     run: () => actions.manageGrids(),
   });
 

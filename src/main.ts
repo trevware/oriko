@@ -148,17 +148,6 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "toggle-layer-panel",
-      name: "Show or hide the list",
-      checkCallback: (checking: boolean) => {
-        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
-        if (!view) return false;
-        if (!checking) view.togglePanel();
-        return true;
-      },
-    });
-
-    this.addCommand({
       id: "sweep-orphan-media",
       name: "Remove orphaned media",
       callback: () => this.sweepOrphanMedia(),
@@ -365,9 +354,9 @@ export default class PowerGridPlugin extends Plugin {
 
   private async writeShared(): Promise<void> {
     const body = serializeShared(sharedOf(this.settings));
-    // saveSettings also runs for the device's own half, the tile size and the
-    // panel among them, and rewriting an identical file for those is sync
-    // churn on every device rather than a change to anything.
+    // saveSettings also runs for the device's own half, the tile size among
+    // them, and rewriting an identical file for those is sync churn on every
+    // device rather than a change to anything.
     if (body === this.wroteShared) return;
     // Remembered so the modify event our own write raises can be told apart
     // from one that arrived by sync.

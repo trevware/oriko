@@ -26,7 +26,6 @@ import { GridRenderer } from "./grid";
 import { groupedMenu } from "./core/layout";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
-import { LayerPanel, PanelToggle } from "./panel";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./core/playback";
 import { ProgressBar } from "./core/progress";
@@ -101,8 +100,6 @@ export class PowerGridView extends ItemView {
   private detail: DetailView | null = null;
   private spaceBar: SpaceBar | null = null;
   private palette: Palette | null = null;
-  private panel: LayerPanel | null = null;
-  private panelToggle: PanelToggle | null = null;
   /** A clipping just made here, to fly to as soon as it has a tile. */
   private pendingReveal: { path: string; until: number } | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
@@ -200,7 +197,6 @@ export class PowerGridView extends ItemView {
     });
     this.grid.onSelectionChanged = (ids: string[]) => {
       this.actionBar?.setSelection(ids);
-      this.panel?.setSelection(ids);
       // The wall's own controls give up the bottom to the selection bar,
       // there being room for only one of them across a phone.
       if (Platform.isMobile) this.spaceBar?.setHidden(ids.length > 0);
@@ -232,7 +228,7 @@ export class PowerGridView extends ItemView {
      * WebKit applies :active to an element only when a touch handler is
      * attached to it or to something above it. The plugin's one touch
      * handler is on the viewport, and every floating control, the space bar,
-     * the selection bar, the panel toggle, the detail view's own buttons,
+     * the selection bar, the detail view's own buttons,
      * is a sibling of the viewport rather than a descendant. So none of them
      * were ever in the active state, their press transitions had nothing to
      * animate, and every tap landed with no feedback at all.
@@ -242,16 +238,6 @@ export class PowerGridView extends ItemView {
      * scrolling by even the appearance of intent.
      */
     this.registerDomEvent(this.contentEl, "touchstart", () => {}, { passive: true });
-
-    this.panel = new LayerPanel(this.contentEl, this.app.vault, {
-      // Selection semantics belong to the wall, so the panel forwards rather
-      // than deciding what a shift-click means.
-      onPick: (id, mode) => this.grid?.pick(id, mode),
-      onHover: (id) => this.grid?.highlightTile(id),
-    });
-    this.panelToggle = new PanelToggle(this.contentEl, () => this.togglePanel());
-    if (this.plugin.settings.panelOpen) this.panel.open();
-    this.panelToggle.setOpen(this.plugin.settings.panelOpen);
 
     this.palette = new Palette(this.contentEl, {
       pools: () => {
@@ -278,20 +264,6 @@ export class PowerGridView extends ItemView {
       // The detail view registers in the capture phase too and owns its keys
       // while it is up.
       if (this.detail?.isOpen) return;
-      // Escape backs out one thing at a time, the same bargain the menus and
-      // the palette make. A selection is the innermost thing on the wall, so
-      // it goes first and the panel only closes once there is none: pressing
-      // Escape should never undo two decisions at once.
-      if (event.key === "Escape") {
-        if (this.palette?.isOpen) return;
-        if ((this.grid?.selectedIds().length ?? 0) > 0) return;
-        if (!this.panel?.isOpen) return;
-        event.preventDefault();
-        event.stopPropagation();
-        this.togglePanel();
-        return;
-      }
-
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
 
       // Fallback only. ⌘K is claimed by Obsidian's own dispatcher, so the
@@ -644,10 +616,6 @@ export class PowerGridView extends ItemView {
     this.onGridKey = null;
     this.palette?.close();
     this.palette = null;
-    this.panel?.close();
-    this.panel = null;
-    this.panelToggle?.destroy();
-    this.panelToggle = null;
     this.spaceBar?.destroy();
     this.spaceBar = null;
     this.observer?.disconnect();
@@ -1077,7 +1045,6 @@ export class PowerGridView extends ItemView {
       : this.facets.filter((tile) => matchesFilter(tile, filter, defs));
     this.grid?.setTiles(shown, options);
     // The same list, so a filter narrows both and neither can drift.
-    this.panel?.setTiles(shown, this.activeGrid().name);
   }
 
   /** The grid's tiles before filtering, which is what the facets count. */
@@ -1216,32 +1183,6 @@ export class PowerGridView extends ItemView {
   }
 
   /**
-   * Shows or hides the list over the wall.
-   *
-   * The panel floats, like every other surface here, so the wall neither
-   * reflows nor moves underneath it. What you were looking at stays exactly
-   * where it was.
-   */
-  togglePanel(): void {
-    const panel = this.panel;
-    if (!panel) return;
-
-    if (panel.isOpen) panel.close();
-    else panel.open();
-
-    this.plugin.settings.panelOpen = panel.isOpen;
-    this.panelToggle?.setOpen(panel.isOpen);
-    if (panel.isOpen) {
-      this.panel?.setTiles(this.shownTiles(), this.activeGrid().name);
-      this.panel?.setSelection(this.grid?.selectedIds() ?? []);
-    } else {
-      // Nothing is pointing at a tile any more.
-      this.grid?.highlightTile(null);
-    }
-    void this.plugin.saveSettings();
-  }
-
-  /**
    * A thumbnail for any clipping in the vault, tile or no tile.
    *
    * The palette searches every grid, so most results have no tile on this
@@ -1255,14 +1196,6 @@ export class PowerGridView extends ItemView {
     const [tile] = buildTiles([record], this.plugin.archiver.cache);
     const preview = tile ? previewOf(tile) : null;
     return preview ? resourceUrl(this.app.vault, preview.path, preview.remote) : "";
-  }
-
-  /** What the wall is showing right now, filter applied. */
-  private shownTiles(): TileModel[] {
-    const filter = this.activeFilter();
-    return isFilterEmpty(filter)
-      ? this.facets
-      : this.facets.filter((tile) => matchesFilter(tile, filter, this.defs()));
   }
 
   // ---- Palette -----------------------------------------------------------

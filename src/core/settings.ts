@@ -34,7 +34,6 @@ export interface PowerGridSettings {
   /** Name of the grid on screen, persisted so a restart reopens where you were. */
   activeGrid: string;
   /** Whether the layer panel is showing, kept so it opens as you left it. */
-  panelOpen: boolean;
   /**
    * How densely the wall is packed, as a named stage (see density.ts). One
    * setting for every pane rather than one per grid: it is about how much
@@ -56,6 +55,5 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
-  panelOpen: false,
   tileSize: "m",
 };
