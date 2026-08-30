@@ -1,4 +1,4 @@
-import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
+import { App, Notice, Platform, TFile, normalizePath, requestUrl } from "obsidian";
 import { ArchiveDeps, archiveAll, sourceVideoCandidates } from "./archive";
 import { MediaCache } from "./cache";
 import { readDimensions } from "./dimensions";
@@ -15,7 +15,8 @@ import { extensionOf, needsPreview } from "./formats";
 import { ClippingIndex } from "./index-store";
 import { hashUrl } from "./hash";
 import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
-import { supportsSourceDownload } from "./resolve";
+import { isThreadsUrl, supportsSourceDownload } from "./resolve";
+import { sniffVideoUrl } from "./sniff";
 import type { CanonicalMedia } from "./normalize";
 import { extractPageImage, knownHostThumbnail, needsPageCover } from "./page-cover";
 import type { ClippingRecord } from "./scan";
@@ -313,18 +314,13 @@ export class ArchiveService {
 
     if (existing?.failed && !retryFailed) return null;
 
-    if (!conversionAvailable() || !ytdlpPath()) {
-      // Recorded rather than skipped silently, so a missing tool is
-      // diagnosable from the cache instead of looking like nothing happened.
-      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp not available" });
-      return null;
-    }
-
-    const result = await downloadSourceVideo(source);
-    if (!result) {
-      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp found no video" });
-      return null;
-    }
+    // Threads has no yt-dlp extractor and hides its video from every
+    // server-side fetch, so its route is the webview sniff; everything
+    // else goes through yt-dlp. Each route records its own failure.
+    const result = isThreadsUrl(source)
+      ? await this.sniffedVideo(source, key)
+      : await this.ytdlpVideo(source, key);
+    if (!result) return null;
 
     if (result.data.byteLength > this.settings().maxBytes) {
       this.cache.mergeOutcome({
@@ -349,6 +345,62 @@ export class ArchiveService {
       bytes: result.data.byteLength,
     });
     return path;
+  }
+
+  /** The yt-dlp route: a local tool the user installed, desktop only. */
+  private async ytdlpVideo(
+    source: string,
+    key: string
+  ): Promise<{ data: ArrayBuffer; extension: string } | null> {
+    if (!conversionAvailable() || !ytdlpPath()) {
+      // Recorded rather than skipped silently, so a missing tool is
+      // diagnosable from the cache instead of looking like nothing happened.
+      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp not available" });
+      return null;
+    }
+
+    const result = await downloadSourceVideo(source);
+    if (!result) {
+      this.cache.mergeOutcome({ key, kind: "video", failed: "yt-dlp found no video" });
+      return null;
+    }
+    return result;
+  }
+
+  /**
+   * The webview route: loads the post so its own scripts reveal the video
+   * URL, then fetches that URL like any other download. See sniff.ts.
+   */
+  private async sniffedVideo(
+    source: string,
+    key: string
+  ): Promise<{ data: ArrayBuffer; extension: string } | null> {
+    if (!Platform.isDesktopApp) {
+      this.cache.mergeOutcome({ key, kind: "video", failed: "video needs the desktop app" });
+      return null;
+    }
+
+    const url = await sniffVideoUrl(source);
+    if (!url) {
+      this.cache.mergeOutcome({ key, kind: "video", failed: "no video found on the page" });
+      return null;
+    }
+
+    try {
+      const response = await requestUrl({ url, method: "GET", throw: false });
+      if (response.status < 200 || response.status >= 300) {
+        this.cache.mergeOutcome({ key, kind: "video", failed: `HTTP ${response.status}` });
+        return null;
+      }
+      // pickSniffedVideo only passes URLs whose path ends in a video
+      // extension, so the slice below always finds one.
+      const pathname = new URL(url).pathname;
+      const extension = pathname.slice(pathname.lastIndexOf(".") + 1).toLowerCase();
+      return { data: response.arrayBuffer, extension };
+    } catch (error) {
+      this.cache.mergeOutcome({ key, kind: "video", failed: String(error) });
+      return null;
+    }
   }
 
   /**

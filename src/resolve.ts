@@ -193,6 +193,10 @@ const DOWNLOADABLE_HOSTS = new Set([
   "vimeo.com",
   "reddit.com",
   "bsky.app",
+  // Threads is not a yt-dlp host: its video URL is sniffed from a hidden
+  // webview on desktop instead. Listed here so the source-video pass runs.
+  "threads.com",
+  "threads.net",
 ]);
 
 export function supportsSourceDownload(url: string): boolean {
@@ -202,6 +206,45 @@ export function supportsSourceDownload(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** True for a Threads post or share link, the hosts the webview sniff owns. */
+export function isThreadsUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    return host === "threads.com" || host === "threads.net";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The video URL worth downloading, out of everything a page load touched.
+ *
+ * Threads hides its video from every server-side route — no og:video, no
+ * yt-dlp extractor — so the sniffer loads the post in a webview and reads
+ * back the <video> source and the resource-timing log. Byte-range params
+ * are windowing, not identity: stripped so the pick is the whole file, and
+ * so ranged requests for one video collapse to one URL. blob: and data:
+ * sources cannot be re-fetched, and DASH segments are not the video.
+ */
+export function pickSniffedVideo(candidates: string[]): string | null {
+  for (const raw of candidates) {
+    if (!raw || !/^https:\/\//i.test(raw)) continue;
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      continue;
+    }
+    if (!/\.(mp4|m4v|mov|webm)$/i.test(parsed.pathname)) continue;
+    parsed.searchParams.delete("bytestart");
+    parsed.searchParams.delete("byteend");
+    let out = parsed.toString();
+    if (out.endsWith("?")) out = out.slice(0, -1);
+    return out;
+  }
+  return null;
 }
 
 export function fxApiUrl(status: { user: string; id: string }): string {

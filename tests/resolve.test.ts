@@ -7,6 +7,8 @@ import {
   directMediaKind,
   directMediaLink,
   firstHttpUrl,
+  isThreadsUrl,
+  pickSniffedVideo,
   sharedHttpUrl,
   fxApiUrl,
   instagramPost,
@@ -455,5 +457,53 @@ describe("sharedHttpUrl", () => {
     expect(sharedHttpUrl("")).toBeNull();
     // A lone percent sign makes decodeURIComponent throw; that must not escape.
     expect(sharedHttpUrl("100% organic")).toBeNull();
+  });
+});
+
+describe("isThreadsUrl", () => {
+  it("matches threads.com and threads.net posts, www or bare", () => {
+    expect(isThreadsUrl("https://www.threads.com/@radiofun8/post/Dco6LUokplj")).toBe(true);
+    expect(isThreadsUrl("https://threads.net/@a/post/x")).toBe(true);
+    expect(isThreadsUrl("https://www.threads.com/share/BAVz6_-9G3/")).toBe(true);
+  });
+
+  it("rejects other hosts and junk", () => {
+    expect(isThreadsUrl("https://www.instagram.com/reel/x/")).toBe(false);
+    expect(isThreadsUrl("not a url")).toBe(false);
+  });
+});
+
+describe("pickSniffedVideo", () => {
+  it("picks the first fetchable mp4 and strips byte-range windowing", () => {
+    expect(
+      pickSniffedVideo([
+        "https://static.cdninstagram.com/rsrc.php/app.js",
+        "https://scontent.cdninstagram.com/o1/v/t16/f2/m86/clip.mp4?efg=abc&bytestart=0&byteend=131071",
+      ])
+    ).toBe("https://scontent.cdninstagram.com/o1/v/t16/f2/m86/clip.mp4?efg=abc");
+  });
+
+  it("prefers the video element's own source when it is a real URL", () => {
+    expect(
+      pickSniffedVideo(["https://cdn.example.com/v/clip.mp4?sig=1", "https://cdn.example.com/other.mp4"])
+    ).toBe("https://cdn.example.com/v/clip.mp4?sig=1");
+  });
+
+  it("ignores blob and data sources, which cannot be fetched", () => {
+    expect(pickSniffedVideo(["blob:app://obsidian.md/uuid", "data:video/mp4;base64,AAAA"])).toBeNull();
+  });
+
+  it("ignores DASH segments and posters", () => {
+    expect(
+      pickSniffedVideo([
+        "https://cdn.example.com/v/init.m4s",
+        "https://cdn.example.com/v/poster.jpg",
+      ])
+    ).toBeNull();
+  });
+
+  it("returns null with nothing to pick", () => {
+    expect(pickSniffedVideo([])).toBeNull();
+    expect(pickSniffedVideo([""])).toBeNull();
   });
 });
