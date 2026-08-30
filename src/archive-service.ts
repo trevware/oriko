@@ -216,9 +216,8 @@ export class ArchiveService {
    */
   private async adoptDerived(key: string, target: string): Promise<boolean> {
     const path = normalizePath(target);
-    if (!(await this.app.vault.adapter.exists(path))) return false;
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile)) return false;
+    const file = this.app.vault.getFileByPath(path);
+    if (!file) return false;
     const dimensions = readDimensions(await this.app.vault.readBinary(file));
     this.cache.setThumb(key, path, dimensions?.width ?? 0, dimensions?.height ?? 0);
     return true;

@@ -1,4 +1,4 @@
-import { App, Notice, TFile, normalizePath } from "obsidian";
+import { App, Notice, TFile, TFolder, Vault, normalizePath } from "obsidian";
 import type { MediaCache } from "./cache";
 import { deadKeys, filesForRefs, liveRefs, orphanFiles } from "./media-refs";
 import type { Sweepable } from "./media-refs";
@@ -15,8 +15,13 @@ import type { ClippingRecord } from "./scan";
 
 /** Everything sitting in the attachment folder right now. */
 function folderFiles(app: App, folder: string): TFile[] {
-  const prefix = `${normalizePath(folder)}/`;
-  return app.vault.getFiles().filter((file) => file.path.startsWith(prefix));
+  const root = app.vault.getFolderByPath(normalizePath(folder));
+  if (!(root instanceof TFolder)) return [];
+  const files: TFile[] = [];
+  Vault.recurseChildren(root, (child) => {
+    if (child instanceof TFile) files.push(child);
+  });
+  return files;
 }
 
 function weigh(files: TFile[]): Sweepable {

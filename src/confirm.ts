@@ -23,9 +23,7 @@ export class ConfirmDeleteModal extends Modal {
     const { contentEl } = this;
     const count = this.titles.length;
 
-    contentEl.createEl("h3", {
-      text: count === 1 ? "Delete this clipping?" : `Delete ${count} clippings?`,
-    });
+    this.setTitle(count === 1 ? "Delete this clipping?" : `Delete ${count} clippings?`);
 
     const noun = count === 1 ? "The note" : `${count} notes`;
     contentEl.createEl("p", {
@@ -85,7 +83,7 @@ export class ConfirmSweepModal extends Modal {
   onOpen(): void {
     const { contentEl } = this;
 
-    contentEl.createEl("h3", { text: "Remove orphaned media?" });
+    this.setTitle("Remove orphaned media?");
     contentEl.createEl("p", {
       text: `${this.summary} in your attachment folder are no longer used by any clipping. They will be moved to trash.`,
     });

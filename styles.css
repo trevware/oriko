@@ -2376,3 +2376,14 @@ buttonbuttonbutton/* The management panel's rows. */
     transition: none;
   }
 }
+
+/* The hidden webview the Threads video sniffer loads a post in. Rendered
+   at phone-ish size but parked far off screen: display:none would stop the
+   player from ever mounting, and an unmounted player fetches nothing. */
+.pg-sniff-frame {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 420px;
+  height: 760px;
+}

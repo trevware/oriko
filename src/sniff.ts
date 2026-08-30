@@ -44,13 +44,10 @@ export async function sniffVideoUrl(pageUrl: string, timeoutMs = 20000): Promise
 
   const view = document.createElement("webview") as WebviewLike;
   view.setAttribute("src", pageUrl);
-  // Rendered but out of sight: display:none or a zero-size frame may never
-  // lay the player out, and a player that never mounts never fetches.
-  view.style.position = "fixed";
-  view.style.left = "-10000px";
-  view.style.top = "0";
-  view.style.width = "420px";
-  view.style.height = "760px";
+  // Rendered but out of sight (see .pg-sniff-frame): display:none or a
+  // zero-size frame may never lay the player out, and a player that never
+  // mounts never fetches.
+  view.classList.add("pg-sniff-frame");
   document.body.appendChild(view);
 
   try {

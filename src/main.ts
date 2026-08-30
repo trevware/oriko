@@ -37,8 +37,20 @@ export default class PowerGridPlugin extends Plugin {
   capture!: CaptureService;
   /** The last shared file this device wrote, to recognise its own echo. */
   private wroteShared = "";
+  private archiveTimer = 0;
+
+  /**
+   * Schedules the background archive pass, debounced: a sync storm of
+   * created files coalesces into one pass instead of stacking timers, and
+   * the pending timer is cleared on unload so nothing fires afterwards.
+   */
+  private scheduleArchive(delayMs: number): void {
+    window.clearTimeout(this.archiveTimer);
+    this.archiveTimer = window.setTimeout(() => void this.archiver.archiveMissing(), delayMs);
+  }
 
   async onload(): Promise<void> {
+    this.register(() => window.clearTimeout(this.archiveTimer));
     await this.loadSettings();
     // After the settings, because it needs the clippings folder to know where
     // to look, and before anything reads a grid.
@@ -166,7 +178,7 @@ export default class PowerGridPlugin extends Plugin {
         // Archiving runs behind the grid, which is already showing remote
         // covers, and tiles swap to local files as they arrive.
         if (this.settings.archiveOnCreate) {
-          window.setTimeout(() => void this.archiver.archiveMissing(), 1500);
+          this.scheduleArchive(1500);
         }
       });
     });
@@ -178,7 +190,7 @@ export default class PowerGridPlugin extends Plugin {
           // The Web Clipper writes the body and frontmatter in stages, so
           // give it a moment before scanning for media to download.
           if (this.settings.archiveOnCreate) {
-            window.setTimeout(() => void this.archiver.archiveMissing(), 2000);
+            this.scheduleArchive(2000);
           }
         });
       })
