@@ -1,4 +1,4 @@
-import { App, setIcon } from "obsidian";
+import { App, Platform, setIcon } from "obsidian";
 import {
   KEY_ZOOM_STEP,
   pinchCamera,
@@ -344,7 +344,14 @@ export class DetailView {
     if (model.kind === "video") {
       const video = host.createEl("video", { cls: "pg-detail-media" });
       video.src = model.remote ? model.filePath : this.resource(model.filePath);
-      video.controls = true;
+      // Desktop only fades Chromium's control bar in on hover, but iOS
+      // parks its overlay on top of the video from the first frame. So on
+      // mobile the video opens bare — it is already playing on a loop — and
+      // the first tap summons the native controls for scrubbing and sound.
+      video.controls = !Platform.isMobile;
+      if (Platform.isMobile) {
+        video.addEventListener("click", () => (video.controls = true), { once: true });
+      }
       video.autoplay = true;
       video.loop = true;
       video.playsInline = true;
