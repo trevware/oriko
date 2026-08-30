@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MediaCache } from "../src/cache";
+import { MediaCache } from "../src/core/cache";
 
 describe("MediaCache", () => {
   it("stores and retrieves entries by key", () => {

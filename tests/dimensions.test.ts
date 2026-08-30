@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readDimensions } from "../src/dimensions";
+import { readDimensions } from "../src/core/dimensions";
 
 function bytes(...values: number[]): ArrayBuffer {
   return new Uint8Array(values).buffer;

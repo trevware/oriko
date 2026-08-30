@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractPageImage, knownHostThumbnail, needsPageCover } from "../src/page-cover";
+import { extractPageImage, knownHostThumbnail, needsPageCover } from "../src/core/page-cover";
 
 describe("knownHostThumbnail", () => {
   it("resolves a standard youtube watch url", () => {

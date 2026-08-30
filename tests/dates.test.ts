@@ -7,7 +7,7 @@ import {
   looksLikeDate,
   todayISO,
   tokenLabel,
-} from "../src/dates";
+} from "../src/core/dates";
 
 // Built locally, not from a UTC string: these assert on windows measured from
 // local midnight, so a UTC clock would make them pass or fail by timezone.

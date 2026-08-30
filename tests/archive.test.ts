@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { archiveAll, archiveFilename, archiveOne, sourceVideoCandidates } from "../src/archive";
-import { hashUrl } from "../src/hash";
-import type { ArchiveDeps, Fetcher } from "../src/archive";
-import type { CanonicalMedia } from "../src/normalize";
+import { archiveAll, archiveFilename, archiveOne, sourceVideoCandidates } from "../src/core/archive";
+import { hashUrl } from "../src/core/hash";
+import type { ArchiveDeps, Fetcher } from "../src/core/archive";
+import type { CanonicalMedia } from "../src/core/normalize";
 
 function pngBuffer(width: number, height: number): ArrayBuffer {
   const b = new Uint8Array(33);

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { MediaCache } from "../src/cache";
-import { scanClipping } from "../src/scan";
-import { buildTiles } from "../src/tile";
+import { MediaCache } from "../src/core/cache";
+import { scanClipping } from "../src/core/scan";
+import { buildTiles } from "../src/core/tile";
 import { COMBOLANDS_BODY, COMBOLANDS_FM, NOOK_BODY, NOOK_FM } from "./fixtures/clippings";
 
 const COMBO_7 =
@@ -12,7 +12,7 @@ const NOOK_MP4 =
   "https://cdn.spottedinprod.com/community-clips/19305/797/1786251277681-transcoded.mp4";
 
 function cacheWith(
-  entries: Array<[string, Partial<Omit<import("../src/cache").CacheEntry, "key">>]>
+  entries: Array<[string, Partial<Omit<import("../src/core/cache").CacheEntry, "key">>]>
 ): MediaCache {
   const cache = new MediaCache();
   for (const [key, e] of entries) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { resumeIndex, searchPalette } from "../src/palette-results";
-import type { PaletteCommand } from "../src/commands";
-import type { ClippingRecord } from "../src/scan";
+import { resumeIndex, searchPalette } from "../src/core/palette-results";
+import type { PaletteCommand } from "../src/core/commands";
+import type { ClippingRecord } from "../src/core/scan";
 
 const command = (id: string, label: string, section: PaletteCommand["section"]): PaletteCommand => ({
   id,

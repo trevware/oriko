@@ -13,7 +13,7 @@ An Obsidian plugin: a pannable, zoomable canvas over the vault's `Clippings/` fo
 
 The load-bearing rule, learned the hard way:
 
-- **A module that imports from `obsidian` cannot be unit-tested.** Vitest cannot resolve the `obsidian` package, so the whole file fails to load. Pure logic therefore lives in modules with **zero Obsidian imports**: `scan`, `normalize`, `layout`, `dimensions`, `hash`, `formats`, `selection`, `camera`, `page-cover`, `resolve`, `cache`, `archive`.
+- **A module that imports from `obsidian` cannot be unit-tested.** Vitest cannot resolve the `obsidian` package, so the whole file fails to load. Pure logic therefore lives in modules with **zero Obsidian imports**, and those modules live in **`src/core/`**; the Obsidian-facing shell stays in `src/`. The folder boundary is the rule made visible: nothing in `src/core/` may import from `obsidian` or from `src/` above it.
 - Obsidian-facing code is a thin shell that injects what the pure code needs (`requestUrl`, vault I/O) as plain functions. `archive.ts` takes an `ArchiveDeps`; that is why it tests without mocking a single module.
 - Decide where a function belongs **when writing it**, not when a test refuses to run. This was got wrong three times.
 

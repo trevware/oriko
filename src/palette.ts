@@ -1,9 +1,9 @@
 import { setIcon } from "obsidian";
-import type { PaletteCommand, PaletteStage } from "./commands";
-import { resumeIndex, searchPalette } from "./palette-results";
-import type { PaletteRow, SearchOptions } from "./palette-results";
-import type { MatchRange } from "./palette-search";
-import type { ClippingRecord } from "./scan";
+import type { PaletteCommand, PaletteStage } from "./core/commands";
+import { resumeIndex, searchPalette } from "./core/palette-results";
+import type { PaletteRow, SearchOptions } from "./core/palette-results";
+import type { MatchRange } from "./core/palette-search";
+import type { ClippingRecord } from "./core/scan";
 
 const ROOT_PLACEHOLDER = "Search clippings and actions…";
 

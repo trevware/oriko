@@ -1,8 +1,8 @@
 import { App, Notice, TFile, TFolder, Vault, normalizePath } from "obsidian";
-import type { MediaCache } from "./cache";
-import { deadKeys, filesForRefs, liveRefs, orphanFiles } from "./media-refs";
-import type { Sweepable } from "./media-refs";
-import type { ClippingRecord } from "./scan";
+import type { MediaCache } from "./core/cache";
+import { deadKeys, filesForRefs, liveRefs, orphanFiles } from "./core/media-refs";
+import type { Sweepable } from "./core/media-refs";
+import type { ClippingRecord } from "./core/scan";
 
 /**
  * Removing archived media, both as a clipping goes and as a sweep of what

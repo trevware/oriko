@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ZOOM, revealCamera } from "../src/camera";
+import { MAX_ZOOM, revealCamera } from "../src/core/camera";
 
 const viewport = { width: 1000, height: 800 };
 const content = { width: 1000, height: 5000 };

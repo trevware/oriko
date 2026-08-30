@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { dragSteps, flipOffsets, moveInGrid } from "./layout";
+import { dragSteps, flipOffsets, moveInGrid } from "./core/layout";
 import { hint, paintLabel } from "./palette";
 
 /**

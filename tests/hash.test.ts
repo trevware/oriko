@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashUrl } from "../src/hash";
+import { hashUrl } from "../src/core/hash";
 
 describe("hashUrl", () => {
   it("returns 12 lowercase hex characters", () => {

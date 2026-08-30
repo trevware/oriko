@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractSwatches } from "../src/swatches";
+import { extractSwatches } from "../src/core/swatches";
 
 type Rgba = [number, number, number, number];
 

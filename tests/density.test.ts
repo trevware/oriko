@@ -7,7 +7,7 @@ import {
   isStage,
   shrinkStage,
   stageLabel,
-} from "../src/density";
+} from "../src/core/density";
 
 describe("stages", () => {
   it("run from narrowest to widest column", () => {

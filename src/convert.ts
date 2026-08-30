@@ -1,5 +1,5 @@
 import { FileSystemAdapter, Platform, TFile, Vault, normalizePath } from "obsidian";
-import { nodeRequire } from "./system";
+import { nodeRequire } from "./core/system";
 
 /**
  * Renders formats Chromium cannot decode into ones it can, using tools that

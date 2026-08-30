@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isInFolder, sortRecords } from "../src/index-store";
-import type { ClippingRecord } from "../src/scan";
+import type { ClippingRecord } from "../src/core/scan";
 
 function rec(path: string, created: string, title: string): ClippingRecord {
   return {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { windowRange } from "../src/layout";
-import { previewOf } from "../src/tile";
-import type { TileModel } from "../src/tile";
+import { windowRange } from "../src/core/layout";
+import { previewOf } from "../src/core/tile";
+import type { TileModel } from "../src/core/tile";
 
 describe("windowRange", () => {
   // 40px rows, an 800px panel: twenty rows fit, and a few either side are

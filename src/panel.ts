@@ -1,10 +1,10 @@
 import { Vault, setIcon } from "obsidian";
 import { resourceUrl } from "./convert";
-import { windowRange } from "./layout";
-import { domainOf } from "./scan";
-import { previewOf } from "./tile";
-import { attachTip } from "./tip";
-import type { TileModel } from "./tile";
+import { windowRange } from "./core/layout";
+import { domainOf } from "./core/scan";
+import { previewOf } from "./core/tile";
+import { attachTip } from "./core/tip";
+import type { TileModel } from "./core/tile";
 
 /**
  * The layer panel: the wall as a list.

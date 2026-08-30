@@ -15,8 +15,8 @@ import {
   shouldMountAll,
   stepCursor,
   visibleRange,
-} from "../src/layout";
-import type { LayoutItem } from "../src/layout";
+} from "../src/core/layout";
+import type { LayoutItem } from "../src/core/layout";
 
 const square = (id: string): LayoutItem => ({ id, width: 100, height: 100 });
 

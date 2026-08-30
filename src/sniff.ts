@@ -1,5 +1,5 @@
 import { Platform } from "obsidian";
-import { pickSniffedVideo } from "./resolve";
+import { pickSniffedVideo } from "./core/resolve";
 
 /**
  * Finds a post's video URL by actually loading the page, for hosts that

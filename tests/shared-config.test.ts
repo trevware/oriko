@@ -7,8 +7,8 @@ import {
   serializeShared,
   sharedOf,
   withShared,
-} from "../src/shared-config";
-import { DEFAULT_SETTINGS } from "../src/settings";
+} from "../src/core/shared-config";
+import { DEFAULT_SETTINGS } from "../src/core/settings";
 
 const fallback = {
   grids: [{ name: "Manga", icon: "archive" }],

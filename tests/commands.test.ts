@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildCommands, facetValueCommands } from "../src/commands";
-import type { PaletteContext } from "../src/commands";
-import { emptyFilter, facetDefs } from "../src/filter";
+import { buildCommands, facetValueCommands } from "../src/core/commands";
+import type { PaletteContext } from "../src/core/commands";
+import { emptyFilter, facetDefs } from "../src/core/filter";
 
 const DEFS = facetDefs(["categories", "status"]);
 

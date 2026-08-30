@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildNote, buildPastedImageNote } from "../src/resolve";
-import type { ResolvedLink } from "../src/resolve";
+import { buildNote, buildPastedImageNote } from "../src/core/resolve";
+import type { ResolvedLink } from "../src/core/resolve";
 
 function link(overrides: Partial<ResolvedLink> = {}): ResolvedLink {
   return {

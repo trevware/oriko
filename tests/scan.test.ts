@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scanClipping, splitFrontmatter } from "../src/scan";
+import { scanClipping, splitFrontmatter } from "../src/core/scan";
 import {
   COMBOLANDS_BODY,
   COMBOLANDS_FM,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STATUSES, isEditable, withValue, withoutValue } from "../src/editable";
+import { STATUSES, isEditable, withValue, withoutValue } from "../src/core/editable";
 
 describe("isEditable", () => {
   it("refuses every key the Web Clipper owns", () => {

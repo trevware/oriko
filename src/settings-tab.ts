@@ -1,6 +1,6 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
-import { surveyProperties } from "./facet-catalog";
-import { facetLabel } from "./filter";
+import { surveyProperties } from "./core/facet-catalog";
+import { facetLabel } from "./core/filter";
 import { PowerGridView, VIEW_TYPE_GRID } from "./view";
 import type PowerGridPlugin from "./main";
 

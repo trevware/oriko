@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "../src/normalize";
-import { scanClipping } from "../src/scan";
+import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "../src/core/normalize";
+import { scanClipping } from "../src/core/scan";
 import { COMBOLANDS_BODY, COMBOLANDS_FM } from "./fixtures/clippings";
-import type { MediaRef } from "../src/scan";
+import type { MediaRef } from "../src/core/scan";
 
 describe("normalizeUrl", () => {
   it("strips sizing query parameters", () => {

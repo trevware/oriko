@@ -10,11 +10,11 @@ import {
   reorderTarget,
   orderedGrids,
   validateGridName,
-} from "../src/spaces";
-import type { ClippingRecord } from "../src/scan";
-import type { GridSpace } from "../src/spaces";
-import { facetDefs, typedFacets } from "../src/filter";
-import type { FilterState } from "../src/filter";
+} from "../src/core/spaces";
+import type { ClippingRecord } from "../src/core/scan";
+import type { GridSpace } from "../src/core/spaces";
+import { facetDefs, typedFacets } from "../src/core/filter";
+import type { FilterState } from "../src/core/filter";
 
 const HOME = { name: "Clippings", icon: "layout-grid" };
 const GRIDS = [

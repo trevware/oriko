@@ -1,6 +1,6 @@
 import { Platform, setIcon } from "obsidian";
-import { bottomInset } from "./insets";
-import { cursorAfterNarrowing, placeMenu, stepCursor } from "./layout";
+import { bottomInset } from "./core/insets";
+import { cursorAfterNarrowing, placeMenu, stepCursor } from "./core/layout";
 
 export interface MenuItem {
   icon: string;

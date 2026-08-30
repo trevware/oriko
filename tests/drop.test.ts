@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "../src/drop";
-import type { DroppedFile } from "../src/drop";
+import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "../src/core/drop";
+import type { DroppedFile } from "../src/core/drop";
 
 const file = (name: string, type = ""): DroppedFile => ({ name, type });
 

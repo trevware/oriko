@@ -1,15 +1,15 @@
 import { ItemView, Notice, Platform, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { absolutePath } from "./convert";
-import { dedupeMedia, sourceVideoKeyFor } from "./normalize";
-import { copyToDownloads, revealInFinder, systemAvailable } from "./system";
+import { dedupeMedia, sourceVideoKeyFor } from "./core/normalize";
+import { copyToDownloads, revealInFinder, systemAvailable } from "./core/system";
 import { ActionBar } from "./action-bar";
-import { buildCommands, facetValueCommands } from "./commands";
-import type { PaletteContext } from "./commands";
+import { buildCommands, facetValueCommands } from "./core/commands";
+import type { PaletteContext } from "./core/commands";
 import { ConfirmDeleteModal } from "./confirm";
-import { isDateToken, todayISO, tokenLabel } from "./dates";
+import { isDateToken, todayISO, tokenLabel } from "./core/dates";
 import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
-import { isEditable, withValue, withoutValue } from "./editable";
+import { isEditable, withValue, withoutValue } from "./core/editable";
 import { ContextMenu } from "./context-menu";
 import {
   openDeleteGrid,
@@ -19,18 +19,18 @@ import {
   openNewGrid,
 } from "./grid-sheets";
 import { DetailView } from "./detail";
-import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./drop";
+import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./core/drop";
 import type { MenuItem } from "./context-menu";
 import type { GridsController } from "./grid-sheets";
 import { GridRenderer } from "./grid";
-import { groupedMenu } from "./layout";
+import { groupedMenu } from "./core/layout";
 import type PowerGridPlugin from "./main";
 import { Palette } from "./palette";
 import { LayerPanel, PanelToggle } from "./panel";
 import { resourceUrl } from "./convert";
-import { PlaybackController } from "./playback";
-import { ProgressBar } from "./progress";
-import type { PropertyVocabulary } from "./filter";
+import { PlaybackController } from "./core/playback";
+import { ProgressBar } from "./core/progress";
+import type { PropertyVocabulary } from "./core/filter";
 import {
   activeCount,
   smartMembers,
@@ -44,12 +44,12 @@ import {
   pruneFilter,
   toggleFacet,
   typedFacets,
-} from "./filter";
-import type { FacetDef, FilterState } from "./filter";
+} from "./core/filter";
+import type { FacetDef, FilterState } from "./core/filter";
 import { SpaceBar } from "./space-bar";
-import { STAGES, expandStage, shrinkStage, stageLabel } from "./density";
-import type { DensityStage } from "./density";
-import { describeFiles } from "./media-refs";
+import { STAGES, expandStage, shrinkStage, stageLabel } from "./core/density";
+import type { DensityStage } from "./core/density";
+import { describeFiles } from "./core/media-refs";
 import { orphansAfterDeleting, removeMedia } from "./sweep";
 import {
   effectiveGrid,
@@ -59,10 +59,10 @@ import {
   isSmartGrid,
   membersOf,
   orderedGrids,
-} from "./spaces";
-import type { GridSpace, PlacedGrid } from "./spaces";
-import { buildTiles, previewOf } from "./tile";
-import type { TileModel } from "./tile";
+} from "./core/spaces";
+import type { GridSpace, PlacedGrid } from "./core/spaces";
+import { buildTiles, previewOf } from "./core/tile";
+import type { TileModel } from "./core/tile";
 
 export const VIEW_TYPE_GRID = "power-grid";
 

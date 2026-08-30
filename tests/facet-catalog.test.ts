@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { surveyProperties } from "../src/facet-catalog";
-import type { ClippingRecord } from "../src/scan";
+import { surveyProperties } from "../src/core/facet-catalog";
+import type { ClippingRecord } from "../src/core/scan";
 
 function record(properties: Record<string, string[]>): ClippingRecord {
   return {

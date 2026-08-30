@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choosePlaying, visibleRatio, visibilityAction } from "../src/playback";
+import { choosePlaying, visibleRatio, visibilityAction } from "../src/core/playback";
 
 describe("choosePlaying", () => {
   it("plays nothing when nothing is sufficiently visible", () => {

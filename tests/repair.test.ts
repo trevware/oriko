@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MediaCache } from "../src/cache";
-import { localReplacement } from "../src/normalize";
+import { MediaCache } from "../src/core/cache";
+import { localReplacement } from "../src/core/normalize";
 
 function cache(): MediaCache {
   const c = new MediaCache();

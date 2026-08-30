@@ -19,7 +19,7 @@ import {
   parsePageMeta,
   supportsSourceDownload,
   xStatus,
-} from "../src/resolve";
+} from "../src/core/resolve";
 
 describe("cleanUrl", () => {
   it("strips the share parameter you get from a copy button", () => {

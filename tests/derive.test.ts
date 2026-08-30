@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { posterPath, previewPath, scaledSize, thumbPath } from "../src/derive";
+import { posterPath, previewPath, scaledSize, thumbPath } from "../src/core/derive";
 
 describe("thumbPath", () => {
   it("appends a thumb suffix before the extension", () => {

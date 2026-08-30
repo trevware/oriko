@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fuzzyMatch, rank } from "../src/palette-search";
+import { fuzzyMatch, rank } from "../src/core/palette-search";
 
 interface Row {
   label: string;

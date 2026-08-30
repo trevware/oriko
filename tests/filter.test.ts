@@ -12,9 +12,9 @@ import {
   pruneFilter,
   toggleFacet,
   typedFacets,
-} from "../src/filter";
-import type { FilterState } from "../src/filter";
-import type { TileModel } from "../src/tile";
+} from "../src/core/filter";
+import type { FilterState } from "../src/core/filter";
+import type { TileModel } from "../src/core/tile";
 
 function tile(
   id: string,

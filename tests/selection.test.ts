@@ -6,8 +6,8 @@ import {
   rangeSelection,
   rectFromCorners,
   toggleSelection,
-} from "../src/selection";
-import type { Position } from "../src/layout";
+} from "../src/core/selection";
+import type { Position } from "../src/core/layout";
 
 const positions: Position[] = [
   { id: "a", x: 0, y: 0, w: 100, h: 100 },

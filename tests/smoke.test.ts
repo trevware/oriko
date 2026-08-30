@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS } from "../src/settings";
+import { DEFAULT_SETTINGS } from "../src/core/settings";
 
 describe("settings", () => {
   it("defaults to the Clippings folder", () => {

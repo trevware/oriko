@@ -10,8 +10,8 @@ import {
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
-import { PowerGridSettings, DEFAULT_SETTINGS } from "./settings";
-import { isStage } from "./density";
+import { PowerGridSettings, DEFAULT_SETTINGS } from "./core/settings";
+import { isStage } from "./core/density";
 import {
   LEGACY_SHARED_FILE,
   SHARED_FILE,
@@ -21,10 +21,10 @@ import {
   serializeShared,
   sharedOf,
   withShared,
-} from "./shared-config";
-import { describeFiles } from "./media-refs";
+} from "./core/shared-config";
+import { describeFiles } from "./core/media-refs";
 import { installRepair } from "./repair";
-import { sharedHttpUrl } from "./resolve";
+import { sharedHttpUrl } from "./core/resolve";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
 import { PowerGridSettingTab } from "./settings-tab";
@@ -125,7 +125,6 @@ export default class PowerGridPlugin extends Plugin {
     this.addCommand({
       id: "open-search",
       name: "Search this grid",
-      hotkeys: [{ modifiers: ["Mod"], key: "K" }],
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(PowerGridView);
         if (!view) return false;
@@ -140,7 +139,6 @@ export default class PowerGridPlugin extends Plugin {
     this.addCommand({
       id: "clip-from-clipboard",
       name: "Clip from clipboard",
-      hotkeys: [{ modifiers: ["Mod"], key: "N" }],
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(PowerGridView);
         if (!view) return false;
@@ -152,7 +150,6 @@ export default class PowerGridPlugin extends Plugin {
     this.addCommand({
       id: "toggle-layer-panel",
       name: "Show or hide the list",
-      hotkeys: [{ modifiers: ["Mod"], key: "L" }],
       checkCallback: (checking: boolean) => {
         const view = this.app.workspace.getActiveViewOfType(PowerGridView);
         if (!view) return false;
@@ -321,11 +318,11 @@ export default class PowerGridPlugin extends Plugin {
    */
   private async syncShared(): Promise<void> {
     const path = this.sharedPath();
-    const adapter = this.app.vault.adapter;
 
-    if (await adapter.exists(path)) {
+    const shared = this.app.vault.getFileByPath(path);
+    if (shared) {
       try {
-        const body = await adapter.read(path);
+        const body = await this.app.vault.cachedRead(shared);
         this.wroteShared = body;
         const raw = extractShared(body);
         if (raw !== null) {
@@ -344,10 +341,10 @@ export default class PowerGridPlugin extends Plugin {
     // The .json this replaced. Read once, so a vault that already published
     // one carries over instead of starting again, and then retired: leaving
     // both would be two files claiming to define the same grids.
-    const legacy = this.legacySharedPath();
-    if (await adapter.exists(legacy)) {
+    const legacy = this.app.vault.getFileByPath(this.legacySharedPath());
+    if (legacy) {
       try {
-        const raw = extractShared(await adapter.read(legacy));
+        const raw = extractShared(await this.app.vault.cachedRead(legacy));
         if (raw !== null) {
           this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
         }
@@ -357,7 +354,7 @@ export default class PowerGridPlugin extends Plugin {
       await this.writeShared();
       // To the trash rather than deleted outright: it is the plugin's own
       // file, but it is in the user's vault.
-      await this.app.vault.adapter.trashLocal(legacy).catch(() => {});
+      await this.app.vault.trash(legacy, true).catch(() => {});
       return;
     }
 
@@ -377,8 +374,12 @@ export default class PowerGridPlugin extends Plugin {
     this.wroteShared = body;
     const path = this.sharedPath();
     const folder = this.settings.clippingsFolder;
-    if (folder && !(await this.app.vault.adapter.exists(normalizePath(folder)))) return;
-    await this.app.vault.adapter.write(path, body);
+    if (folder && !this.app.vault.getFolderByPath(normalizePath(folder))) return;
+    const existing = this.app.vault.getFileByPath(path);
+    // process rewrites atomically, so another plugin editing the same file
+    // is never raced; create covers the first publish.
+    if (existing) await this.app.vault.process(existing, () => body);
+    else await this.app.vault.create(path, body);
   }
 
   /**
@@ -388,9 +389,11 @@ export default class PowerGridPlugin extends Plugin {
   private watchShared(): void {
     const reread = async (path: string): Promise<void> => {
       if (path !== this.sharedPath()) return;
+      const file = this.app.vault.getFileByPath(this.sharedPath());
+      if (!file) return;
       let body: string;
       try {
-        body = await this.app.vault.adapter.read(this.sharedPath());
+        body = await this.app.vault.cachedRead(file);
       } catch {
         return;
       }

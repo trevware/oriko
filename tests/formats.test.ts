@@ -8,7 +8,7 @@ import {
   isSupported,
   kindForExtension,
   needsPreview,
-} from "../src/formats";
+} from "../src/core/formats";
 
 const IMAGES = [
   "png", "jpeg", "gif", "webp", "tiff", "bmp", "ico", "icns", "heic", "raw", "exr", "hdr",

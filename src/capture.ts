@@ -1,8 +1,8 @@
 import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
 import type { ArchiveService } from "./archive-service";
-import { todayISO as today } from "./dates";
-import { extensionForMime } from "./formats";
-import { isSmartGrid } from "./spaces";
+import { todayISO as today } from "./core/dates";
+import { extensionForMime } from "./core/formats";
+import { isSmartGrid } from "./core/spaces";
 import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
@@ -20,9 +20,9 @@ import {
   instagramPost,
   parsePageMeta,
   xStatus,
-} from "./resolve";
-import type { ProgressState } from "./progress";
-import type { PowerGridSettings } from "./settings";
+} from "./core/resolve";
+import type { ProgressState } from "./core/progress";
+import type { PowerGridSettings } from "./core/settings";
 
 /**
  * Identifies the plugin honestly rather than impersonating a known crawler.
@@ -92,8 +92,10 @@ export class CaptureService {
     this.report(0.3, `Saving ${kind}…`);
 
     const folder = normalizePath(this.settings().attachmentFolder);
-    if (!(await this.app.vault.adapter.exists(folder))) {
-      await this.app.vault.createFolder(folder);
+    if (!this.app.vault.getFolderByPath(folder)) {
+      // The catch covers the race where the folder landed between the
+      // lookup and the create; any real failure resurfaces on the write.
+      await this.app.vault.createFolder(folder).catch(() => {});
     }
 
     const stamp = todayStamp();
@@ -104,7 +106,7 @@ export class CaptureService {
     // orphaned in the attachments folder forever.
     let attachment = normalizePath(`${folder}/pasted-${stamp}.${ext}`);
     let n = 2;
-    while (await this.app.vault.adapter.exists(attachment)) {
+    while (this.app.vault.getAbstractFileByPath(attachment)) {
       attachment = normalizePath(`${folder}/pasted-${stamp}-${n}.${ext}`);
       n++;
     }
@@ -124,13 +126,13 @@ export class CaptureService {
     // every paste would come out untitled.
     const title = label.trim() ? noteNameFor(label, "") : `Pasted ${kind} ${stamp}`;
     const clippings = normalizePath(this.settings().clippingsFolder);
-    if (!(await this.app.vault.adapter.exists(clippings))) {
-      await this.app.vault.createFolder(clippings);
+    if (!this.app.vault.getFolderByPath(clippings)) {
+      await this.app.vault.createFolder(clippings).catch(() => {});
     }
 
     let notePath = normalizePath(`${clippings}/${title}.md`);
     let m = 2;
-    while (await this.app.vault.adapter.exists(notePath)) {
+    while (this.app.vault.getAbstractFileByPath(notePath)) {
       notePath = normalizePath(`${clippings}/${title} ${m}.md`);
       m++;
     }
@@ -353,14 +355,14 @@ export class CaptureService {
 
   private async createNote(link: ResolvedLink): Promise<TFile | null> {
     const folder = normalizePath(this.settings().clippingsFolder);
-    if (!(await this.app.vault.adapter.exists(folder))) {
-      await this.app.vault.createFolder(folder);
+    if (!this.app.vault.getFolderByPath(folder)) {
+      await this.app.vault.createFolder(folder).catch(() => {});
     }
 
     const base = noteNameFor(link.title, link.url);
     let path = normalizePath(`${folder}/${base}.md`);
     let n = 2;
-    while (await this.app.vault.adapter.exists(path)) {
+    while (this.app.vault.getAbstractFileByPath(path)) {
       path = normalizePath(`${folder}/${base} ${n}.md`);
       n++;
     }

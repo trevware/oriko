@@ -7,7 +7,7 @@ import {
   clampPan,
   detailLayout,
   fitZoomRange,
-} from "../src/viewer";
+} from "../src/core/viewer";
 
 describe("fitZoomRange", () => {
   it("lets a large image zoom up to its native pixels", () => {

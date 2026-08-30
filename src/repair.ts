@@ -1,7 +1,7 @@
 import { MarkdownPostProcessorContext, TFile, normalizePath } from "obsidian";
 import { isInFolder } from "./index-store";
 import type PowerGridPlugin from "./main";
-import { localReplacement, sourceVideoKeyFor } from "./normalize";
+import { localReplacement, sourceVideoKeyFor } from "./core/normalize";
 
 /**
  * Repairs a clipping whose remote media has died, without editing the file.

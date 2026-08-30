@@ -7,20 +7,20 @@ import {
   pinchSpan,
   staleTouches,
   zoomAt,
-} from "./camera";
-import type { PinchStart, Point } from "./camera";
+} from "./core/camera";
+import type { PinchStart, Point } from "./core/camera";
 import { resourceUrl } from "./convert";
-import type { Camera, Size } from "./camera";
-import { facetLabel } from "./filter";
-import { flightMidpoint, flipTransform } from "./layout";
-import { visibilityAction } from "./playback";
-import type { Box, FlightShape } from "./layout";
-import type { TileModel } from "./tile";
-import { paintSwatchStrip, readSwatches } from "./swatch-strip";
-import { attachTip } from "./tip";
-import { systemAvailable } from "./system";
-import { clampPan, detailLayout, fitZoomRange } from "./viewer";
-import type { DetailLayout } from "./viewer";
+import type { Camera, Size } from "./core/camera";
+import { facetLabel } from "./core/filter";
+import { flightMidpoint, flipTransform } from "./core/layout";
+import { visibilityAction } from "./core/playback";
+import type { Box, FlightShape } from "./core/layout";
+import type { TileModel } from "./core/tile";
+import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
+import { attachTip } from "./core/tip";
+import { systemAvailable } from "./core/system";
+import { clampPan, detailLayout, fitZoomRange } from "./core/viewer";
+import type { DetailLayout } from "./core/viewer";
 
 export interface DetailActions {
   onExport: (id: string) => void;

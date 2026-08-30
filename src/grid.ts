@@ -16,18 +16,18 @@ import {
   staleTouches,
   visibleContentBand,
   zoomAt,
-} from "./camera";
-import type { Camera, PinchStart, Point } from "./camera";
-import { DEFAULT_STAGE, columnWidthFor } from "./density";
-import type { DensityStage } from "./density";
+} from "./core/camera";
+import type { Camera, PinchStart, Point } from "./core/camera";
+import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
+import type { DensityStage } from "./core/density";
 import {
   columnsForWidth,
   computeLayout,
   pressureAt,
   shouldMountAll,
   visibleRange,
-} from "./layout";
-import type { Box, LayoutResult, Position } from "./layout";
+} from "./core/layout";
+import type { Box, LayoutResult, Position } from "./core/layout";
 import {
   MARQUEE_SLOP,
   idsInRect,
@@ -35,9 +35,9 @@ import {
   rangeSelection,
   rectFromCorners,
   toggleSelection,
-} from "./selection";
-import type { Rect } from "./selection";
-import type { TileModel } from "./tile";
+} from "./core/selection";
+import type { Rect } from "./core/selection";
+import type { TileModel } from "./core/tile";
 
 /** Layout gap. Cards sit inset inside their box, adding SELECT_LIFT a side. */
 const GAP = 6;

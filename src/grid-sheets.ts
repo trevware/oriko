@@ -1,10 +1,10 @@
 import { Notice } from "obsidian";
-import { tokenLabel } from "./dates";
-import { isFilterEmpty, toggleFacet } from "./filter";
-import type { FacetDef, FacetValue, FilterState } from "./filter";
+import { tokenLabel } from "./core/dates";
+import { isFilterEmpty, toggleFacet } from "./core/filter";
+import type { FacetDef, FacetValue, FilterState } from "./core/filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
-import { isSmartGrid, reorderTarget, validateGridName } from "./spaces";
-import type { GridSpace } from "./spaces";
+import { isSmartGrid, reorderTarget, validateGridName } from "./core/spaces";
+import type { GridSpace } from "./core/spaces";
 
 /**
  * Icons offered when naming a grid. A fixed palette rather than a free-text

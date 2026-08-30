@@ -15,7 +15,7 @@ import {
   visibleContentBand,
   zoomAt,
   staleTouches,
-} from "../src/camera";
+} from "../src/core/camera";
 
 const viewport = { width: 1000, height: 800 };
 const content = { width: 1000, height: 5000 };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { placeMenu } from "../src/layout";
+import { placeMenu } from "../src/core/layout";
 
 const viewport = { width: 1000, height: 800 };
 const menu = { width: 260, height: 300 };

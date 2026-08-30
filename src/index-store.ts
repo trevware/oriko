@@ -1,5 +1,5 @@
 import type { App, TFile } from "obsidian";
-import { ClippingRecord, scanClipping, splitFrontmatter } from "./scan";
+import { ClippingRecord, scanClipping, splitFrontmatter } from "./core/scan";
 
 export function isInFolder(path: string, folder: string): boolean {
   if (!path.toLowerCase().endsWith(".md")) return false;

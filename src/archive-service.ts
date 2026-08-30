@@ -1,7 +1,7 @@
 import { App, Notice, Platform, TFile, normalizePath, requestUrl } from "obsidian";
-import { ArchiveDeps, archiveAll, sourceVideoCandidates } from "./archive";
-import { MediaCache } from "./cache";
-import { readDimensions } from "./dimensions";
+import { ArchiveDeps, archiveAll, sourceVideoCandidates } from "./core/archive";
+import { MediaCache } from "./core/cache";
+import { readDimensions } from "./core/dimensions";
 import {
   absolutePath,
   conversionAvailable,
@@ -10,17 +10,17 @@ import {
   extractVideoFrame,
   ytdlpPath,
 } from "./convert";
-import { posterPath, previewPath, renderPoster, renderThumbnail, thumbPath } from "./derive";
-import { extensionOf, needsPreview } from "./formats";
+import { posterPath, previewPath, renderPoster, renderThumbnail, thumbPath } from "./core/derive";
+import { extensionOf, needsPreview } from "./core/formats";
 import { ClippingIndex } from "./index-store";
-import { hashUrl } from "./hash";
-import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
-import { isThreadsUrl, supportsSourceDownload } from "./resolve";
+import { hashUrl } from "./core/hash";
+import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./core/normalize";
+import { isThreadsUrl, supportsSourceDownload } from "./core/resolve";
 import { sniffVideoUrl } from "./sniff";
-import type { CanonicalMedia } from "./normalize";
-import { extractPageImage, knownHostThumbnail, needsPageCover } from "./page-cover";
-import type { ClippingRecord } from "./scan";
-import type { PowerGridSettings } from "./settings";
+import type { CanonicalMedia } from "./core/normalize";
+import { extractPageImage, knownHostThumbnail, needsPageCover } from "./core/page-cover";
+import type { ClippingRecord } from "./core/scan";
+import type { PowerGridSettings } from "./core/settings";
 
 const CACHE_FILE = "cache.json";
 
@@ -69,8 +69,8 @@ export class ArchiveService {
 
   private async ensureFolder(): Promise<void> {
     const folder = normalizePath(this.settings().attachmentFolder);
-    if (!(await this.app.vault.adapter.exists(folder))) {
-      await this.app.vault.createFolder(folder);
+    if (!this.app.vault.getFolderByPath(folder)) {
+      await this.app.vault.createFolder(folder).catch(() => {});
     }
   }
 
@@ -84,7 +84,8 @@ export class ArchiveService {
           contentType: response.headers?.["content-type"],
         };
       },
-      exists: (path) => this.app.vault.adapter.exists(normalizePath(path)),
+      exists: (path) =>
+        Promise.resolve(this.app.vault.getFileByPath(normalizePath(path)) !== null),
       write: async (path, data) => {
         await this.app.vault.createBinary(normalizePath(path), data);
       },
@@ -193,7 +194,7 @@ export class ArchiveService {
           continue;
         }
 
-        if (!(await this.app.vault.adapter.exists(normalizePath(target)))) {
+        if (!this.app.vault.getFileByPath(normalizePath(target))) {
           await this.app.vault.createBinary(normalizePath(target), rendered.data);
         }
         this.cache.setThumb(entry.key, target, rendered.width, rendered.height);
@@ -305,7 +306,7 @@ export class ArchiveService {
     const folder = normalizePath(this.settings().attachmentFolder);
     for (const candidate of sourceVideoCandidates(key, folder)) {
       const path = normalizePath(candidate);
-      if (await this.app.vault.adapter.exists(path)) {
+      if (this.app.vault.getFileByPath(path)) {
         this.cache.mergeOutcome({ key, kind: "video", file: path });
         return path;
       }
@@ -333,7 +334,7 @@ export class ArchiveService {
     await this.ensureFolder();
     const path = normalizePath(`${folder}/${hashUrl(key)}-video.${result.extension}`);
 
-    if (!(await this.app.vault.adapter.exists(path))) {
+    if (!this.app.vault.getFileByPath(path)) {
       await this.app.vault.createBinary(path, result.data);
     }
 
@@ -470,7 +471,7 @@ export class ArchiveService {
 
     const normalizedTarget = normalizePath(previewPath(file));
 
-    if (!(await this.app.vault.adapter.exists(normalizedTarget))) {
+    if (!this.app.vault.getFileByPath(normalizedTarget)) {
       const from = absolutePath(this.app.vault, normalizePath(file));
       const to = absolutePath(this.app.vault, normalizedTarget);
       if (!from || !to) return null;

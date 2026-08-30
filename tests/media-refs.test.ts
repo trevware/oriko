@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { CacheEntry } from "../src/cache";
+import type { CacheEntry } from "../src/core/cache";
 import {
   deadKeys,
   describeFiles,
@@ -7,9 +7,9 @@ import {
   isPluginOwned,
   liveRefs,
   orphanFiles,
-} from "../src/media-refs";
-import { normalizeUrl, sourceVideoKeyFor } from "../src/normalize";
-import type { ClippingRecord } from "../src/scan";
+} from "../src/core/media-refs";
+import { normalizeUrl, sourceVideoKeyFor } from "../src/core/normalize";
+import type { ClippingRecord } from "../src/core/scan";
 
 const FOLDER = "Attachments/Clippings";
 
