@@ -602,12 +602,27 @@ export class PowerGridView extends ItemView {
     }
 
     const content = this.contentEl.getBoundingClientRect();
+    // A view in a background tab is display:none and measures as all
+    // zeros, which would pin the inset to 0px until the next resize.
+    // Skipped instead: onResize re-measures the moment the tab is shown.
+    if (content.width === 0 && content.height === 0) return;
+
     const bar = navbar.getBoundingClientRect();
     // How much of our own bottom edge the navbar covers, rather than how
     // tall it is: the two differ whenever the view does not run to the
     // bottom of the window.
     const overlap = Math.max(0, content.bottom - bar.top);
     this.contentEl.style.setProperty("--pg-bottom-inset", `${Math.round(overlap)}px`);
+  }
+
+  /**
+   * Obsidian calls this when the leaf's size changes, which includes going
+   * from a hidden background tab to the visible one. That transition fires
+   * no workspace resize, so without this a wall opened behind another tab
+   * kept a stale inset until it was closed and reopened.
+   */
+  onResize(): void {
+    if (Platform.isMobile) this.syncBottomInset();
   }
 
   /**
