@@ -165,7 +165,7 @@ export default class PowerGridPlugin extends Plugin {
 
     this.addCommand({
       id: "archive-clipping-media",
-      name: "Archive all clipping media",
+      name: "Download all clipping media",
       callback: () => this.archiveAllMedia(),
     });
 
@@ -266,7 +266,7 @@ export default class PowerGridPlugin extends Plugin {
 
   /** Lifted out of its command so the grid's palette can call it too. */
   archiveAllMedia(): void {
-    new Notice("Power Grid: archiving…");
+    new Notice("Power Grid: downloading media…");
     void this.archiver.archiveEverything().then((r) => this.archiver.notifyResult(r));
   }
 

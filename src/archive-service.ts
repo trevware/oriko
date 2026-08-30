@@ -599,7 +599,7 @@ export class ArchiveService {
 
   notifyResult(result: ArchiveSummary): void {
     new Notice(
-      `Power Grid: ${result.ok} media archived, ${result.failed} failed`
+      `Power Grid: ${result.ok} media downloaded, ${result.failed} failed`
     );
   }
 }

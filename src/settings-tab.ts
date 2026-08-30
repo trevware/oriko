@@ -134,7 +134,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Clippings folder")
-      .setDesc("Folder scanned for clippings.")
+      .setDesc("The folder the wall shows. Every note in it is a clipping.")
       .addText((text) =>
         text.setValue(this.plugin.settings.clippingsFolder).onChange(async (value) => {
           this.plugin.settings.clippingsFolder = value.trim() || "Clippings";
@@ -145,7 +145,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Attachment folder")
-      .setDesc("Where archived images and video are stored.")
+      .setDesc("Where downloaded copies of remote images and videos are kept.")
       .addText((text) =>
         text.setValue(this.plugin.settings.attachmentFolder).onChange(async (value) => {
           this.plugin.settings.attachmentFolder = value.trim() || "Attachments/Clippings";
@@ -153,10 +153,22 @@ export class PowerGridSettingTab extends PluginSettingTab {
         })
       );
 
+    new Setting(containerEl).setName("Wall").setHeading();
+
     new Setting(containerEl)
-      .setName("Watch clippings folder")
+      .setName("Autoplay videos")
+      .setDesc("Play video tiles while they are in view. Reduce Motion always wins.")
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.autoplayVideo).onChange(async (value) => {
+          this.plugin.settings.autoplayVideo = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
+      .setName("Add new clippings automatically")
       .setDesc(
-        "Add new clippings to the wall the moment they land in the folder. When off, they appear after a relaunch or the rescan command."
+        "Show new files from the clippings folder on the wall the moment they arrive. When off, they appear after a relaunch or the 'Rescan clippings folder' command."
       )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.watchClippings).onChange(async (value) => {
@@ -165,22 +177,16 @@ export class PowerGridSettingTab extends PluginSettingTab {
         })
       );
 
+    new Setting(containerEl).setName("Downloads").setHeading();
+
     new Setting(containerEl)
-      .setName("Archive automatically")
-      .setDesc("Download media for new clippings in the background.")
+      .setName("Download media automatically")
+      .setDesc(
+        "Keep a local copy of each clipping's remote images and videos, so they survive the source going away. Runs in the background as clippings arrive."
+      )
       .addToggle((toggle) =>
         toggle.setValue(this.plugin.settings.archiveOnCreate).onChange(async (value) => {
           this.plugin.settings.archiveOnCreate = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl)
-      .setName("Autoplay video")
-      .setDesc("Play video tiles in view. Reduce Motion always wins.")
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.autoplayVideo).onChange(async (value) => {
-          this.plugin.settings.autoplayVideo = value;
           await this.plugin.saveSettings();
         })
       );
@@ -202,7 +208,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Maximum file size (MB)")
-      .setDesc("Downloads larger than this are skipped.")
+      .setDesc("Skip downloads larger than this.")
       .addText((text) =>
         text
           .setValue(String(Math.round(this.plugin.settings.maxBytes / 1048576)))
@@ -217,7 +223,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Preview width (px)")
-      .setDesc("Size of generated video posters and GIF stills.")
+      .setDesc("Pixel width of generated video posters and GIF stills.")
       .addText((text) =>
         text.setValue(String(this.plugin.settings.thumbnailWidth)).onChange(async (value) => {
           const width = Number(value);
