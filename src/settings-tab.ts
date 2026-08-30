@@ -154,6 +154,18 @@ export class PowerGridSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Watch clippings folder")
+      .setDesc(
+        "Add new clippings to the wall the moment they land in the folder. When off, they appear after a relaunch or the rescan command."
+      )
+      .addToggle((toggle) =>
+        toggle.setValue(this.plugin.settings.watchClippings).onChange(async (value) => {
+          this.plugin.settings.watchClippings = value;
+          await this.plugin.saveSettings();
+        })
+      );
+
+    new Setting(containerEl)
       .setName("Archive automatically")
       .setDesc("Download media for new clippings in the background.")
       .addToggle((toggle) =>

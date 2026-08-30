@@ -148,6 +148,16 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
+      id: "rescan-clippings",
+      name: "Rescan clippings folder",
+      callback: () => {
+        void this.index.rebuild().then(() => {
+          new Notice("Power Grid: clippings rescanned");
+        });
+      },
+    });
+
+    this.addCommand({
       id: "sweep-orphan-media",
       name: "Remove orphaned media",
       callback: () => this.sweepOrphanMedia(),
@@ -169,9 +179,16 @@ export default class PowerGridPlugin extends Plugin {
       });
     });
 
+    // When the folder is not being watched, only files already on the wall
+    // keep tracking their edits; a new arrival waits for a rescan or the
+    // next launch. Explicit clips are unaffected: capture feeds the index
+    // directly rather than through these events.
+    const admits = (path: string): boolean =>
+      this.settings.watchClippings || this.index.get(path) !== undefined;
+
     this.registerEvent(
       this.app.vault.on("create", (f: TAbstractFile) => {
-        if (!(f instanceof TFile)) return;
+        if (!(f instanceof TFile) || !admits(f.path)) return;
         void this.index.handleModify(f).then(() => {
           // The Web Clipper writes the body and frontmatter in stages, so
           // give it a moment before scanning for media to download.
@@ -183,7 +200,7 @@ export default class PowerGridPlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("modify", (f: TAbstractFile) => {
-        if (f instanceof TFile) void this.index.handleModify(f);
+        if (f instanceof TFile && admits(f.path)) void this.index.handleModify(f);
       })
     );
     this.registerEvent(
@@ -191,7 +208,7 @@ export default class PowerGridPlugin extends Plugin {
     );
     this.registerEvent(
       this.app.vault.on("rename", (f: TAbstractFile, oldPath: string) => {
-        if (f instanceof TFile) void this.index.handleRename(f, oldPath);
+        if (f instanceof TFile && admits(oldPath)) void this.index.handleRename(f, oldPath);
       })
     );
 
@@ -200,7 +217,7 @@ export default class PowerGridPlugin extends Plugin {
     // no categories or status.
     this.registerEvent(
       this.app.metadataCache.on("changed", (f: TFile) => {
-        void this.index.handleModify(f);
+        if (admits(f.path)) void this.index.handleModify(f);
       })
     );
   }

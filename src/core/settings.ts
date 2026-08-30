@@ -5,6 +5,8 @@ export interface PowerGridSettings {
   clippingsFolder: string;
   attachmentFolder: string;
   archiveOnCreate: boolean;
+  /** Add new files in the clippings folder to the wall as they appear. */
+  watchClippings: boolean;
   autoplayVideo: boolean;
   maxBytes: number;
   thumbnailWidth: number;
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: PowerGridSettings = {
   clippingsFolder: "Clippings",
   attachmentFolder: "Attachments/Clippings",
   archiveOnCreate: true,
+  watchClippings: true,
   autoplayVideo: true,
   maxBytes: 26214400,
   thumbnailWidth: 400,
