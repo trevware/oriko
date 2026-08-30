@@ -7,6 +7,7 @@ import {
   directMediaKind,
   directMediaLink,
   firstHttpUrl,
+  sharedHttpUrl,
   fxApiUrl,
   instagramPost,
   isHttpUrl,
@@ -424,5 +425,35 @@ describe("firstHttpUrl", () => {
 
   it("ignores non-web schemes", () => {
     expect(firstHttpUrl("mailto:a@b.com ftp://x")).toBeNull();
+  });
+});
+
+describe("sharedHttpUrl", () => {
+  it("passes a clean URL or prose straight through firstHttpUrl", () => {
+    expect(sharedHttpUrl("https://a.com/x")).toBe("https://a.com/x");
+    expect(sharedHttpUrl("look https://a.com/x now")).toBe("https://a.com/x");
+  });
+
+  it("recovers a URL that arrived percent-encoded", () => {
+    // iOS Shortcuts' Open URL action can re-encode an already-encoded
+    // value, so the handler may receive the encoding instead of the URL.
+    expect(sharedHttpUrl("https%3A%2F%2Fa.com%2Freel%2Fx%2F")).toBe("https://a.com/reel/x/");
+  });
+
+  it("recovers a URL that arrived encoded twice", () => {
+    expect(sharedHttpUrl("https%253A%252F%252Fa.com%252Fx")).toBe("https://a.com/x");
+  });
+
+  it("keeps the recovered URL's own query intact", () => {
+    expect(sharedHttpUrl("https%3A%2F%2Fa.com%2Freel%3Figsh%3Dabc")).toBe(
+      "https://a.com/reel?igsh=abc"
+    );
+  });
+
+  it("returns null for text with no URL under any decoding", () => {
+    expect(sharedHttpUrl("just words")).toBeNull();
+    expect(sharedHttpUrl("")).toBeNull();
+    // A lone percent sign makes decodeURIComponent throw; that must not escape.
+    expect(sharedHttpUrl("100% organic")).toBeNull();
   });
 });

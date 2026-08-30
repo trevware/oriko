@@ -24,7 +24,7 @@ import {
 } from "./shared-config";
 import { describeFiles } from "./media-refs";
 import { installRepair } from "./repair";
-import { firstHttpUrl } from "./resolve";
+import { sharedHttpUrl } from "./resolve";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
 import { PowerGridSettingTab } from "./settings-tab";
@@ -74,9 +74,16 @@ export default class PowerGridPlugin extends Plugin {
     // another app never touches the clipboard. Prose around the link is
     // tolerated because share sheets send captions, not bare URLs.
     this.registerObsidianProtocolHandler("power-grid", (params) => {
-      const url = firstHttpUrl(params.url ?? params.text ?? "");
+      const raw = params.url ?? params.text ?? "";
+      const url = sharedHttpUrl(raw);
       if (!url) {
-        new Notice("Power Grid: no link in the shared text");
+        // The received text is shown so a broken Shortcut diagnoses itself:
+        // empty means nothing arrived, %3A soup means over-encoding.
+        new Notice(
+          raw
+            ? `Power Grid: no link in the shared text (got "${raw.slice(0, 80)}")`
+            : "Power Grid: the share arrived empty"
+        );
         return;
       }
       // The view first, so the capture's progress bar has a wall to sit on

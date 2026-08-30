@@ -76,6 +76,31 @@ export function firstHttpUrl(text: string): string | null {
 }
 
 /**
+ * firstHttpUrl for text that travelled through a share pipeline.
+ *
+ * iOS Shortcuts' Open URL action can percent-encode an already-encoded
+ * parameter, so what reaches the protocol handler is sometimes the encoding
+ * of the link rather than the link. Decoding is tried a couple of times
+ * before giving up, and a malformed escape (a bare % in ordinary prose)
+ * merely ends the attempt rather than throwing.
+ */
+export function sharedHttpUrl(raw: string): string | null {
+  let text = raw;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const url = firstHttpUrl(text);
+    if (url) return url;
+    try {
+      const decoded = decodeURIComponent(text);
+      if (decoded === text) return null;
+      text = decoded;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
  * True when the pasted URL is the asset itself rather than a page about it.
  * Threads never exposes its video URL, so copying the video address and
  * pasting that is the only route to archiving it.
