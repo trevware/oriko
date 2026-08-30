@@ -1,6 +1,6 @@
 {
   "name": "obsidian-power-grid",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "description": "A fast masonry grid over your Obsidian web clippings, with local media archiving.",
   "main": "main.js",
   "type": "module",
