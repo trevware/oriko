@@ -621,7 +621,9 @@ export function openGridsManager(
           label: "Delete",
           icon: "trash-2",
           destructive: true,
-          onChoose: () => confirmDelete(sheet, grids, grid, at, after),
+          // reopen, not after: the question closes the sheet, and coming
+          // back to the list is where a deletion from the manager belongs.
+          onChoose: () => confirmDelete(sheet, grids, grid, at, reopen),
         });
       }
 

@@ -325,6 +325,16 @@ export class OrikoView extends ItemView {
       void detail.open(model, origin, () => this.grid?.tileRect(model.id) ?? null);
     };
 
+    this.detail.onNavigate = (current, direction) => {
+      const next = this.grid?.neighbor(current.id, direction);
+      if (!next || !this.detail?.isOpen) return;
+      // The wall follows behind the overlay, so the tile is mounted and the
+      // eventual close flight has somewhere real to land.
+      this.grid?.focusTile(next.id);
+      this.grid?.reveal(next.id, { fit: false, select: false });
+      void this.detail.show(next, () => this.grid?.tileRect(next.id) ?? null);
+    };
+
     this.grid.onSourceFailed = (id: string, signature: string) => {
       if (this.unloadable.get(id) === signature) return;
       this.unloadable.set(id, signature);

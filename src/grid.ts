@@ -813,6 +813,16 @@ export class GridRenderer {
     return [...this.selection];
   }
 
+  /**
+   * The tile one step along the wall's own order, filter and sort applied,
+   * or null at either end. What the detail view's arrow keys walk.
+   */
+  neighbor(id: string, direction: -1 | 1): TileModel | null {
+    const index = this.tiles.findIndex((tile) => tile.id === id);
+    if (index < 0) return null;
+    return this.tiles[index + direction] ?? null;
+  }
+
   clearSelection(): void {
     this.selectionAnchor = null;
     this.applySelection(new Set());

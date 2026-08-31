@@ -226,6 +226,10 @@ export class DetailView {
 
   /** Fires once the stage exists, so the source card can be hidden then. */
   onStageReady: (() => void) | null = null;
+  /** Asked to move one step along the wall when an arrow key is pressed. */
+  onNavigate: ((current: TileModel, direction: -1 | 1) => void) | null = null;
+  /** The clipping on the stage right now, which navigation steps from. */
+  private current: TileModel | null = null;
   /** Fires once the closing flight has finished and the overlay is gone. */
   onClosed: (() => void) | null = null;
 
@@ -236,6 +240,7 @@ export class DetailView {
   ): Promise<void> {
     this.close(true);
     this.closing = false;
+    this.current = model;
     this.originNow = originNow;
 
     const url = model.remote ? model.filePath : this.resource(model.filePath);
@@ -319,6 +324,14 @@ export class DetailView {
       };
 
       if (event.key === "Escape") return take(() => this.close());
+
+      // Left and right walk the wall without leaving the overlay, in the
+      // order the wall is showing, filters and sort included.
+      const current = this.current;
+      if (current && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        const direction = event.key === "ArrowRight" ? 1 : -1;
+        return take(() => this.onNavigate?.(current, direction));
+      }
 
       const mod = event.metaKey || event.ctrlKey;
       if (mod && event.key === "0") return take(() => this.setView({ ...FIT }));
@@ -411,6 +424,63 @@ export class DetailView {
       ],
       { duration, delay, easing: "cubic-bezier(0.19, 1, 0.26, 1)", fill: "both" }
     );
+  }
+
+  /**
+   * Swaps the overlay to another clipping in place. No flight is replayed
+   * and nothing behind changes: the media, details and actions are rebuilt
+   * for the new model, the zoom returns to fit, and the close flight is
+   * re-aimed at the card this now shows. What the arrow keys use.
+   */
+  async show(model: TileModel, originNow: (() => Box | null) | null = null): Promise<void> {
+    if (!this.root || !this.stage || !this.layer || this.closing) return;
+    this.current = model;
+    this.originNow = originNow;
+
+    // The outgoing video goes quiet before the new media arrives.
+    this.stopWatchingVisibility();
+    this.suspended = false;
+
+    const url = model.remote ? model.filePath : this.resource(model.filePath);
+    const size = await naturalSize(url, model.kind, {
+      width: model.width,
+      height: model.height,
+    });
+    if (!this.root || !this.stage || !this.layer || this.closing) return;
+
+    this.natural = size;
+    this.view = { ...FIT };
+    this.dragging = false;
+    this.zoomedNow = false;
+    this.touches.clear();
+    this.pinchStart = null;
+    this.cancelApply();
+
+    const bounds = this.container.getBoundingClientRect();
+    const layout = detailLayout(size, { width: bounds.width, height: bounds.height });
+
+    this.layer.empty();
+    this.meta?.remove();
+    this.root.querySelector(".pg-detail-actions")?.remove();
+    this.hotkeys = [];
+
+    this.place(layout, bounds);
+    this.applyView();
+    const image = this.paintMedia(model);
+    const panel = this.paintMeta(model, layout);
+    this.meta = panel;
+    this.paintActions(model);
+    if (image) void this.paintSwatches(panel, image);
+
+    // The return flight heads for the card this shows now, not the one the
+    // overlay was opened from.
+    const rect = originNow?.();
+    if (rect) {
+      this.origin = {
+        at: { x: 0.5, y: 0.5 },
+        rect: { x: rect.x - bounds.left, y: rect.y - bounds.top, w: rect.w, h: rect.h },
+      };
+    }
   }
 
   private static prefersReducedMotion(): boolean {
@@ -1032,6 +1102,7 @@ export class DetailView {
     this.meta = null;
     this.relayoutPending = false;
     this.hotkeys = [];
+    this.current = null;
     this.flying = false;
     this.dragging = false;
     this.view = { ...FIT };
