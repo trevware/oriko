@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/oriko-dark.svg">
-    <img src=".github/oriko.svg" alt="" width="96">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/trevware/oriko/HEAD/.github/oriko-dark.svg">
+    <img src="https://raw.githubusercontent.com/trevware/oriko/HEAD/.github/oriko.svg" alt="" width="96">
   </picture>
 </p>
 
