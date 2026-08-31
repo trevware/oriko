@@ -29,7 +29,7 @@ Turn your web clippings into a wall of pictures. Oriko lays out every clipping i
 
 ## Clipping
 
-Paste a link anywhere on the wall, or run **Clip from clipboard** from the command palette. Oriko reads the page, downloads its images and video into your attachment folder, and writes a markdown note into your clippings folder. Pasting or dropping a picture or video saves it as a clipping of its own, and pasting a link you already clipped opens the existing note instead of duplicating it.
+Paste a link anywhere on the wall, or run **Clip from clipboard** from the command palette. Oriko reads the page, downloads its images and video into your attachment folder, and writes a markdown note into your clippings folder. Pasting or dropping a picture or video saves it as a clipping of its own, and pasting a link you already clipped opens the existing note.
 
 | Source | What you get |
 | --- | --- |
@@ -38,25 +38,25 @@ Paste a link anywhere on the wall, or run **Clip from clipboard** from the comma
 | An X or Instagram post | The post's media, via optional community resolvers |
 | A Threads post | The video, found by loading the post itself (desktop) |
 | Notes from the [Obsidian Web Clipper](https://obsidian.md/clipper) | They appear on the wall, and their remote media is downloaded in the background |
-| A page whose media cannot be scraped | The page itself is scanned as a fallback, so the clipping still gets a picture instead of nothing |
+| A page whose media cannot be scraped | The page itself is scanned as a fallback, so the clipping still gets a picture |
 
 On iOS you can clip straight from any app's share sheet: make a Shortcut that receives URLs and text, runs **Get URLs from Input**, URL-encodes the result, and opens `obsidian://oriko?url=` followed by the encoded text. Sharing a post to that Shortcut opens the wall and clips it, no copy and paste involved.
 
-## The wall
+## The Wall
 
 Every clipping is a tile: pan and pinch on a phone, scroll and zoom on a desktop, and click or tap a tile to open it full screen with its properties and actions. Videos can autoplay muted while they are in view, respecting Reduce Motion. Select many at once with a drag on desktop or a long press on mobile, then move, export or delete them together.
 
 The full-screen view zooms and pans the original, shows the picture's own color palette, and describes the clipping beside it. Its Source row links out to the original page (so do **Open in browser** in the tile's context menu and in the view's bar), its bar opens the note, exports, edits properties and deletes, and each button carries its key: ⏎ for the note, B for the browser, P for properties, ⌫ to delete.
 
-## The palette
+## The Palette
 
-⌘K, or **Search this grid** from the command palette, opens one input over the dimmed wall that finds both the clippings and the things you can do to them: actions, grids, filter values, capture, and every clipping in the vault by name, each with a preview. A command that needs an argument opens a second stage in place, so moving four clippings to another grid is one gesture rather than a menu, a submenu and a hunt.
+⌘K, or **Search this grid** from the command palette, opens one input over the dimmed wall that finds both the clippings and the things you can do to them: actions, grids, filter values, capture, and every clipping in the vault by name, each with a preview. A command that needs an argument opens a second stage in place, so moving four clippings to another grid is one gesture.
 
 The wall answers the keyboard elsewhere too: ⌘1 through ⌘9 switch grids in their stored order, ⌘N clips whatever is on the clipboard, ⌘E exports the selection, and the arrow keys walk the tiles.
 
 ## Grids
 
-Grids are boards. A clipping belongs to a grid through a single `grid` property in its frontmatter, home shows everything, and smart grids collect clippings by rule instead of by hand. The set of grids is shared across your devices through one small note in the clippings folder, so a board made on your desktop is on your phone after a sync.
+Grids are boards. A clipping belongs to a grid through a single `grid` property in its frontmatter, home shows everything, and smart grids collect clippings by rule. The set of grids is shared across your devices through one small note in the clippings folder, so a board made on your desktop is on your phone after a sync.
 
 ## Filters
 
@@ -68,7 +68,7 @@ Remote media is copied into your attachment folder under a name derived from its
 
 Notes are never rewritten. Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
 
-## What touches the network
+## What Touches the Network
 
 Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. There are no analytics and nothing is reported anywhere.
 
