@@ -2,6 +2,7 @@ import {
   Notice,
   ObsidianProtocolData,
   Plugin,
+  addIcon,
   TAbstractFile,
   TFile,
   WorkspaceLeaf,
@@ -26,6 +27,7 @@ import {
 import { describeFiles } from "./core/media-refs";
 import { installRepair } from "./repair";
 import { sharedHttpUrl } from "./core/resolve";
+import { ORIKO_ICON_ID, ORIKO_ICON_SVG } from "./core/icon";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
 import { PowerGridSettingTab } from "./settings-tab";
@@ -51,6 +53,7 @@ export default class PowerGridPlugin extends Plugin {
   }
 
   async onload(): Promise<void> {
+    addIcon(ORIKO_ICON_ID, ORIKO_ICON_SVG);
     this.register(() => window.clearTimeout(this.archiveTimer));
     await this.loadSettings();
     // After the settings, because it needs the clippings folder to know where
@@ -111,7 +114,7 @@ export default class PowerGridPlugin extends Plugin {
     this.addSettingTab(new PowerGridSettingTab(this.app, this));
     installRepair(this);
 
-    this.addRibbonIcon("layout-grid", "Open Oriko", () => {
+    this.addRibbonIcon(ORIKO_ICON_ID, "Open Oriko", () => {
       void this.activateView();
     });
 

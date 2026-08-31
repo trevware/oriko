@@ -1,3 +1,4 @@
+import { ORIKO_ICON_ID } from "./core/icon";
 import { ItemView, Notice, Platform, TFile, WorkspaceLeaf, normalizePath } from "obsidian";
 import { absolutePath } from "./convert";
 import { dedupeMedia, sourceVideoKeyFor } from "./core/normalize";
@@ -154,7 +155,7 @@ export class PowerGridView extends ItemView {
   }
 
   getIcon(): string {
-    return "layout-grid";
+    return ORIKO_ICON_ID;
   }
 
   async onOpen(): Promise<void> {
