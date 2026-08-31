@@ -85,26 +85,17 @@ export async function readSwatches(image: HTMLImageElement): Promise<string[]> {
 export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   if (swatches.length === 0) return;
 
-  const block = createEl("div");
-  block.className = "pg-detail-field pg-swatches";
-
-  const label = createEl("div");
-  label.className = "pg-detail-label";
-  label.textContent = "Palette";
-  block.appendChild(label);
-
-  const row = createEl("div");
-  row.className = "pg-swatches-row";
-  block.appendChild(row);
-
-  const readout = createEl("div");
-  readout.className = "pg-swatches-readout";
+  const block = host.createEl("div", { cls: "pg-detail-field pg-swatches" });
+  block.createEl("div", { cls: "pg-detail-label", text: "Palette" });
+  const row = block.createEl("div", { cls: "pg-swatches-row" });
   // Present from the start, so showing a value cannot reflow the panel, and
   // hidden from screen readers because each swatch already carries its hex
   // in an aria-label; announcing it twice says nothing new.
-  readout.textContent = swatches[0];
-  readout.setAttribute("aria-hidden", "true");
-  block.appendChild(readout);
+  const readout = block.createEl("div", {
+    cls: "pg-swatches-readout",
+    text: swatches[0],
+    attr: { "aria-hidden": "true" },
+  });
 
   /** The swatch under the pointer or holding focus, so the readout knows what
       to fall back to when a message expires, and where to sit. */
@@ -157,11 +148,11 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   };
 
   swatches.forEach((hex, index) => {
-    const swatch = createEl("button");
-    swatch.type = "button";
-    swatch.className = "pg-swatch";
+    const swatch = row.createEl("button", {
+      cls: "pg-swatch",
+      attr: { type: "button", "aria-label": `Copy ${hex}` },
+    });
     swatch.style.backgroundColor = hex;
-    swatch.setAttribute("aria-label", `Copy ${hex}`);
     // Animated here rather than by a class, so the row cannot depend on a
     // style flush landing between its being built and its being shown. fill
     // backwards holds each swatch hidden through its own delay and then hands
@@ -209,8 +200,6 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
       );
     });
 
-    row.appendChild(swatch);
   });
 
-  host.appendChild(block);
 }

@@ -60,7 +60,7 @@ export class OrikoSettingTab extends PluginSettingTab {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
       if (leaf.view instanceof OrikoView) leaf.view.refreshFacets();
     }
-    this.display();
+    this.update();
   }
 
   private paintFilterProperties(containerEl: HTMLElement): void {
