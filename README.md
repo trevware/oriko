@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/oriko-dark.svg">
+    <img src=".github/oriko.svg" alt="" width="96">
+  </picture>
+</p>
+
 # Oriko
 
 Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall, downloads a local copy of each clipping's media so posts survive their source going dark, and keeps everything in plain markdown notes that read fine without it.
