@@ -14,6 +14,7 @@ import type { Camera, Size } from "./core/camera";
 import { facetLabel } from "./core/filter";
 import { flightMidpoint, flipTransform } from "./core/layout";
 import { visibilityAction } from "./core/playback";
+import { isHttpUrl } from "./core/resolve";
 import type { Box, FlightShape } from "./core/layout";
 import type { TileModel } from "./core/tile";
 import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
@@ -582,7 +583,21 @@ export class DetailView {
       field("Resolution", `${model.width} × ${model.height}`);
     }
     field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
-    field("Source", domainOf(model.record.source));
+    // Shown as the domain, since the full URL is soup, but the row is the
+    // whole address: a link out to the page itself, full URL on hover.
+    if (isHttpUrl(model.record.source)) {
+      const block = panel.createDiv({ cls: "pg-detail-field" });
+      block.createDiv({ cls: "pg-detail-label", text: "Source" });
+      const value = block.createDiv({ cls: "pg-detail-value" });
+      const link = value.createEl("a", {
+        cls: "pg-detail-link",
+        text: domainOf(model.record.source),
+        href: model.record.source,
+      });
+      link.title = model.record.source;
+    } else {
+      field("Source", domainOf(model.record.source));
+    }
     field("Date", model.record.created ? `Clipped ${model.record.created}` : "");
 
     // The same list the filter menu offers, so what you can narrow by and what
@@ -668,6 +683,17 @@ export class DetailView {
         this.close();
       }
     );
+    // Needs nothing from the view: the browser is its own destination, so
+    // this stays out of DetailActions rather than growing the interface.
+    if (isHttpUrl(model.record.source)) {
+      add(
+        "globe",
+        "Open in browser",
+        "B",
+        (event) => !mod(event) && !event.shiftKey && event.key.toLowerCase() === "b",
+        () => window.open(model.record.source)
+      );
+    }
     // Both reach for the filesystem, which mobile does not have. Gated the way
     // the wall's context menu already gates them: without this the bar shows
     // two controls that cannot work, and Export answers a tap by claiming

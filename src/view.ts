@@ -29,6 +29,7 @@ import type OrikoPlugin from "./main";
 import { Palette } from "./palette";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./core/playback";
+import { isHttpUrl } from "./core/resolve";
 import { ProgressBar } from "./core/progress";
 import type { PropertyVocabulary } from "./core/filter";
 import {
@@ -729,6 +730,16 @@ export class OrikoView extends ItemView {
         label: "Open note",
         onSelect: () => this.openNote(ids[0]),
       });
+      const source = this.plugin.index.get(ids[0])?.source ?? "";
+      if (isHttpUrl(source)) {
+        reach.push({
+          icon: "globe",
+          label: "Open in browser",
+          onSelect: () => {
+            window.open(source);
+          },
+        });
+      }
     }
 
     if (systemAvailable()) {

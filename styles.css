@@ -1274,6 +1274,18 @@
   overflow-wrap: anywhere;
 }
 
+/* The source row's link out. Muted like its siblings until pointed at, so
+   the panel stays a description rather than a row of controls. */
+.pg-detail-link {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.pg-detail-link:hover {
+  color: var(--text-normal);
+  text-decoration: underline;
+}
+
 /* The picture's palette, last in the details panel so it reads as another
    field rather than a widget bolted on underneath. */
 .pg-swatches {
