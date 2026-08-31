@@ -102,7 +102,7 @@ function isGrid(value: unknown): value is GridSpace {
 
 function strings(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
-  return value.every((v) => typeof v === "string") ? [...(value as string[])] : null;
+  return value.every((v): v is string => typeof v === "string") ? [...value] : null;
 }
 
 /**

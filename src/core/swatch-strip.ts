@@ -53,7 +53,7 @@ export async function readSwatches(image: HTMLImageElement): Promise<string[]> {
   if (image.naturalWidth === 0 || image.naturalHeight === 0) return [];
 
   const size = scaledSize(image.naturalWidth, image.naturalHeight, SAMPLE_WIDTH);
-  const canvas = document.createElement("canvas");
+  const canvas = createEl("canvas");
   canvas.width = Math.max(1, size.width);
   canvas.height = Math.max(1, size.height);
   const context = canvas.getContext("2d");
@@ -85,19 +85,19 @@ export async function readSwatches(image: HTMLImageElement): Promise<string[]> {
 export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   if (swatches.length === 0) return;
 
-  const block = document.createElement("div");
+  const block = createEl("div");
   block.className = "pg-detail-field pg-swatches";
 
-  const label = document.createElement("div");
+  const label = createEl("div");
   label.className = "pg-detail-label";
   label.textContent = "Palette";
   block.appendChild(label);
 
-  const row = document.createElement("div");
+  const row = createEl("div");
   row.className = "pg-swatches-row";
   block.appendChild(row);
 
-  const readout = document.createElement("div");
+  const readout = createEl("div");
   readout.className = "pg-swatches-readout";
   // Present from the start, so showing a value cannot reflow the panel, and
   // hidden from screen readers because each swatch already carries its hex
@@ -157,7 +157,7 @@ export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   };
 
   swatches.forEach((hex, index) => {
-    const swatch = document.createElement("button");
+    const swatch = createEl("button");
     swatch.type = "button";
     swatch.className = "pg-swatch";
     swatch.style.backgroundColor = hex;

@@ -70,7 +70,7 @@ export default class OrikoPlugin extends Plugin {
       this.app,
       this.index,
       () => this.settings,
-      this.manifest.dir ?? ".obsidian/plugins/oriko"
+      this.manifest.dir ?? `${this.app.vault.configDir}/plugins/oriko`
     );
     await this.archiver.loadCache();
     this.capture = new CaptureService(
@@ -116,8 +116,8 @@ export default class OrikoPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "open-oriko",
-      name: "Open Oriko",
+      id: "open",
+      name: "Open the wall",
       callback: () => void this.activateView(),
     });
 
@@ -425,7 +425,8 @@ export default class OrikoPlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = (await this.loadData()) as Partial<OrikoSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
     // Object.assign copies the reference, not the array. Without this, a vault
     // with no saved grids yet would push straight into DEFAULT_SETTINGS, and
     // the module-level default would start carrying real user data.

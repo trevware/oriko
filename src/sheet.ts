@@ -612,8 +612,7 @@ export class Sheet {
       if (index === this.dragRow) return;
       const dy = offsets.get(this.rows[index]?.label ?? "");
       if (dy === undefined) return;
-      el.style.transition = "none";
-      el.style.transform = `translateY(${dy}px)`;
+      el.setCssStyles({ transition: "none", transform: `translateY(${dy}px)` });
       moved.push(el);
     });
 
@@ -634,8 +633,7 @@ export class Sheet {
     void this.listEl?.offsetHeight;
 
     for (const el of moved) {
-      el.style.transition = `transform ${REORDER_MS}ms ${REORDER_EASE}`;
-      el.style.transform = "";
+      el.setCssStyles({ transition: `transform ${REORDER_MS}ms ${REORDER_EASE}`, transform: "" });
     }
   }
 

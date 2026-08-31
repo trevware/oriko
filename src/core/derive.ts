@@ -56,7 +56,7 @@ function draw(
   targetWidth: number
 ): HTMLCanvasElement | null {
   const size = scaledSize(naturalWidth, naturalHeight, targetWidth);
-  const canvas = document.createElement("canvas");
+  const canvas = createEl("canvas");
   canvas.width = size.width;
   canvas.height = size.height;
   const context = canvas.getContext("2d");
@@ -99,7 +99,7 @@ export async function renderPoster(
   sourceUrl: string,
   targetWidth: number
 ): Promise<Rendered | null> {
-  const video = document.createElement("video");
+  const video = createEl("video");
   video.muted = true;
   video.preload = "metadata";
   video.src = sourceUrl;

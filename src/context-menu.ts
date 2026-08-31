@@ -374,7 +374,7 @@ export class ContextMenu {
       return;
     }
     this.close();
-    current.onSelect?.(typed);
+    void current.onSelect?.(typed);
   }
 
   private paintSubActive(): void {

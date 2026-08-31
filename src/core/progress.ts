@@ -34,13 +34,13 @@ export class ProgressBar {
 
     if (state.fraction === null) {
       this.root.addClass("is-indeterminate");
-      this.fill.style.width = "";
+      this.fill.setCssStyles({ width: "" });
       return;
     }
 
     this.root.removeClass("is-indeterminate");
     const pct = Math.round(Math.min(1, Math.max(0, state.fraction)) * 100);
-    this.fill.style.width = `${pct}%`;
+    this.fill.setCssStyles({ width: `${pct}%` });
   }
 
   /** Fills to 100%, then fades out, so the bar never vanishes mid-progress. */

@@ -60,7 +60,7 @@ function playArchivedVideo(
   const file = plugin.app.vault.getAbstractFileByPath(normalizePath(entry.file));
   if (!(file instanceof TFile)) return;
 
-  const video = document.createElement("video");
+  const video = createEl("video");
   video.src = plugin.app.vault.getResourcePath(file);
   video.controls = true;
   video.loop = true;

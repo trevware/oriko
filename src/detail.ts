@@ -116,7 +116,7 @@ function naturalSize(
     };
 
     if (kind === "video") {
-      const video = document.createElement("video");
+      const video = createEl("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => done({ width: video.videoWidth, height: video.videoHeight });
       video.onerror = () => done(fallback);

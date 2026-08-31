@@ -42,7 +42,7 @@ const POLL_MS = 600;
 export async function sniffVideoUrl(pageUrl: string, timeoutMs = 20000): Promise<string | null> {
   if (!Platform.isDesktopApp) return null;
 
-  const view = document.createElement("webview") as WebviewLike;
+  const view = createEl("webview" as keyof HTMLElementTagNameMap) as WebviewLike;
   view.setAttribute("src", pageUrl);
   // Rendered but out of sight (see .pg-sniff-frame): display:none or a
   // zero-size frame may never lay the player out, and a player that never

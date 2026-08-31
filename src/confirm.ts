@@ -49,7 +49,8 @@ export class ConfirmDeleteModal extends Modal {
       .addButton((button) =>
         button
           .setButtonText(count === 1 ? "Delete note" : `Delete ${count} notes`)
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(() => {
             this.close();
             this.onConfirm();
@@ -104,7 +105,8 @@ export class ConfirmSweepModal extends Modal {
       .addButton((button) =>
         button
           .setButtonText("Move to trash")
-          .setWarning()
+          .setDestructive()
+          .setCta()
           .onClick(() => {
             this.close();
             this.onConfirm();

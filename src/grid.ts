@@ -1050,9 +1050,7 @@ export class GridRenderer {
     // mean anything, so the spacer stops taking up room and stops being
     // centred. Scrolled to zero for the same reason, and it can be: the
     // viewport is not scrollable while this class is on it.
-    this.scroller.style.margin = "0";
-    this.scroller.style.width = "0px";
-    this.scroller.style.height = "0px";
+    this.scroller.setCssStyles({ margin: "0", width: "0px", height: "0px" });
     this.viewport.scrollTo({ left: 0, top: 0, behavior: "auto" });
 
     this.applyCamera();
@@ -1063,7 +1061,7 @@ export class GridRenderer {
     if (!this.scroller || !this.pinching) return;
     this.pinching = false;
     this.viewport.removeClass("is-pinching");
-    this.scroller.style.margin = "";
+    this.scroller.setCssStyles({ margin: "" });
     // Sizes the spacer and scrolls to the camera's position, which the
     // scroller can reach because clampCamera never let it be anywhere else.
     this.applyCamera();
@@ -1161,7 +1159,7 @@ export class GridRenderer {
     const playable =
       next instanceof HTMLVideoElement ||
       (next instanceof HTMLImageElement && next.dataset.animatedSrc)
-        ? (next as HTMLVideoElement | HTMLImageElement)
+        ? next
         : null;
     if (this.hoveredMedia === playable) return;
     this.hoveredMedia = playable;
@@ -1239,7 +1237,7 @@ export class GridRenderer {
     if (this.tiltedId === tile.id) this.tiltedId = null;
     tile.root.style.removeProperty("--pg-rx");
     tile.root.style.removeProperty("--pg-ry");
-    tile.root.style.display = "none";
+    tile.root.setCssStyles({ display: "none" });
     tile.root.removeClass("is-gliding");
     tile.root.removeClass("is-entering");
     tile.root.empty();
@@ -1322,7 +1320,7 @@ export class GridRenderer {
   }
 
   private paint(element: TileElement, model: TileModel, position: Position, order: number): void {
-    element.root.style.display = "";
+    element.root.setCssStyles({ display: "" });
 
     // A tile that keeps representing the same clipping glides to its new
     // position; a pooled element reused for a different clipping snaps,

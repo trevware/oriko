@@ -1605,8 +1605,6 @@
   background: transparent;
 }
 
-buttonbuttonbutton/* The management panel's rows. */
-
 @media (prefers-reduced-motion: reduce) {
   .pg-spacebar button,
   .pg-actionbar button.pg-actionbar-button,
@@ -2254,4 +2252,10 @@ body.is-mobile .pg-spacebar button:hover {
 body.is-mobile .pg-spacebar button:active {
   background-color: var(--pg-inner-hover);
   transform: scale(0.93);
+}
+
+/* The filter-properties section is one declarative render row; the default
+   two-column setting layout would squeeze it, so it flows as a block. */
+.pg-props-setting {
+  display: block;
 }

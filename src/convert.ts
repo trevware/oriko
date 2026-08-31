@@ -215,7 +215,7 @@ export async function downloadSourceVideo(
     const data = buffer.buffer.slice(
       buffer.byteOffset,
       buffer.byteOffset + buffer.byteLength
-    ) as ArrayBuffer;
+    );
     const dot = file.lastIndexOf(".");
     return { data, extension: dot > 0 ? file.slice(dot + 1).toLowerCase() : "mp4" };
   } catch {

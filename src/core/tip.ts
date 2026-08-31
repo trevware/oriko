@@ -9,18 +9,18 @@
  * positioned against it.
  */
 export function attachTip(button: HTMLElement, label: string, shortcut?: string): void {
-  const tip = document.createElement("div");
+  const tip = createEl("div");
   tip.className = "pg-tip";
   // Not in the accessibility tree: the name attached below already says this,
   // and a label that is both drawn and read gets announced twice.
   tip.setAttribute("aria-hidden", "true");
 
-  const name = document.createElement("span");
+  const name = createEl("span");
   name.textContent = label;
   tip.appendChild(name);
 
   if (shortcut) {
-    const key = document.createElement("span");
+    const key = createEl("span");
     key.className = "pg-tip-key";
     key.textContent = shortcut;
     tip.appendChild(key);
@@ -32,7 +32,7 @@ export function attachTip(button: HTMLElement, label: string, shortcut?: string)
   // Obsidian draws a tooltip of its own for any element with an aria-label, so
   // a button with both showed two labels at once, in two different styles, in
   // two different places. Every caller used to set one.
-  const spoken = document.createElement("span");
+  const spoken = createEl("span");
   spoken.className = "pg-sr-only";
   spoken.textContent = tipLabel(label, shortcut);
   button.appendChild(spoken);

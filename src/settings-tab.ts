@@ -1,4 +1,5 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
+import type { SettingDefinitionItem } from "obsidian";
 import { surveyProperties } from "./core/facet-catalog";
 import { facetLabel } from "./core/filter";
 import { OrikoView, VIEW_TYPE_GRID } from "./view";
@@ -65,8 +66,6 @@ export class OrikoSettingTab extends PluginSettingTab {
   private paintFilterProperties(containerEl: HTMLElement): void {
     const enabled = this.plugin.settings.filterProperties;
 
-    new Setting(containerEl).setName("Filter properties").setHeading();
-
     containerEl.createEl("p", {
       cls: "setting-item-description",
       text: "Offered by the filter menu, alongside Media type and Source.",
@@ -128,112 +127,120 @@ export class OrikoSettingTab extends PluginSettingTab {
       );
   }
 
-  display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
+  /**
+   * The whole tab, declaratively, so every setting is reachable from
+   * Obsidian's settings search. Values flow through getControlValue and
+   * setControlValue below, which is where the byte-to-megabyte translation
+   * and the folder-change side effects live.
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return [
+      {
+        name: "Clippings folder",
+        desc: "The folder the wall shows. Every note in it is a clipping.",
+        control: { type: "folder", key: "clippingsFolder", defaultValue: "Clippings" },
+      },
+      {
+        name: "Attachment folder",
+        desc: "Where downloaded copies of remote images and videos are kept.",
+        control: {
+          type: "folder",
+          key: "attachmentFolder",
+          defaultValue: "Attachments/Clippings",
+        },
+      },
+      {
+        type: "group",
+        heading: "Wall",
+        items: [
+          {
+            name: "Autoplay videos",
+            desc: "Play video tiles while they are in view. Reduce Motion always wins.",
+            control: { type: "toggle", key: "autoplayVideo" },
+          },
+          {
+            name: "Add new clippings automatically",
+            desc: "Show new files from the clippings folder on the wall the moment they arrive. When off, they appear after a relaunch or the 'Rescan clippings folder' command.",
+            control: { type: "toggle", key: "watchClippings" },
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Downloads",
+        items: [
+          {
+            name: "Download media automatically",
+            desc: "Keep a local copy of each clipping's remote images and videos, so they survive the source going away. Runs in the background as clippings arrive.",
+            control: { type: "toggle", key: "archiveOnCreate" },
+          },
+          {
+            name: "Use community media resolvers",
+            desc: "X and Instagram never publish their video URLs, so pasting a post can only reach the video through a community mirror (fxtwitter, kkinstagram). This sends the pasted URL to that mirror. Turn it off to stay first-party, and those posts fall back to whatever poster image the site publishes.",
+            control: { type: "toggle", key: "useResolvers" },
+          },
+          {
+            name: "Maximum file size (MB)",
+            desc: "Skip downloads larger than this.",
+            control: { type: "number", key: "maxSizeMb" },
+          },
+          {
+            name: "Preview width (px)",
+            desc: "Pixel width of generated video posters and GIF stills.",
+            control: { type: "number", key: "thumbnailWidth" },
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Filter properties",
+        items: [
+          {
+            name: "Filter properties",
+            aliases: ["facets"],
+            render: (setting) => {
+              const el = setting.settingEl;
+              el.empty();
+              el.addClass("pg-props-setting");
+              this.paintFilterProperties(el);
+            },
+          },
+        ],
+      },
+    ];
+  }
 
-    new Setting(containerEl)
-      .setName("Clippings folder")
-      .setDesc("The folder the wall shows. Every note in it is a clipping.")
-      .addText((text) =>
-        text.setValue(this.plugin.settings.clippingsFolder).onChange(async (value) => {
-          this.plugin.settings.clippingsFolder = value.trim() || "Clippings";
-          await this.plugin.saveSettings();
-          await this.plugin.index.rebuild();
-        })
-      );
+  getControlValue(key: string): unknown {
+    if (key === "maxSizeMb") return Math.round(this.plugin.settings.maxBytes / 1048576);
+    return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+  }
 
-    new Setting(containerEl)
-      .setName("Attachment folder")
-      .setDesc("Where downloaded copies of remote images and videos are kept.")
-      .addText((text) =>
-        text.setValue(this.plugin.settings.attachmentFolder).onChange(async (value) => {
-          this.plugin.settings.attachmentFolder = value.trim() || "Attachments/Clippings";
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl).setName("Wall").setHeading();
-
-    new Setting(containerEl)
-      .setName("Autoplay videos")
-      .setDesc("Play video tiles while they are in view. Reduce Motion always wins.")
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.autoplayVideo).onChange(async (value) => {
-          this.plugin.settings.autoplayVideo = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl)
-      .setName("Add new clippings automatically")
-      .setDesc(
-        "Show new files from the clippings folder on the wall the moment they arrive. When off, they appear after a relaunch or the 'Rescan clippings folder' command."
-      )
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.watchClippings).onChange(async (value) => {
-          this.plugin.settings.watchClippings = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl).setName("Downloads").setHeading();
-
-    new Setting(containerEl)
-      .setName("Download media automatically")
-      .setDesc(
-        "Keep a local copy of each clipping's remote images and videos, so they survive the source going away. Runs in the background as clippings arrive."
-      )
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.archiveOnCreate).onChange(async (value) => {
-          this.plugin.settings.archiveOnCreate = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl)
-      .setName("Use community media resolvers")
-      .setDesc(
-        "X and Instagram never publish their video URLs, so pasting a post can only " +
-          "reach the video through a community mirror (fxtwitter, kkinstagram). This " +
-          "sends the pasted URL to that mirror. Turn it off to stay first-party, and " +
-          "those posts fall back to whatever poster image the site publishes."
-      )
-      .addToggle((toggle) =>
-        toggle.setValue(this.plugin.settings.useResolvers).onChange(async (value) => {
-          this.plugin.settings.useResolvers = value;
-          await this.plugin.saveSettings();
-        })
-      );
-
-    new Setting(containerEl)
-      .setName("Maximum file size (MB)")
-      .setDesc("Skip downloads larger than this.")
-      .addText((text) =>
-        text
-          .setValue(String(Math.round(this.plugin.settings.maxBytes / 1048576)))
-          .onChange(async (value) => {
-            const mb = Number(value);
-            if (Number.isFinite(mb) && mb > 0) {
-              this.plugin.settings.maxBytes = Math.round(mb * 1048576);
-              await this.plugin.saveSettings();
-            }
-          })
-      );
-
-    new Setting(containerEl)
-      .setName("Preview width (px)")
-      .setDesc("Pixel width of generated video posters and GIF stills.")
-      .addText((text) =>
-        text.setValue(String(this.plugin.settings.thumbnailWidth)).onChange(async (value) => {
-          const width = Number(value);
-          if (Number.isFinite(width) && width >= 100) {
-            this.plugin.settings.thumbnailWidth = Math.round(width);
-            await this.plugin.saveSettings();
-          }
-        })
-      );
-
-    this.paintFilterProperties(containerEl);
+  setControlValue(key: string, value: unknown): void | Promise<void> {
+    const settings = this.plugin.settings;
+    switch (key) {
+      case "clippingsFolder": {
+        settings.clippingsFolder = String(value).trim() || "Clippings";
+        return this.plugin.saveSettings().then(() => this.plugin.index.rebuild());
+      }
+      case "attachmentFolder": {
+        settings.attachmentFolder = String(value).trim() || "Attachments/Clippings";
+        break;
+      }
+      case "maxSizeMb": {
+        const mb = Number(value);
+        if (!Number.isFinite(mb) || mb <= 0) return;
+        settings.maxBytes = Math.round(mb * 1048576);
+        break;
+      }
+      case "thumbnailWidth": {
+        const width = Number(value);
+        if (!Number.isFinite(width) || width < 100) return;
+        settings.thumbnailWidth = Math.round(width);
+        break;
+      }
+      default:
+        (settings as unknown as Record<string, unknown>)[key] = value;
+    }
+    return this.plugin.saveSettings();
   }
 }
