@@ -1,6 +1,6 @@
-# CLAUDE.md — Oriko (formerly Power Grid)
+# CLAUDE.md — Oriko
 
-An Obsidian plugin (id `power-grid`, kept from before the rename): a pannable, zoomable canvas over the vault's `Clippings/` folder, which archives every clipping's remote media locally so it survives the source going dark.
+An Obsidian plugin (id `oriko`; it was Power Grid until 2026-08-30): a pannable, zoomable canvas over the vault's `Clippings/` folder, which archives every clipping's remote media locally so it survives the source going dark.
 
 ## Git
 

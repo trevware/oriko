@@ -20,7 +20,7 @@ import { sniffVideoUrl } from "./sniff";
 import type { CanonicalMedia } from "./core/normalize";
 import { extractPageImage, knownHostThumbnail, needsPageCover } from "./core/page-cover";
 import type { ClippingRecord } from "./core/scan";
-import type { PowerGridSettings } from "./core/settings";
+import type { OrikoSettings } from "./core/settings";
 
 const CACHE_FILE = "cache.json";
 
@@ -37,7 +37,7 @@ export class ArchiveService {
   constructor(
     private app: App,
     private index: ClippingIndex,
-    private settings: () => PowerGridSettings,
+    private settings: () => OrikoSettings,
     private cacheDir: string
   ) {}
 

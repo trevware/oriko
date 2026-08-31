@@ -1,4 +1,4 @@
-.power-grid-view {
+.oriko-view {
   /* One floating surface, defined once. The selection toolbar is the
      reference: every bar, menu and popup over the wall is the same material,
      so they read as one system rather than four things that happen to be
@@ -78,7 +78,7 @@
 
 /* Obsidian carries the theme on the body, so the panels follow it with no
    setting of ours and no flash on load. */
-.theme-light .power-grid-view {
+.theme-light .oriko-view {
   --pg-surface: rgba(252, 252, 253, 0.9);
   --pg-surface-ring: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
   --pg-surface-lift: 0 1px 6px rgba(0, 0, 0, 0.07), 0 8px 24px rgba(0, 0, 0, 0.09);
@@ -123,7 +123,7 @@
    pointer-events stay off throughout. An overlay that could be hit would take
    the dragover events itself, and the drop would land on a target that had
    just stopped being able to hear about it. */
-.power-grid-view.is-drop-target::before {
+.oriko-view.is-drop-target::before {
   content: "";
   position: absolute;
   inset: 10px;
@@ -140,7 +140,7 @@
    land: nothing is filed into a smart grid, so one on screen sends the
    clipping home, and that is better said by the frame before the drop than by
    a toast after it. */
-.power-grid-view.is-drop-target::after {
+.oriko-view.is-drop-target::after {
   content: var(--pg-drop-label, "Drop to add");
   position: absolute;
   inset: 10px;
@@ -168,7 +168,7 @@
    Guarded, because the colour has to be transparent for the clip to show, and
    text that cannot be clipped would then be text that cannot be read. */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .power-grid-view.is-drop-target::after {
+  .oriko-view.is-drop-target::after {
     /* The range has to be wide or there is nothing to see. Secondary to
        primary is 0.72 alpha to 0.88, which spread across half the label is a
        change no eye picks up; this runs from a little over half opacity to the
@@ -236,7 +236,7 @@
    stretch to the box, it falls back to its intrinsic 300x150 and draws itself
    in the corner. Sizing it outright and insetting the geometry is what avoids
    that entirely. */
-.power-grid-view.is-drop-target .pg-drop-frame {
+.oriko-view.is-drop-target .pg-drop-frame {
   display: block;
   position: absolute;
   inset: 0;
@@ -254,7 +254,7 @@
    stroke wanders off the scrim's corner, and what is behind the pane shows
    through the gap between them. Only the corners were ever wrong, the
    straights having nothing to be concentric about. */
-.power-grid-view.is-drop-target .pg-drop-frame rect {
+.oriko-view.is-drop-target .pg-drop-frame rect {
   x: 11px;
   y: 11px;
   width: calc(100% - 22px);
@@ -289,15 +289,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .power-grid-view.is-drop-target::before,
-  .power-grid-view.is-drop-target::after,
-  .power-grid-view.is-drop-target .pg-drop-frame rect {
+  .oriko-view.is-drop-target::before,
+  .oriko-view.is-drop-target::after,
+  .oriko-view.is-drop-target .pg-drop-frame rect {
     animation: none;
   }
 
   /* Without the sweep the gradient parks mid-band, so the colour comes back
      and the letters are simply the colour they always were. */
-  .power-grid-view.is-drop-target::after {
+  .oriko-view.is-drop-target::after {
     background-image: none;
     color: var(--pg-surface-text);
   }
@@ -1711,7 +1711,7 @@ buttonbuttonbutton/* The management panel's rows. */
 
 /* Selector carries the view as well as the panel, so it outranks Obsidian's
    own input styling, which otherwise paints a filled box with its own border. */
-.power-grid-view .pg-palette input.pg-palette-input {
+.oriko-view .pg-palette input.pg-palette-input {
   flex: 1 1 auto;
   min-width: 0;
   height: auto;
@@ -1733,11 +1733,11 @@ buttonbuttonbutton/* The management panel's rows. */
    the filled rectangle this file has now been written twice to prevent.
    background-image as well as the colour: the host states one and some themes
    state the other, and clearing one alone leaves the other showing. */
-.power-grid-view .pg-palette input.pg-palette-input,
-.power-grid-view .pg-palette input.pg-palette-input:hover,
-.power-grid-view .pg-palette input.pg-palette-input:active,
-.power-grid-view .pg-palette input.pg-palette-input:focus,
-.power-grid-view .pg-palette input.pg-palette-input:focus-visible {
+.oriko-view .pg-palette input.pg-palette-input,
+.oriko-view .pg-palette input.pg-palette-input:hover,
+.oriko-view .pg-palette input.pg-palette-input:active,
+.oriko-view .pg-palette input.pg-palette-input:focus,
+.oriko-view .pg-palette input.pg-palette-input:focus-visible {
   border: none;
   background-color: transparent;
   background-image: none;
@@ -2059,7 +2059,7 @@ buttonbuttonbutton/* The management panel's rows. */
 /* ---------------------------------------------------------------------------
    Settings tab: the filter-property chips.
 
-   These live in Obsidian's own settings pane, outside .power-grid-view, so the
+   These live in Obsidian's own settings pane, outside .oriko-view, so the
    plugin's surface tokens are out of scope here and would resolve to nothing.
    Obsidian's variables instead, which is also what keeps the section looking
    like the rest of the settings rather than like the wall.

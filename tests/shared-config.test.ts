@@ -145,7 +145,7 @@ describe("extractShared", () => {
 
   it("writes a note, not a blob, so every sync carries it", () => {
     const written = serializeShared(shared);
-    expect(written.startsWith("# Power Grid")).toBe(true);
+    expect(written.startsWith("# Oriko")).toBe(true);
     expect(written).toContain("```json");
   });
 
@@ -154,12 +154,12 @@ describe("extractShared", () => {
   });
 
   it("ignores prose around the block", () => {
-    const written = `# Power Grid\n\nSome note someone added.\n\n\`\`\`json\n${JSON.stringify(shared)}\n\`\`\`\n\nAnd more after it.\n`;
+    const written = `# Oriko\n\nSome note someone added.\n\n\`\`\`json\n${JSON.stringify(shared)}\n\`\`\`\n\nAnd more after it.\n`;
     expect(extractShared(written)).toEqual(shared);
   });
 
   it("is null for a file with no configuration in it", () => {
-    expect(extractShared("# Power Grid\n\nnothing here\n")).toBeNull();
+    expect(extractShared("# Oriko\n\nnothing here\n")).toBeNull();
     expect(extractShared("")).toBeNull();
   });
 

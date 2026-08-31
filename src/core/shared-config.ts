@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from "./settings";
-import type { PowerGridSettings } from "./settings";
+import type { OrikoSettings } from "./settings";
 import type { GridSpace } from "./spaces";
 
 /**
@@ -38,11 +38,15 @@ export interface SharedConfig {
  * folder that is not a clipping, and isInFolder already skips those, so the
  * index never sees it despite it now being a note.
  */
-export const SHARED_FILE = "_Power Grid.md";
-/** The .json this replaced, read once so an early vault is not stranded. */
-export const LEGACY_SHARED_FILE = "_Power Grid.json";
+export const SHARED_FILE = "_Oriko.md";
+/**
+ * Earlier names for the same file, read once and retired so a vault that
+ * already published one carries over instead of starting again. Ordered
+ * newest first: the pre-rename .md, then the .json that preceded it.
+ */
+export const LEGACY_SHARED_FILES = ["_Power Grid.md", "_Power Grid.json"];
 
-export function sharedOf(settings: PowerGridSettings): SharedConfig {
+export function sharedOf(settings: OrikoSettings): SharedConfig {
   // Copied, not referenced. The caller pushes grids onto this list, and
   // handing out the array inside DEFAULT_SETTINGS would let a vault with no
   // grids yet write real user data into a module-level constant.
@@ -79,9 +83,9 @@ export function isDefaultShared(shared: SharedConfig): boolean {
 }
 
 export function withShared(
-  settings: PowerGridSettings,
+  settings: OrikoSettings,
   shared: SharedConfig
-): PowerGridSettings {
+): OrikoSettings {
   return { ...settings, ...shared };
 }
 
@@ -141,9 +145,9 @@ const FENCE = "```";
     from one that arrived by sync without re-reading the file. */
 export function serializeShared(shared: SharedConfig): string {
   return [
-    "# Power Grid",
+    "# Oriko",
     "",
-    "The grids in this vault, shared by every device that opens it. Written by the Power Grid plugin; change them in the app rather than here.",
+    "The grids in this vault, shared by every device that opens it. Written by the Oriko plugin; change them in the app rather than here.",
     "",
     `${FENCE}json`,
     JSON.stringify(shared, null, 2),

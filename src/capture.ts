@@ -22,7 +22,7 @@ import {
   xStatus,
 } from "./core/resolve";
 import type { ProgressState } from "./core/progress";
-import type { PowerGridSettings } from "./core/settings";
+import type { OrikoSettings } from "./core/settings";
 
 /**
  * Identifies the plugin honestly rather than impersonating a known crawler.
@@ -54,7 +54,7 @@ export class CaptureService {
 
   constructor(
     private app: App,
-    private settings: () => PowerGridSettings,
+    private settings: () => OrikoSettings,
     private archiver: ArchiveService,
     private index: ClippingIndex
   ) {}

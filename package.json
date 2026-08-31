@@ -1,5 +1,5 @@
 {
-  "name": "obsidian-power-grid",
+  "name": "oriko",
   "version": "0.1.34",
   "description": "A fast masonry grid over your Obsidian web clippings, with local media archiving.",
   "main": "main.js",

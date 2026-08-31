@@ -25,7 +25,7 @@ import type { MenuItem } from "./context-menu";
 import type { GridsController } from "./grid-sheets";
 import { GridRenderer } from "./grid";
 import { groupedMenu } from "./core/layout";
-import type PowerGridPlugin from "./main";
+import type OrikoPlugin from "./main";
 import { Palette } from "./palette";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./core/playback";
@@ -64,7 +64,7 @@ import type { GridSpace, PlacedGrid } from "./core/spaces";
 import { buildTiles, previewOf } from "./core/tile";
 import type { TileModel } from "./core/tile";
 
-export const VIEW_TYPE_GRID = "power-grid";
+export const VIEW_TYPE_GRID = "oriko";
 
 /** Dash and gap for the drop frame, in pixels, before they are rounded to fit
     the perimeter. Small: the frame is the size of the pane, and dashes big
@@ -91,7 +91,7 @@ const PALETTE_CLIPPINGS = 8;
  */
 const REVEAL_WINDOW_MS = 20000;
 
-export class PowerGridView extends ItemView {
+export class OrikoView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
@@ -142,7 +142,7 @@ export class PowerGridView extends ItemView {
    */
   private vocabularies = new Map<string, PropertyVocabulary>();
 
-  constructor(leaf: WorkspaceLeaf, private plugin: PowerGridPlugin) {
+  constructor(leaf: WorkspaceLeaf, private plugin: OrikoPlugin) {
     super(leaf);
   }
 
@@ -160,7 +160,7 @@ export class PowerGridView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.contentEl.empty();
-    this.contentEl.addClass("power-grid-view");
+    this.contentEl.addClass("oriko-view");
 
     this.progress = new ProgressBar(this.contentEl);
     this.plugin.capture.onProgress = (state) => this.progress?.set(state);
@@ -261,7 +261,7 @@ export class PowerGridView extends ItemView {
     });
 
     this.onGridKey = (event: KeyboardEvent) => {
-      if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
+      if (this.app.workspace.getActiveViewOfType(OrikoView) !== this) return;
       // The detail view registers in the capture phase too and owns its keys
       // while it is up.
       if (this.detail?.isOpen) return;
@@ -353,7 +353,7 @@ export class PowerGridView extends ItemView {
     // Paste a link anywhere in the grid to clip it, the way you would drop
     // a URL into a board app.
     this.registerDomEvent(document, "paste", (event: ClipboardEvent) => {
-      if (this.app.workspace.getActiveViewOfType(PowerGridView) !== this) return;
+      if (this.app.workspace.getActiveViewOfType(OrikoView) !== this) return;
       // Pasting into the palette's search box is typing, not clipping.
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, [contenteditable='true']")) return;

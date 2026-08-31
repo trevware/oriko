@@ -1,7 +1,7 @@
 import type { DensityStage } from "./density";
 import type { GridSpace } from "./spaces";
 
-export interface PowerGridSettings {
+export interface OrikoSettings {
   clippingsFolder: string;
   attachmentFolder: string;
   archiveOnCreate: boolean;
@@ -44,7 +44,7 @@ export interface PowerGridSettings {
   tileSize: DensityStage;
 }
 
-export const DEFAULT_SETTINGS: PowerGridSettings = {
+export const DEFAULT_SETTINGS: OrikoSettings = {
   clippingsFolder: "Clippings",
   attachmentFolder: "Attachments/Clippings",
   archiveOnCreate: true,

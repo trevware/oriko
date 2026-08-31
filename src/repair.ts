@@ -1,6 +1,6 @@
 import { MarkdownPostProcessorContext, TFile, normalizePath } from "obsidian";
 import { isInFolder } from "./index-store";
-import type PowerGridPlugin from "./main";
+import type OrikoPlugin from "./main";
 import { localReplacement, sourceVideoKeyFor } from "./core/normalize";
 
 /**
@@ -10,7 +10,7 @@ import { localReplacement, sourceVideoKeyFor } from "./core/normalize";
  * swap happens at render time: when a remote image or video fails to load,
  * its archived copy takes over.
  */
-function repairDeadMedia(plugin: PowerGridPlugin, element: HTMLElement): void {
+function repairDeadMedia(plugin: OrikoPlugin, element: HTMLElement): void {
   const nodes: Array<HTMLImageElement | HTMLVideoElement> = [
     ...Array.from(element.querySelectorAll("img")),
     ...Array.from(element.querySelectorAll("video")),
@@ -44,7 +44,7 @@ function repairDeadMedia(plugin: PowerGridPlugin, element: HTMLElement): void {
  * exactly one image is touched, so an article full of pictures is left alone.
  */
 function playArchivedVideo(
-  plugin: PowerGridPlugin,
+  plugin: OrikoPlugin,
   element: HTMLElement,
   sourcePath: string
 ): void {
@@ -71,7 +71,7 @@ function playArchivedVideo(
   images[0].replaceWith(video);
 }
 
-export function installRepair(plugin: PowerGridPlugin): void {
+export function installRepair(plugin: OrikoPlugin): void {
   plugin.registerMarkdownPostProcessor(
     (element: HTMLElement, context: MarkdownPostProcessorContext) => {
       if (!isInFolder(context.sourcePath, plugin.settings.clippingsFolder)) return;

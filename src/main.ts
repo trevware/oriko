@@ -12,10 +12,10 @@ import {
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
-import { PowerGridSettings, DEFAULT_SETTINGS } from "./core/settings";
+import { OrikoSettings, DEFAULT_SETTINGS } from "./core/settings";
 import { isStage } from "./core/density";
 import {
-  LEGACY_SHARED_FILE,
+  LEGACY_SHARED_FILES,
   SHARED_FILE,
   extractShared,
   isDefaultShared,
@@ -30,11 +30,11 @@ import { sharedHttpUrl } from "./core/resolve";
 import { ORIKO_ICON_ID, ORIKO_ICON_SVG } from "./core/icon";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
-import { PowerGridSettingTab } from "./settings-tab";
-import { PowerGridView, VIEW_TYPE_GRID } from "./view";
+import { OrikoSettingTab } from "./settings-tab";
+import { OrikoView, VIEW_TYPE_GRID } from "./view";
 
-export default class PowerGridPlugin extends Plugin {
-  settings: PowerGridSettings = DEFAULT_SETTINGS;
+export default class OrikoPlugin extends Plugin {
+  settings: OrikoSettings = DEFAULT_SETTINGS;
   index!: ClippingIndex;
   archiver!: ArchiveService;
   capture!: CaptureService;
@@ -70,7 +70,7 @@ export default class PowerGridPlugin extends Plugin {
       this.app,
       this.index,
       () => this.settings,
-      this.manifest.dir ?? ".obsidian/plugins/power-grid"
+      this.manifest.dir ?? ".obsidian/plugins/oriko"
     );
     await this.archiver.loadCache();
     this.capture = new CaptureService(
@@ -82,15 +82,13 @@ export default class PowerGridPlugin extends Plugin {
 
     this.registerView(
       VIEW_TYPE_GRID,
-      (leaf: WorkspaceLeaf) => new PowerGridView(leaf, this)
+      (leaf: WorkspaceLeaf) => new OrikoView(leaf, this)
     );
 
-    // obsidian://power-grid?url=… — the share-sheet route in. An iOS
-    // Shortcut hands the shared link straight here, so clipping from
-    // another app never touches the clipboard. Prose around the link is
-    // tolerated because share sheets send captions, not bare URLs.
-    // Registered under both names: power-grid predates the rename and is
-    // what existing Shortcuts open; oriko is the name going forward.
+    // obsidian://oriko?url=… — the share-sheet route in. An iOS Shortcut
+    // hands the shared link straight here, so clipping from another app
+    // never touches the clipboard. Prose around the link is tolerated
+    // because share sheets send captions, not bare URLs.
     const handleClipUri = (params: ObsidianProtocolData): void => {
       const raw = params.url ?? params.text ?? "";
       const url = sharedHttpUrl(raw);
@@ -108,10 +106,9 @@ export default class PowerGridPlugin extends Plugin {
       // and the clipped tile has somewhere to fly in.
       void this.activateView().then(() => this.capture.capture(url));
     };
-    this.registerObsidianProtocolHandler("power-grid", handleClipUri);
     this.registerObsidianProtocolHandler("oriko", handleClipUri);
 
-    this.addSettingTab(new PowerGridSettingTab(this.app, this));
+    this.addSettingTab(new OrikoSettingTab(this.app, this));
     installRepair(this);
 
     this.addRibbonIcon(ORIKO_ICON_ID, "Open Oriko", () => {
@@ -119,7 +116,7 @@ export default class PowerGridPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: "open-power-grid",
+      id: "open-oriko",
       name: "Open Oriko",
       callback: () => void this.activateView(),
     });
@@ -134,7 +131,7 @@ export default class PowerGridPlugin extends Plugin {
       id: "open-search",
       name: "Search this grid",
       checkCallback: (checking: boolean) => {
-        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
+        const view = this.app.workspace.getActiveViewOfType(OrikoView);
         if (!view) return false;
         if (!checking) view.togglePalette();
         return true;
@@ -148,7 +145,7 @@ export default class PowerGridPlugin extends Plugin {
       id: "clip-from-clipboard",
       name: "Clip from clipboard",
       checkCallback: (checking: boolean) => {
-        const view = this.app.workspace.getActiveViewOfType(PowerGridView);
+        const view = this.app.workspace.getActiveViewOfType(OrikoView);
         if (!view) return false;
         if (!checking) void this.clipFromClipboard();
         return true;
@@ -317,10 +314,6 @@ export default class PowerGridPlugin extends Plugin {
   }
 
   /** Where it lived before it was markdown. */
-  private legacySharedPath(): string {
-    return normalizePath(`${this.settings.clippingsFolder}/${LEGACY_SHARED_FILE}`);
-  }
-
   /**
    * Reads the shared half out of the vault, and writes it there the first
    * time if it is missing.
@@ -352,11 +345,15 @@ export default class PowerGridPlugin extends Plugin {
       return;
     }
 
-    // The .json this replaced. Read once, so a vault that already published
-    // one carries over instead of starting again, and then retired: leaving
-    // both would be two files claiming to define the same grids.
-    const legacy = this.app.vault.getFileByPath(this.legacySharedPath());
-    if (legacy) {
+    // The names this file has carried before. Read once, so a vault that
+    // already published one carries over instead of starting again, and
+    // then retired: leaving both would be two files claiming to define the
+    // same grids.
+    for (const name of LEGACY_SHARED_FILES) {
+      const legacy = this.app.vault.getFileByPath(
+        normalizePath(`${this.settings.clippingsFolder}/${name}`)
+      );
+      if (!legacy) continue;
       try {
         const raw = extractShared(await this.app.vault.cachedRead(legacy));
         if (raw !== null) {
@@ -421,7 +418,7 @@ export default class PowerGridPlugin extends Plugin {
       // does not write the same thing straight back at whoever sent it.
       this.wroteShared = body;
       for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
-        if (leaf.view instanceof PowerGridView) leaf.view.refreshGrids();
+        if (leaf.view instanceof OrikoView) leaf.view.refreshGrids();
       }
     };
 
@@ -446,9 +443,9 @@ export default class PowerGridPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     // The vault's half goes to the vault and is kept out of data.json, so
     // there is one place a grid is defined rather than two that can disagree.
-    const local = { ...this.settings } as Partial<PowerGridSettings>;
+    const local = { ...this.settings } as Partial<OrikoSettings>;
     for (const key of Object.keys(sharedOf(this.settings))) {
-      delete local[key as keyof PowerGridSettings];
+      delete local[key as keyof OrikoSettings];
     }
     await this.saveData(local);
     await this.writeShared();
@@ -458,7 +455,7 @@ export default class PowerGridPlugin extends Plugin {
     // for the settings tab to remember to call, and no way for a new toggle
     // to be added that silently does not take effect.
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
-      if (leaf.view instanceof PowerGridView) leaf.view.applyLiveSettings();
+      if (leaf.view instanceof OrikoView) leaf.view.applyLiveSettings();
     }
   }
 }

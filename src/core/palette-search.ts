@@ -62,7 +62,7 @@ const BOUNDARY = /[\s\-_/.,:;!?'"()[\]{}|#@+&]/;
 /**
  * True at the front of a word, which is where a reader's eye goes. Counts
  * both punctuation boundaries and a camelCase hump, so "Grid" is findable
- * inside "PowerGrid".
+ * inside "Oriko".
  */
 function isWordStart(text: string, index: number): boolean {
   if (index === 0) return true;

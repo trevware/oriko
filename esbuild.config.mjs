@@ -8,7 +8,7 @@ const watch = process.argv.includes("--watch");
 
 const vaultDir =
   process.env.VAULT_PLUGIN_DIR ||
-  "/Users/trevor/Documents/Aegis/.obsidian/plugins/power-grid";
+  "/Users/trevor/Documents/Aegis/.obsidian/plugins/oriko";
 
 const outdir = production ? "dist" : vaultDir;
 mkdirSync(outdir, { recursive: true });

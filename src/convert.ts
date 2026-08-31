@@ -193,7 +193,7 @@ export async function downloadSourceVideo(
 
   let dir: string | null = null;
   try {
-    dir = fs.mkdtempSync(`${os.tmpdir()}/power-grid-`);
+    dir = fs.mkdtempSync(`${os.tmpdir()}/oriko-`);
     const stdout = await runCapturing(ytdlp, [
       "--no-warnings",
       "--no-playlist",

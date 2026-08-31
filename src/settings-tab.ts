@@ -1,8 +1,8 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import { surveyProperties } from "./core/facet-catalog";
 import { facetLabel } from "./core/filter";
-import { PowerGridView, VIEW_TYPE_GRID } from "./view";
-import type PowerGridPlugin from "./main";
+import { OrikoView, VIEW_TYPE_GRID } from "./view";
+import type OrikoPlugin from "./main";
 
 /**
  * Type-ahead over the property names already in the vault.
@@ -39,12 +39,12 @@ class PropertySuggest extends AbstractInputSuggest<string> {
   }
 }
 
-export class PowerGridSettingTab extends PluginSettingTab {
+export class OrikoSettingTab extends PluginSettingTab {
   /** Set while the text control is built, so the Add button beside it can
       commit the same value the Enter key does. */
   private addProperty: (() => void) | null = null;
 
-  constructor(app: App, private plugin: PowerGridPlugin) {
+  constructor(app: App, private plugin: OrikoPlugin) {
     super(app, plugin);
   }
 
@@ -57,7 +57,7 @@ export class PowerGridSettingTab extends PluginSettingTab {
     this.plugin.settings.filterProperties = properties;
     await this.plugin.saveSettings();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
-      if (leaf.view instanceof PowerGridView) leaf.view.refreshFacets();
+      if (leaf.view instanceof OrikoView) leaf.view.refreshFacets();
     }
     this.display();
   }
