@@ -1268,30 +1268,45 @@ export class GridRenderer {
    * `load` fires before the image is decoded, so revealing there starts the
    * fade on an empty box and lets the decode land partway through it. decode()
    * settles when the bitmap exists, which costs a few milliseconds more and
-   * buys a tile that is simply present. It rejects on a source that fails,
-   * which the error listener already handles, so there is nothing to do here.
+   * buys a tile that is simply present.
+   *
+   * A rejection is not proof of a bad source: Chromium's decode cache is far
+   * smaller than a wall of full-resolution pages, and decode() rejects when
+   * the bitmap loses that race even though the image loaded and will paint on
+   * demand. So a rejected image that has pixels is revealed anyway; one still
+   * loading gets its reveal from `load`; one with no pixels really did fail,
+   * and the error listener drops the tile.
    */
   private revealWhenDecoded(image: HTMLImageElement): void {
+    const reveal = () => {
+      if (image.isConnected) image.addClass("is-loaded");
+    };
     void image
       .decode()
-      .then(() => {
-        if (image.isConnected) image.addClass("is-loaded");
-      })
-      .catch(() => undefined);
+      .then(reveal)
+      .catch(() => {
+        if (image.complete && image.naturalWidth > 0) reveal();
+        else image.addEventListener("load", reveal, { once: true });
+      });
   }
 
   private swapImage(image: HTMLImageElement, next: string): void {
     if (!next || image.src === next) return;
     const preload = new Image();
     preload.src = next;
+    const swap = () => {
+      if (!image.isConnected) return;
+      image.src = next;
+      image.addClass("is-loaded");
+    };
     void preload
       .decode()
-      .then(() => {
-        if (!image.isConnected) return;
-        image.src = next;
-        image.addClass("is-loaded");
-      })
-      .catch(() => undefined);
+      .then(swap)
+      .catch(() => {
+        // Same decode-cache caveat as revealWhenDecoded; a preload that truly
+        // failed has no pixels, and then the tile keeps its current source.
+        if (preload.complete && preload.naturalWidth > 0) swap();
+      });
   }
 
   /**
