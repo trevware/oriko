@@ -38,6 +38,7 @@ Paste a link anywhere on the wall, or run **Clip from clipboard** from the comma
 | An X or Instagram post | The post's media, via optional community resolvers |
 | A Threads post | The video, found by loading the post itself (desktop) |
 | Notes from the [Obsidian Web Clipper](https://obsidian.md/clipper) | They appear on the wall, and their remote media is downloaded in the background |
+| A page whose media cannot be scraped | The page itself is scanned as a fallback, so the clipping still gets a picture instead of nothing |
 
 On iOS you can clip straight from any app's share sheet: make a Shortcut that receives URLs and text, runs **Get URLs from Input**, URL-encodes the result, and opens `obsidian://oriko?url=` followed by the encoded text. Sharing a post to that Shortcut opens the wall and clips it, no copy and paste involved.
 
@@ -45,7 +46,13 @@ On iOS you can clip straight from any app's share sheet: make a Shortcut that re
 
 Every clipping is a tile: pan and pinch on a phone, scroll and zoom on a desktop, and click or tap a tile to open it full screen with its properties and actions. Videos can autoplay muted while they are in view, respecting Reduce Motion. Select many at once with a drag on desktop or a long press on mobile, then move, export or delete them together.
 
-**Search this grid** opens a palette over the wall: every command, every filter value and every clipping in the vault by name, with previews.
+The full-screen view zooms and pans the original, shows the picture's own color palette, and describes the clipping beside it. Its Source row links out to the original page (so do **Open in browser** in the tile's context menu and in the view's bar), its bar opens the note, exports, edits properties and deletes, and each button carries its key: ⏎ for the note, B for the browser, P for properties, ⌫ to delete.
+
+## The palette
+
+⌘K, or **Search this grid** from the command palette, opens one input over the dimmed wall that finds both the clippings and the things you can do to them: actions, grids, filter values, capture, and every clipping in the vault by name, each with a preview. A command that needs an argument opens a second stage in place, so moving four clippings to another grid is one gesture rather than a menu, a submenu and a hunt.
+
+The wall answers the keyboard elsewhere too: ⌘1 through ⌘9 switch grids in their stored order, ⌘N clips whatever is on the clipboard, ⌘E exports the selection, and the arrow keys walk the tiles.
 
 ## Grids
 
@@ -64,6 +71,10 @@ Notes are never rewritten. Oriko writes a note once when it creates one, and the
 ## What touches the network
 
 Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. There are no analytics and nothing is reported anywhere.
+
+## Troubleshooting
+
+**Copy grid diagnostics** puts a plain-text report of the active grid on the clipboard: how many clippings the grid holds, which became tiles, and for each one that did not, the stage it left at and the cache state behind it. Media caches are per device, so a wall can genuinely differ between your machines; the report is written to be pasted from the device that looks wrong.
 
 ## Installation
 
