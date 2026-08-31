@@ -1,10 +1,6 @@
-// The import carries no bindings: it exists to load the module's global
-// declarations, which is what types createEl on elements below.
-import "obsidian";
-
-import { scaledSize } from "./core/derive";
-import { offsetToward } from "./core/layout";
-import { extractSwatches } from "./core/swatches";
+import { scaledSize } from "./derive";
+import { offsetToward } from "./layout";
+import { extractSwatches } from "./swatches";
 
 /**
  * The detail view's colour palette: reads the picture already on the stage
@@ -89,13 +85,13 @@ export async function readSwatches(image: HTMLImageElement): Promise<string[]> {
 export function paintSwatchStrip(host: HTMLElement, swatches: string[]): void {
   if (swatches.length === 0) return;
 
-  const block = host.createEl("div", { cls: "pg-detail-field pg-swatches" });
-  block.createEl("div", { cls: "pg-detail-label", text: "Palette" });
-  const row = block.createEl("div", { cls: "pg-swatches-row" });
+  const block = host.createDiv({ cls: "pg-detail-field pg-swatches" });
+  block.createDiv({ cls: "pg-detail-label", text: "Palette" });
+  const row = block.createDiv({ cls: "pg-swatches-row" });
   // Present from the start, so showing a value cannot reflow the panel, and
   // hidden from screen readers because each swatch already carries its hex
   // in an aria-label; announcing it twice says nothing new.
-  const readout = block.createEl("div", {
+  const readout = block.createDiv({
     cls: "pg-swatches-readout",
     text: swatches[0],
     attr: { "aria-hidden": "true" },
