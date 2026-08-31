@@ -1,6 +1,7 @@
 import {
   Notice,
   ObsidianProtocolData,
+  Platform,
   Plugin,
   addIcon,
   TAbstractFile,
@@ -9,6 +10,7 @@ import {
   normalizePath,
   parseYaml,
 } from "obsidian";
+import { buildDiagnostics } from "./core/diagnose";
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
@@ -166,6 +168,32 @@ export default class OrikoPlugin extends Plugin {
       id: "sweep-orphan-media",
       name: "Remove orphaned media",
       callback: () => this.sweepOrphanMedia(),
+    });
+
+    // The wall's whole pipeline runs blind on mobile, where there is no
+    // console to ask; this puts the paint's own arithmetic on the clipboard
+    // so a phone can answer "why is this tile missing" by pasting.
+    this.addCommand({
+      id: "copy-diagnostics",
+      name: "Copy grid diagnostics",
+      callback: async () => {
+        const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)[0];
+        const view = leaf?.view instanceof OrikoView ? leaf.view : null;
+        const state = view?.diagnosticState();
+        const report = buildDiagnostics({
+          version: this.manifest.version,
+          platform: Platform.isMobile ? "mobile" : "desktop",
+          activeGrid: state?.grid ?? this.settings.activeGrid,
+          home: this.settings.homeGridName,
+          registered: this.settings.grids.map((grid) => grid.name),
+          records: this.index.records(),
+          cache: this.archiver.cache,
+          unloadable: state?.unloadable ?? [],
+          filtered: state?.filtered ?? false,
+        });
+        await navigator.clipboard.writeText(report);
+        new Notice("Oriko: diagnostics copied to the clipboard");
+      },
     });
 
     this.addCommand({

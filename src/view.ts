@@ -1092,6 +1092,15 @@ export class OrikoView extends ItemView {
     return typedFacets(facetDefs(this.plugin.settings.filterProperties), tiles, Date.now());
   }
 
+  /** The session state the wall painted with, for the diagnostics command. */
+  diagnosticState(): { grid: string; unloadable: Array<[string, string]>; filtered: boolean } {
+    return {
+      grid: this.activeGrid().name,
+      unloadable: [...this.unloadable.entries()],
+      filtered: !isFilterEmpty(this.activeFilter()),
+    };
+  }
+
   /** Pruned on the way out, so a property switched off in settings stops
       counting towards the badge instead of claiming a narrowing that
       matchesFilter is no longer applying. */
