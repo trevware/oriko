@@ -72,10 +72,6 @@ Notes are never rewritten. Oriko writes a note once when it creates one, and the
 
 Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. There are no analytics and nothing is reported anywhere.
 
-## Troubleshooting
-
-**Copy grid diagnostics** puts a plain-text report of the active grid on the clipboard: how many clippings the grid holds, which became tiles, and for each one that did not, the stage it left at and the cache state behind it. Media caches are per device, so a wall can genuinely differ between your machines; the report is written to be pasted from the device that looks wrong.
-
 ## Installation
 
 Install from **Settings → Community plugins** by searching for Oriko, or grab `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/trevware/oriko/releases) into `.obsidian/plugins/oriko/`.
