@@ -1,7 +1,7 @@
 {
   "id": "oriko",
   "name": "Oriko",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "minAppVersion": "1.6.6",
   "description": "A visual wall for your web clippings, with local media downloads so they survive link rot.",
   "author": "Trevor Tarakjian",
