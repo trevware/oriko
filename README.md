@@ -9,6 +9,8 @@
 
 Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall, downloads a local copy of each clipping's media so posts survive their source going dark, and keeps everything in plain markdown notes that read fine without it.
 
+*The name is Japanese: an oriko (織り子) is a weaver, someone who turns loose threads into one cloth. Weaving scattered inspiration into a single wall is the whole idea.*
+
 <p align="center">
   <picture>
     <img src=".github/preview.png" alt="The Oriko wall">
