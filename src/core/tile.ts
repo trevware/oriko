@@ -202,6 +202,17 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
       };
     }
 
+    // Before the cache gets a say: a known host's page URL is never playable,
+    // whatever an old cache claims to have archived for it (see MediaCache.index
+    // for the poisoned shape this guards against).
+    if (item.kind === "video") {
+      const known = knownHostThumbnail(item.url);
+      if (known) {
+        pageThumbnail ??= known.url;
+        continue;
+      }
+    }
+
     const entry = cache.get(item.key);
     // A recorded failure means the ref is bad at the source too, so there is
     // no point falling back to its remote URL.
@@ -210,13 +221,6 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
       const cover = localCover(entry);
       if (cover) return cover;
       continue;
-    }
-    if (item.kind === "video") {
-      const known = knownHostThumbnail(item.url);
-      if (known) {
-        pageThumbnail ??= known.url;
-        continue;
-      }
     }
     return remoteCover(item.url, item.kind, item.widthHint, item.heightHint);
   }

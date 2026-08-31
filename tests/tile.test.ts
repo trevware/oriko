@@ -97,6 +97,26 @@ describe("buildTiles", () => {
     expect(tiles[0].remote).toBe(false);
   });
 
+  it("ignores a cache entry claiming an archived video for a host page URL", () => {
+    const clip = scanClipping(
+      "Clippings/O.md",
+      { title: "Onimusha", source: "https://www.youtube.com/watch?v=VK4FwpKMBho", grid: "Gaming" },
+      '<video src="https://www.youtube.com/embed/VK4FwpKMBho"></video>\n\n![[Attachments/Clippings/32814825d7a3-maxresdefault.jpg]]\n'
+    );
+    // The poisoned shape an older archiver left behind: the embed page's
+    // HTML saved as an .mp4 and recorded as a success.
+    const cache = cacheWith([
+      [
+        "https://www.youtube.com/embed/VK4FwpKMBho",
+        { kind: "video", file: "Attachments/Clippings/3793f0a09069-VK4FwpKMBho.mp4", thumb: "" },
+      ],
+    ]);
+    const tiles = buildTiles([clip], cache);
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].kind).toBe("image");
+    expect(tiles[0].filePath).toBe("Attachments/Clippings/32814825d7a3-maxresdefault.jpg");
+  });
+
   it("falls back to the host thumbnail when the embed page is the only media", () => {
     const clip = scanClipping(
       "Clippings/O.md",

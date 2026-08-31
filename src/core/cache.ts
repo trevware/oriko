@@ -1,4 +1,5 @@
 import type { ArchiveOutcome } from "./archive";
+import { knownHostThumbnail } from "./page-cover";
 
 export interface CacheEntry {
   key: string;
@@ -32,6 +33,20 @@ export class MediaCache {
   }
 
   private index(entry: CacheEntry): void {
+    // Every write path funnels through here, cache.json load included, so
+    // this is where a poisoned claim dies: an older archiver fetched video
+    // hosts' page URLs and saved the HTML as media, recording success, and
+    // a wall that believed it mounted the "video" and dropped the tile. The
+    // ytdlp: keys a real fetched video carries are opaque to the URL parse
+    // and pass through untouched.
+    if (entry.kind === "video" && entry.file && knownHostThumbnail(entry.key)) {
+      entry = {
+        ...entry,
+        file: "",
+        thumb: "",
+        failed: "a video host's page, archived as media by an older version",
+      };
+    }
     const previous = this.entriesByKey.get(entry.key);
     if (previous?.file && previous.file !== entry.file) this.entriesByFile.delete(previous.file);
     this.entriesByKey.set(entry.key, entry);

@@ -17,6 +17,42 @@ describe("MediaCache", () => {
     expect(cache.has("k")).toBe(true);
   });
 
+  // An older archiver fetched video-host page URLs and saved the HTML as
+  // .mp4, recording success; a wall then mounts the "video" and drops the
+  // tile. Found via a device where Onimusha showed everywhere but the wall.
+  it("neutralizes a video host's page URL archived as media", () => {
+    const cache = new MediaCache();
+    cache.set({
+      key: "https://www.youtube.com/embed/VK4FwpKMBho",
+      file: "Attachments/Clippings/3793f0a09069-VK4FwpKMBho.mp4",
+      thumb: "",
+      kind: "video",
+      width: 0,
+      height: 0,
+      bytes: 12345,
+    });
+    const entry = cache.get("https://www.youtube.com/embed/VK4FwpKMBho");
+    expect(entry?.file).toBe("");
+    expect(entry?.failed).toContain("older version");
+    expect(cache.byFile("Attachments/Clippings/3793f0a09069-VK4FwpKMBho.mp4")).toBeUndefined();
+  });
+
+  it("leaves a yt-dlp sourced real video alone", () => {
+    const cache = new MediaCache();
+    cache.set({
+      key: "ytdlp:https://www.youtube.com/watch?v=VK4FwpKMBho",
+      file: "Attachments/Clippings/abc123abc123-video.mp4",
+      thumb: "t.webp",
+      kind: "video",
+      width: 1920,
+      height: 1080,
+      bytes: 999,
+    });
+    expect(cache.get("ytdlp:https://www.youtube.com/watch?v=VK4FwpKMBho")?.file).toBe(
+      "Attachments/Clippings/abc123abc123-video.mp4"
+    );
+  });
+
   it("round-trips through JSON", () => {
     const cache = new MediaCache();
     cache.set({
