@@ -325,11 +325,15 @@ export default class OrikoPlugin extends Plugin {
    */
   private async syncShared(): Promise<void> {
     const path = this.sharedPath();
+    // Adapter, not the Vault API, throughout this method and writeShared:
+    // it runs at onload, before the vault index is populated on a cold
+    // start, and getFileByPath answering null here once cost a device its
+    // grids. The adapter reads the filesystem and is always ready.
+    const adapter = this.app.vault.adapter;
 
-    const shared = this.app.vault.getFileByPath(path);
-    if (shared) {
+    if (await adapter.exists(path)) {
       try {
-        const body = await this.app.vault.cachedRead(shared);
+        const body = await adapter.read(path);
         this.wroteShared = body;
         const raw = extractShared(body);
         if (raw !== null) {
@@ -350,12 +354,10 @@ export default class OrikoPlugin extends Plugin {
     // then retired: leaving both would be two files claiming to define the
     // same grids.
     for (const name of LEGACY_SHARED_FILES) {
-      const legacy = this.app.vault.getFileByPath(
-        normalizePath(`${this.settings.clippingsFolder}/${name}`)
-      );
-      if (!legacy) continue;
+      const legacy = normalizePath(`${this.settings.clippingsFolder}/${name}`);
+      if (!(await adapter.exists(legacy))) continue;
       try {
-        const raw = extractShared(await this.app.vault.cachedRead(legacy));
+        const raw = extractShared(await adapter.read(legacy));
         if (raw !== null) {
           this.settings = withShared(this.settings, parseShared(raw, sharedOf(this.settings)));
         }
@@ -365,7 +367,7 @@ export default class OrikoPlugin extends Plugin {
       await this.writeShared();
       // To the trash rather than deleted outright: it is the plugin's own
       // file, but it is in the user's vault.
-      await this.app.vault.trash(legacy, true).catch(() => {});
+      await adapter.trashLocal(legacy).catch(() => {});
       return;
     }
 
@@ -385,12 +387,10 @@ export default class OrikoPlugin extends Plugin {
     this.wroteShared = body;
     const path = this.sharedPath();
     const folder = this.settings.clippingsFolder;
-    if (folder && !this.app.vault.getFolderByPath(normalizePath(folder))) return;
-    const existing = this.app.vault.getFileByPath(path);
-    // process rewrites atomically, so another plugin editing the same file
-    // is never raced; create covers the first publish.
-    if (existing) await this.app.vault.process(existing, () => body);
-    else await this.app.vault.create(path, body);
+    // Adapter for the same reason syncShared gives: this can run at onload,
+    // when the vault index cannot yet answer for the folder or the file.
+    if (folder && !(await this.app.vault.adapter.exists(normalizePath(folder)))) return;
+    await this.app.vault.adapter.write(path, body);
   }
 
   /**
@@ -400,11 +400,9 @@ export default class OrikoPlugin extends Plugin {
   private watchShared(): void {
     const reread = async (path: string): Promise<void> => {
       if (path !== this.sharedPath()) return;
-      const file = this.app.vault.getFileByPath(this.sharedPath());
-      if (!file) return;
       let body: string;
       try {
-        body = await this.app.vault.cachedRead(file);
+        body = await this.app.vault.adapter.read(this.sharedPath());
       } catch {
         return;
       }
