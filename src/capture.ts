@@ -9,6 +9,7 @@ import {
   amazonProduct,
   buildNote,
   buildPastedImageNote,
+  buildScanNote,
   cleanUrl,
   directMediaKind,
   directMediaLink,
@@ -23,6 +24,7 @@ import {
 } from "./core/resolve";
 import type { ProgressState } from "./core/progress";
 import type { OrikoSettings } from "./core/settings";
+import { scanAvailable, scanPage } from "./page-scanner";
 
 /**
  * Identifies the plugin honestly rather than impersonating a known crawler.
@@ -198,6 +200,15 @@ export class CaptureService {
     const link = await this.resolve(url);
 
     if (!link || link.media.length === 0) {
+      // A page that offers no media at all is still worth keeping: scan it
+      // into one tall picture and let that be the tile. Only as a fallback —
+      // a page's own picture always wins, which is what the reverted
+      // scan-by-default got backwards.
+      if (scanAvailable()) {
+        const outcome = await this.scanAndSave(url);
+        if (outcome.ok) return;
+        console.warn(`Oriko: scan of ${url} failed (${outcome.reason})`);
+      }
       this.onProgress?.(null);
       new Notice("Oriko: no image or video found, nothing created");
       return;
@@ -353,7 +364,62 @@ export class CaptureService {
     }
   }
 
-  private async createNote(link: ResolvedLink): Promise<TFile | null> {
+  /**
+   * Scans the page and files it as a clipping. Reports progress but shows
+   * no notice itself: the caller decides whether a failure is the end of
+   * the story or a fallback to something else.
+   */
+  private async scanAndSave(url: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    this.report(null, "Loading page…");
+    let scanned;
+    try {
+      scanned = await scanPage(url, (label) => this.report(null, label));
+    } catch (error) {
+      return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+
+    this.report(0.8, "Saving scan…");
+    const folder = normalizePath(this.settings().attachmentFolder);
+    if (!this.app.vault.getFolderByPath(folder)) {
+      await this.app.vault.createFolder(folder).catch(() => {});
+    }
+    // scan- rather than pasted-: both prefixes are what sweep.ts accepts as
+    // proof the plugin made a file, and the name should say what it is.
+    const stamp = todayStamp();
+    let attachment = normalizePath(`${folder}/scan-${stamp}.${scanned.encoding.ext}`);
+    let n = 2;
+    while (this.app.vault.getAbstractFileByPath(attachment)) {
+      attachment = normalizePath(`${folder}/scan-${stamp}-${n}.${scanned.encoding.ext}`);
+      n++;
+    }
+    try {
+      await this.app.vault.createBinary(attachment, await scanned.blob.arrayBuffer());
+    } catch (error) {
+      return { ok: false, reason: `could not save the scan: ${String(error)}` };
+    }
+
+    this.report(0.9, "Creating clipping…");
+    const link: ResolvedLink = {
+      url,
+      title: scanned.title,
+      description: "",
+      author: "",
+      published: "",
+      media: [],
+    };
+    const file = await this.createNote(link, (grid) =>
+      buildScanNote(link.title, url, attachment, today(), grid)
+    );
+    if (!file) return { ok: false, reason: "could not create the note" };
+    await this.index.handleModify(file);
+    this.onFinished?.(link.title.slice(0, 40), file.path);
+    return { ok: true };
+  }
+
+  private async createNote(
+    link: ResolvedLink,
+    content?: (grid: string) => string
+  ): Promise<TFile | null> {
     const folder = normalizePath(this.settings().clippingsFolder);
     if (!this.app.vault.getFolderByPath(folder)) {
       await this.app.vault.createFolder(folder).catch(() => {});
@@ -368,7 +434,8 @@ export class CaptureService {
     }
 
     try {
-      return await this.app.vault.create(path, buildNote(link, today(), this.targetGrid()));
+      const grid = this.targetGrid();
+      return await this.app.vault.create(path, content ? content(grid) : buildNote(link, today(), grid));
     } catch (error) {
       new Notice(`Oriko: could not create the note (${String(error)})`);
       return null;

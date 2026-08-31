@@ -18,6 +18,7 @@ import {
   parseFxTweet,
   parsePageMeta,
   supportsSourceDownload,
+  buildScanNote,
   xStatus,
 } from "../src/core/resolve";
 
@@ -505,5 +506,28 @@ describe("pickSniffedVideo", () => {
   it("returns null with nothing to pick", () => {
     expect(pickSniffedVideo([])).toBeNull();
     expect(pickSniffedVideo([""])).toBeNull();
+  });
+});
+
+describe("buildScanNote", () => {
+  it("shapes a scan like a link clipping, with the scan as its cover", () => {
+    const note = buildScanNote(
+      "Weblate",
+      "https://hosted.weblate.org/",
+      "Attachments/Clippings/scan-2026-08-31 120000.png",
+      "2026-08-31"
+    );
+    expect(note).toContain('title: "Weblate"');
+    expect(note).toContain('source: "https://hosted.weblate.org/"');
+    expect(note).toContain('  - "clippings"');
+    expect(note).toContain('cover: "Attachments/Clippings/scan-2026-08-31 120000.png"');
+    expect(note).toContain("![[Attachments/Clippings/scan-2026-08-31 120000.png]]");
+    expect(note).toContain("[https://hosted.weblate.org/](https://hosted.weblate.org/)");
+    expect(note).not.toContain("grid:");
+  });
+
+  it("stamps the grid only when the capture is going somewhere other than home", () => {
+    const note = buildScanNote("T", "https://a.example/", "a.png", "2026-08-31", "Reading");
+    expect(note).toContain('grid: "Reading"');
   });
 });

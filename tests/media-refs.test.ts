@@ -132,6 +132,14 @@ describe("isPluginOwned", () => {
     expect(isPluginOwned("pasted-2026-08-18 215104.png")).toBe(true);
   });
 
+  it("recognises a page scan by its stamped name", () => {
+    expect(isPluginOwned("scan-2026-08-31 120000.jpg")).toBe(true);
+  });
+
+  it("does not claim a file that merely starts with scan", () => {
+    expect(isPluginOwned("scanner-manual.pdf")).toBe(false);
+  });
+
   it("does not claim a file that follows neither convention", () => {
     expect(isPluginOwned("holiday photo.jpg")).toBe(false);
   });
