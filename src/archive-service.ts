@@ -567,7 +567,7 @@ export class ArchiveService {
 
   async archiveEverything(): Promise<ArchiveSummary> {
     if (this.running) {
-      new Notice("Power Grid: already archiving");
+      new Notice("Oriko: already archiving");
       return this.summary();
     }
     this.running = true;
@@ -599,7 +599,7 @@ export class ArchiveService {
 
   notifyResult(result: ArchiveSummary): void {
     new Notice(
-      `Power Grid: ${result.ok} media downloaded, ${result.failed} failed`
+      `Oriko: ${result.ok} media downloaded, ${result.failed} failed`
     );
   }
 }

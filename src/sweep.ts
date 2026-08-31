@@ -98,7 +98,7 @@ export async function removeMedia(
       await app.fileManager.trashFile(file);
       removed++;
     } catch (error) {
-      new Notice(`Power Grid: could not remove ${file.name} (${String(error)})`);
+      new Notice(`Oriko: could not remove ${file.name} (${String(error)})`);
     }
   }
 

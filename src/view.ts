@@ -150,7 +150,7 @@ export class PowerGridView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Power Grid";
+    return "Oriko";
   }
 
   getIcon(): string {
@@ -500,7 +500,7 @@ export class PowerGridView extends ItemView {
       show(false);
 
       if (plan.kind === "unsupported") {
-        new Notice(`Power Grid: ${describeSkipped(plan.skipped)}`);
+        new Notice(`Oriko: ${describeSkipped(plan.skipped)}`);
         return;
       }
 
@@ -510,7 +510,7 @@ export class PowerGridView extends ItemView {
       }
 
       if (plan.skipped.length > 0) {
-        new Notice(`Power Grid: ${describeSkipped(plan.skipped)}`);
+        new Notice(`Oriko: ${describeSkipped(plan.skipped)}`);
       }
       void this.captureDropped(data.files, plan.files.map((file) => file.name));
     });
@@ -774,7 +774,7 @@ export class PowerGridView extends ItemView {
     const rows = (): MenuItem[] => this.propertyRows(id);
     const items = rows();
     if (items.length === 0) {
-      new Notice("Power Grid: no editable properties are enabled in settings");
+      new Notice("Oriko: no editable properties are enabled in settings");
       return;
     }
     this.menu?.open(items, x, y, rows, true);
@@ -788,12 +788,12 @@ export class PowerGridView extends ItemView {
   private revealFirstFile(id: string): void {
     const file = this.filesFor(id)[0];
     if (!file) {
-      new Notice("Power Grid: nothing archived for this clipping yet");
+      new Notice("Oriko: nothing archived for this clipping yet");
       return;
     }
     const absolute = absolutePath(this.app.vault, normalizePath(file));
     if (!absolute || !revealInFinder(absolute)) {
-      new Notice("Power Grid: could not reveal the file");
+      new Notice("Oriko: could not reveal the file");
     }
   }
 
@@ -809,8 +809,8 @@ export class PowerGridView extends ItemView {
     }
     new Notice(
       copied === 0
-        ? "Power Grid: nothing archived to export yet"
-        : `Power Grid: exported ${copied} file${copied === 1 ? "" : "s"} to Downloads`
+        ? "Oriko: nothing archived to export yet"
+        : `Oriko: exported ${copied} file${copied === 1 ? "" : "s"} to Downloads`
     );
   }
 
@@ -851,7 +851,7 @@ export class PowerGridView extends ItemView {
         await this.app.fileManager.trashFile(file);
         removed++;
       } catch (error) {
-        new Notice(`Power Grid: could not delete ${file.basename} (${String(error)})`);
+        new Notice(`Oriko: could not delete ${file.basename} (${String(error)})`);
       }
     }
 
@@ -865,8 +865,8 @@ export class PowerGridView extends ItemView {
     const notes = removed === 1 ? "1 note" : `${removed} notes`;
     new Notice(
       swept > 0
-        ? `Power Grid: ${notes} and ${swept} media file${swept === 1 ? "" : "s"} moved to trash`
-        : `Power Grid: ${notes} moved to trash`
+        ? `Oriko: ${notes} and ${swept} media file${swept === 1 ? "" : "s"} moved to trash`
+        : `Oriko: ${notes} moved to trash`
     );
   }
 
@@ -1001,14 +1001,14 @@ export class PowerGridView extends ItemView {
     // admit it cannot be judged. Where it went still can, and is the half of
     // the message that matters.
     if (!tile) {
-      new Notice(`Power Grid: saved to ${home}`);
+      new Notice(`Oriko: saved to ${home}`);
       return;
     }
 
     if (matchesFilter(tile, space.rules, this.allDefs(this.facets))) return;
 
     new Notice(
-      `Power Grid: saved to ${home}. It does not match ${space.name}, so it is not on this wall.`
+      `Oriko: saved to ${home}. It does not match ${space.name}, so it is not on this wall.`
     );
   }
 
@@ -1264,12 +1264,12 @@ export class PowerGridView extends ItemView {
     if (!isFilterEmpty(this.activeFilter())) {
       this.setFilter(emptyFilter());
       if (this.grid?.reveal(path)) {
-        new Notice("Power Grid: filter cleared to show that clipping");
+        new Notice("Oriko: filter cleared to show that clipping");
         return;
       }
     }
 
-    new Notice("Power Grid: nothing to show on the wall, opening the note");
+    new Notice("Oriko: nothing to show on the wall, opening the note");
     this.openNote(path);
   }
 
@@ -1335,7 +1335,7 @@ export class PowerGridView extends ItemView {
    */
   private async setProperty(path: string, key: string, values: string[]): Promise<void> {
     if (!isEditable(key)) {
-      new Notice(`Power Grid: ${key} belongs to the clipper and is not editable`);
+      new Notice(`Oriko: ${key} belongs to the clipper and is not editable`);
       return;
     }
 
@@ -1352,7 +1352,7 @@ export class PowerGridView extends ItemView {
         fm.updated = todayISO();
       });
     } catch (error) {
-      new Notice(`Power Grid: could not update ${key} (${String(error)})`);
+      new Notice(`Oriko: could not update ${key} (${String(error)})`);
       // The menu is showing a value the note does not have. Drop it so the
       // next rebuild tells the truth.
       this.edited.delete(this.editKey(path, key));
@@ -1488,7 +1488,7 @@ export class PowerGridView extends ItemView {
         rows: () => [],
         onSubmit: (typed) => {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(typed)) {
-            new Notice("Power Grid: a date reads yyyy-mm-dd");
+            new Notice("Oriko: a date reads yyyy-mm-dd");
             return;
           }
           sheet.close();
@@ -1583,7 +1583,7 @@ export class PowerGridView extends ItemView {
         });
         written++;
       } catch (error) {
-        new Notice(`Power Grid: could not move ${path} (${String(error)})`);
+        new Notice(`Oriko: could not move ${path} (${String(error)})`);
       }
     }
     return written;
@@ -1795,8 +1795,8 @@ export class PowerGridView extends ItemView {
     this.grid?.clearSelection();
     new Notice(
       moved === 1
-        ? `Power Grid: 1 clipping moved to ${target}`
-        : `Power Grid: ${moved} clippings moved to ${target}`
+        ? `Oriko: 1 clipping moved to ${target}`
+        : `Oriko: ${moved} clippings moved to ${target}`
     );
   }
 

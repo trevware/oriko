@@ -1,9 +1,9 @@
 {
   "id": "power-grid",
-  "name": "Power Grid",
+  "name": "Oriko",
   "version": "0.1.32",
   "minAppVersion": "1.6.6",
-  "description": "A fast masonry grid over your web clippings, with local media archiving so clippings survive link rot.",
+  "description": "A visual wall for your web clippings, with local media downloads so they survive link rot.",
   "author": "Trevor Tarakjian",
   "isDesktopOnly": false
 }

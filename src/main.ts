@@ -1,5 +1,6 @@
 import {
   Notice,
+  ObsidianProtocolData,
   Plugin,
   TAbstractFile,
   TFile,
@@ -85,7 +86,9 @@ export default class PowerGridPlugin extends Plugin {
     // Shortcut hands the shared link straight here, so clipping from
     // another app never touches the clipboard. Prose around the link is
     // tolerated because share sheets send captions, not bare URLs.
-    this.registerObsidianProtocolHandler("power-grid", (params) => {
+    // Registered under both names: power-grid predates the rename and is
+    // what existing Shortcuts open; oriko is the name going forward.
+    const handleClipUri = (params: ObsidianProtocolData): void => {
       const raw = params.url ?? params.text ?? "";
       const url = sharedHttpUrl(raw);
       if (!url) {
@@ -93,26 +96,28 @@ export default class PowerGridPlugin extends Plugin {
         // empty means nothing arrived, %3A soup means over-encoding.
         new Notice(
           raw
-            ? `Power Grid: no link in the shared text (got "${raw.slice(0, 80)}")`
-            : "Power Grid: the share arrived empty"
+            ? `Oriko: no link in the shared text (got "${raw.slice(0, 80)}")`
+            : "Oriko: the share arrived empty"
         );
         return;
       }
       // The view first, so the capture's progress bar has a wall to sit on
       // and the clipped tile has somewhere to fly in.
       void this.activateView().then(() => this.capture.capture(url));
-    });
+    };
+    this.registerObsidianProtocolHandler("power-grid", handleClipUri);
+    this.registerObsidianProtocolHandler("oriko", handleClipUri);
 
     this.addSettingTab(new PowerGridSettingTab(this.app, this));
     installRepair(this);
 
-    this.addRibbonIcon("layout-grid", "Open Power Grid", () => {
+    this.addRibbonIcon("layout-grid", "Open Oriko", () => {
       void this.activateView();
     });
 
     this.addCommand({
       id: "open-power-grid",
-      name: "Open Power Grid",
+      name: "Open Oriko",
       callback: () => void this.activateView(),
     });
 
@@ -152,7 +157,7 @@ export default class PowerGridPlugin extends Plugin {
       name: "Rescan clippings folder",
       callback: () => {
         void this.index.rebuild().then(() => {
-          new Notice("Power Grid: clippings rescanned");
+          new Notice("Oriko: clippings rescanned");
         });
       },
     });
@@ -248,7 +253,7 @@ export default class PowerGridPlugin extends Plugin {
         for (const key of stale) this.archiver.cache.delete(key);
         void this.archiver.saveCache();
       }
-      new Notice("Power Grid: no orphaned media to remove");
+      new Notice("Oriko: no orphaned media to remove");
       return;
     }
 
@@ -258,7 +263,7 @@ export default class PowerGridPlugin extends Plugin {
         for (const key of stale) this.archiver.cache.delete(key);
         await this.archiver.saveCache();
         new Notice(
-          `Power Grid: ${removed} media file${removed === 1 ? "" : "s"} moved to trash`
+          `Oriko: ${removed} media file${removed === 1 ? "" : "s"} moved to trash`
         );
       })();
     }).open();
@@ -266,7 +271,7 @@ export default class PowerGridPlugin extends Plugin {
 
   /** Lifted out of its command so the grid's palette can call it too. */
   archiveAllMedia(): void {
-    new Notice("Power Grid: downloading media…");
+    new Notice("Oriko: downloading media…");
     void this.archiver.archiveEverything().then((r) => this.archiver.notifyResult(r));
   }
 
@@ -281,7 +286,7 @@ export default class PowerGridPlugin extends Plugin {
     try {
       items = await navigator.clipboard.read();
     } catch {
-      new Notice("Power Grid: could not read the clipboard");
+      new Notice("Oriko: could not read the clipboard");
       return;
     }
     for (const item of items) {
@@ -340,7 +345,7 @@ export default class PowerGridPlugin extends Plugin {
       }
       // Unreadable, or half-written by a sync still in flight. What this
       // device already has beats nothing, and the next save republishes it.
-      new Notice("Power Grid: could not read the shared grid configuration.");
+      new Notice("Oriko: could not read the shared grid configuration.");
       return;
     }
 

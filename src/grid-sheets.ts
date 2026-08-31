@@ -294,7 +294,7 @@ function rulesScreen(
       if (isFilterEmpty(current)) {
         // Without a rule it would hold the whole wall, which is home under a
         // second name. Refused here rather than hidden, so the reason is said.
-        new Notice("Power Grid: a smart grid needs at least one rule");
+        new Notice("Oriko: a smart grid needs at least one rule");
         return;
       }
 
@@ -357,7 +357,7 @@ function gridEditorScreen(
       if (reason) {
         // A Notice rather than an inline line: this surface has no room for
         // one that does not push the rows about as it appears and goes.
-        new Notice(`Power Grid: ${reason}`);
+        new Notice(`Oriko: ${reason}`);
         return;
       }
 
