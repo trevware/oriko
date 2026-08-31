@@ -6,7 +6,7 @@ import { localReplacement, sourceVideoKeyFor } from "./core/normalize";
 /**
  * Repairs a clipping whose remote media has died, without editing the file.
  *
- * The body keeps pointing at the origin server, per CLAUDE.md §9, so the
+ * The body keeps pointing at the origin server, per the vault's clipping rules, so the
  * swap happens at render time: when a remote image or video fails to load,
  * its archived copy takes over.
  */

@@ -6,7 +6,7 @@
  */
 
 /**
- * The Web Clipper's own keys. Vault CLAUDE.md §9 calls these a contract and
+ * The Web Clipper's own keys. The vault treats these as a contract and
  * says never to modify, reorder or remove any of them, so the detail view
  * shows them and will not write them. Editing `title` here would rewrite the
  * clipped page's own record of itself.

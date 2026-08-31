@@ -457,7 +457,7 @@ function today(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** Matches the Web Clipper's frontmatter contract, per vault CLAUDE.md §9. */
+/** Matches the Web Clipper's frontmatter contract, which the vault treats as fixed. */
 /**
  * `grid` is written only when the capture is going somewhere other than home.
  * Home is the absence of the key, so stamping it would put a redundant line

@@ -1330,7 +1330,7 @@ export class OrikoView extends ItemView {
    * the Web Clipper owns are a contract this plugin does not get to break.
    * Refusing here means a future caller cannot widen the licence by accident.
    *
-   * `updated` is bumped alongside, because vault CLAUDE.md §9 lists it among
+   * `updated` is bumped alongside, because the vault's clipping rules list it among
    * the properties parsing maintains and every other tool there keeps it
    * current.
    */
