@@ -11,10 +11,16 @@ Turn your web clippings into a wall of pictures. Oriko lays out every clipping i
 
 *The name is Japanese: an oriko (織り子) is a weaver, someone who turns loose threads into one cloth. Weaving scattered inspiration into a single wall is the whole idea.*
 
+- **Paste a link, get a tile.** Oriko reads the page, saves its media, and writes a plain markdown note.
+- **A wall, not a list.** Pan and zoom a masonry wall of everything you have clipped; tap a tile for the full view.
+- **Grids are boards.** File clippings by hand or let smart grids collect them by rule, shared across your devices.
+- **Filter by anything.** Any frontmatter property can slice the wall: categories, status, domain, dates.
+- **Link rot insurance.** Every clipping's remote media is downloaded into your vault, stored once however many clippings share it.
+- **Clips from your phone.** A share-sheet Shortcut sends any link straight to the wall through `obsidian://oriko`.
+
 <p align="center">
-  <picture>
-    <img src=".github/preview.png" alt="The Oriko wall">
-  </picture>
+  <img src="https://raw.githubusercontent.com/trevware/oriko/HEAD/.github/preview.png" alt="The Oriko wall" width="49%">
+  <img src="https://raw.githubusercontent.com/trevware/oriko/HEAD/.github/preview-manga.png" alt="A manga grid on the Oriko wall" width="49%">
 </p>
 
 <p align="center">
