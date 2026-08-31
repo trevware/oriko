@@ -1249,7 +1249,7 @@
    bottom padding, which serves the same purpose there. */
 .pg-detail:not(.is-stacked) .pg-detail-meta {
   bottom: calc(92px + var(--pg-bottom-inset, 0px));
-  padding-bottom: 12px;
+  padding-bottom: 24px;
 }
 
 .pg-detail-field {

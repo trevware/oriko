@@ -66,9 +66,11 @@ const MIN_BESIDE_WIDTH = 240;
  * The least vertical run the details column gets in the beside layout. A
  * small picture centers deep down the pane, and a column top-aligned to it
  * had a few fields' worth of room before running into the action bar; the
- * column top is capped so at least this much always fits.
+ * column top is capped so at least this much always fits. Sized for the
+ * full ordinary run: a wrapped title, the stock fields, enabled properties
+ * and the palette row, with room to spare before scrolling starts.
  */
-export const DETAIL_META_MIN_RUN = 520;
+export const DETAIL_META_MIN_RUN = 700;
 
 export interface DetailLayout {
   /** `beside`: picture left, details in a column right. `stacked`: picture
