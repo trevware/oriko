@@ -1,5 +1,5 @@
 import { setIcon } from "obsidian";
-import { attachTip } from "./core/tip";
+import { attachTip } from "./tip";
 
 export interface ActionBarHandlers {
   onDelete: () => void;

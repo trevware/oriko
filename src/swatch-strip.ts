@@ -1,6 +1,10 @@
-import { scaledSize } from "./derive";
-import { offsetToward } from "./layout";
-import { extractSwatches } from "./swatches";
+// The import carries no bindings: it exists to load the module's global
+// declarations, which is what types createEl on elements below.
+import "obsidian";
+
+import { scaledSize } from "./core/derive";
+import { offsetToward } from "./core/layout";
+import { extractSwatches } from "./core/swatches";
 
 /**
  * The detail view's colour palette: reads the picture already on the stage

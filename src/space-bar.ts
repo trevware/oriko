@@ -1,6 +1,6 @@
 import { setIcon } from "obsidian";
 import type { GridSpace } from "./core/spaces";
-import { attachTip } from "./core/tip";
+import { attachTip } from "./tip";
 
 /** Space left between a control and the menu it launches. */
 const LAUNCH_GAP = 10;

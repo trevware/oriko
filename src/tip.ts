@@ -1,9 +1,12 @@
+// The import carries no bindings: it exists to load the module's global
+// declarations, which is what types createEl on elements below.
+import "obsidian";
+
 /**
  * The hover label shown above a floating bar's icon button.
  *
  * Shared by the grid's selection bar and the detail view's action bar so the
- * two cannot drift apart. createEl here is the global helper Obsidian
- * provides, so this file still carries no obsidian import.
+ * two cannot drift apart.
  *
  * The caller must give the button `position: relative`; the tip is absolutely
  * positioned against it.
