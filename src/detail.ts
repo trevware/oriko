@@ -467,7 +467,7 @@ export class DetailView {
     this.place(layout, bounds);
     this.applyView();
     const image = this.paintMedia(model);
-    const panel = this.paintMeta(model, layout);
+    const panel = this.paintMeta(model, layout, false);
     this.meta = panel;
     this.paintActions(model);
     if (image) void this.paintSwatches(panel, image);
@@ -550,10 +550,16 @@ export class DetailView {
     }
   }
 
-  private paintMeta(model: TileModel, layout: DetailLayout): HTMLElement | null {
+  private paintMeta(
+    model: TileModel,
+    layout: DetailLayout,
+    animate = true
+  ): HTMLElement | null {
     if (!this.root) return null;
     const panel = this.root.createDiv({ cls: "pg-detail-meta" });
-    this.reveal = DetailView.slideIn(panel, META_DELAY_MS, META_MS);
+    // The entrance belongs to the opening flight. An arrow-key swap rebuilds
+    // this panel in place, where replaying the slide reads as a stutter.
+    this.reveal = animate ? DetailView.slideIn(panel, META_DELAY_MS, META_MS) : null;
 
     // Where the panel goes is decided with the stage in detailLayout: beside
     // the picture in a wide pane, sat against its edge rather than in a

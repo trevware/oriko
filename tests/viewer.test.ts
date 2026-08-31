@@ -5,6 +5,7 @@ import {
   STACK_PADDING,
   STACK_SHARE,
   clampPan,
+  DETAIL_META_MIN_RUN,
   detailLayout,
   fitZoomRange,
 } from "../src/core/viewer";
@@ -117,5 +118,26 @@ describe("detailLayout", () => {
   it("never produces a zero-width stage, however narrow the pane", () => {
     const layout = detailLayout(square, { width: 120, height: 600 });
     expect(layout.stage.w).toBeGreaterThan(0);
+  });
+});
+
+describe("detailLayout meta clamp", () => {
+  it("keeps the details column from starting too low beside a small picture", () => {
+    // A tiny image centers deep down the pane; the details are capped so a
+    // useful run of fields always fits above the action bar.
+    const layout = detailLayout({ width: 200, height: 150 }, { width: 1400, height: 900 });
+    expect(layout.mode).toBe("beside");
+    expect(layout.meta.y).toBeLessThanOrEqual(900 - DETAIL_META_MIN_RUN);
+  });
+
+  it("still aligns the details with a tall picture's top", () => {
+    const layout = detailLayout({ width: 900, height: 1400 }, { width: 1400, height: 900 });
+    expect(layout.mode).toBe("beside");
+    expect(layout.meta.y).toBe(layout.stage.y);
+  });
+
+  it("never lifts the details above the pane padding", () => {
+    const layout = detailLayout({ width: 200, height: 150 }, { width: 1400, height: 420 });
+    expect(layout.meta.y).toBeGreaterThanOrEqual(DETAIL_PADDING);
   });
 });

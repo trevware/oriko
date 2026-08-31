@@ -62,6 +62,13 @@ export const STACK_SHARE = 0.6;
  * in a pane whose tile had been wider than the picture it opened into.
  */
 const MIN_BESIDE_WIDTH = 240;
+/**
+ * The least vertical run the details column gets in the beside layout. A
+ * small picture centers deep down the pane, and a column top-aligned to it
+ * had a few fields' worth of room before running into the action bar; the
+ * column top is capped so at least this much always fits.
+ */
+export const DETAIL_META_MIN_RUN = 520;
 
 export interface DetailLayout {
   /** `beside`: picture left, details in a column right. `stacked`: picture
@@ -92,7 +99,12 @@ export function detailLayout(natural: Size, bounds: Size): DetailLayout {
         // Against the picture rather than in a fixed column, clamped so it
         // can never run off the right edge.
         x: Math.min(stage.x + stage.w + DETAIL_META_GAP, bounds.width - DETAIL_SIDEBAR),
-        y: stage.y,
+        // Aligned to the picture's top, but never so low that the column
+        // cannot fit a useful run of fields above the action bar.
+        y: Math.max(
+          DETAIL_PADDING,
+          Math.min(stage.y, bounds.height - DETAIL_META_MIN_RUN)
+        ),
         width: DETAIL_SIDEBAR,
       },
     };

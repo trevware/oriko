@@ -1242,6 +1242,16 @@
   padding-bottom: calc(96px + var(--pg-bottom-inset, 0px));
 }
 
+/* Beside a picture the column shares the pane's bottom with the floating
+   action bar, so it ends above the bar instead of running underneath it:
+   content that overflows scrolls inside, and the last field or the palette
+   can never sit half-hidden behind the buttons. Stacked mode keeps its own
+   bottom padding, which serves the same purpose there. */
+.pg-detail:not(.is-stacked) .pg-detail-meta {
+  bottom: calc(92px + var(--pg-bottom-inset, 0px));
+  padding-bottom: 12px;
+}
+
 .pg-detail-field {
   margin-bottom: 22px;
 }
