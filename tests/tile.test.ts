@@ -79,6 +79,37 @@ describe("buildTiles", () => {
     expect(tiles[0].posterPath).toBe("clip.poster.webp");
   });
 
+  // The clipper writes YouTube pages with a <video src="…/embed/id"> ahead
+  // of the archived thumbnail. The embed URL is a document, not a stream:
+  // handed to a <video> it errors and the wall drops the tile. Desktop only
+  // survived because its cache had recorded the archive failure; a device
+  // with a fresh cache (mobile) must not depend on that.
+  it("never offers a video host's page URL as a playable cover", () => {
+    const clip = scanClipping(
+      "Clippings/O.md",
+      { title: "Onimusha", source: "https://www.youtube.com/watch?v=VK4FwpKMBho" },
+      '<video src="https://www.youtube.com/embed/VK4FwpKMBho" controls=""></video>\n\n![[Attachments/Clippings/32814825d7a3-maxresdefault.jpg]]\n'
+    );
+    const tiles = buildTiles([clip], new MediaCache());
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].kind).toBe("image");
+    expect(tiles[0].filePath).toBe("Attachments/Clippings/32814825d7a3-maxresdefault.jpg");
+    expect(tiles[0].remote).toBe(false);
+  });
+
+  it("falls back to the host thumbnail when the embed page is the only media", () => {
+    const clip = scanClipping(
+      "Clippings/O.md",
+      { title: "Onimusha" },
+      '<video src="https://www.youtube.com/embed/VK4FwpKMBho"></video>\n'
+    );
+    const tiles = buildTiles([clip], new MediaCache());
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0].kind).toBe("image");
+    expect(tiles[0].filePath).toBe("https://img.youtube.com/vi/VK4FwpKMBho/maxresdefault.jpg");
+    expect(tiles[0].remote).toBe(true);
+  });
+
   it("omits a clipping with no media and no source page", () => {
     const empty = scanClipping("Clippings/E.md", { title: "E" }, "just prose");
     expect(buildTiles([empty], new MediaCache())).toEqual([]);

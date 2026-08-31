@@ -170,6 +170,14 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
 
   const media: CanonicalMedia[] = dedupeMedia(record.media);
 
+  // A known video host's page URL (a YouTube /embed/, say) is a document,
+  // not a stream: a <video> pointed at it can only error, and the wall then
+  // drops the tile. The cache records that failure once archiving has tried,
+  // but the cache is per-device, so a cover must never lean on it being
+  // there. The page's thumbnail is remembered instead, to stand in only
+  // when no real media follows.
+  let pageThumbnail: string | null = null;
+
   for (const item of media) {
     // A file in the vault, embedded as a wikilink. The archive knows its
     // size if it made it; otherwise the tile measures it once it loads.
@@ -203,24 +211,33 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
       if (cover) return cover;
       continue;
     }
+    if (item.kind === "video") {
+      const known = knownHostThumbnail(item.url);
+      if (known) {
+        pageThumbnail ??= known.url;
+        continue;
+      }
+    }
     return remoteCover(item.url, item.kind, item.widthHint, item.heightHint);
   }
 
   // Nothing usable inline. Fall back to whatever the source page itself
   // publishes as its preview image.
-  if (!record.source) return null;
-
-  const pageEntry = cache.get(normalizeUrl(record.source));
-  if (pageEntry?.file) {
-    const cover = localCover(pageEntry);
-    if (cover) return cover;
+  if (record.source) {
+    const pageEntry = cache.get(normalizeUrl(record.source));
+    if (pageEntry?.file) {
+      const cover = localCover(pageEntry);
+      if (cover) return cover;
+    }
+    if (!pageEntry?.failed) {
+      // Known video hosts resolve to a thumbnail with no page fetch, so those
+      // tiles are correct on first paint rather than after a background pass.
+      const known = knownHostThumbnail(record.source);
+      if (known) return remoteCover(known.url, "image");
+    }
   }
-  if (pageEntry?.failed) return null;
 
-  // Known video hosts resolve to a thumbnail with no page fetch, so those
-  // tiles are correct on first paint rather than after a background pass.
-  const known = knownHostThumbnail(record.source);
-  return known ? remoteCover(known.url, "image") : null;
+  return pageThumbnail ? remoteCover(pageThumbnail, "image") : null;
 }
 
 /**
