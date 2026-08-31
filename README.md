@@ -11,7 +11,7 @@ Turn your web clippings into a wall of pictures. Oriko lays out every clipping i
 
 <p align="center">
   <picture>
-    <!-- preview image -->
+    <img src=".github/preview.png" alt="The Oriko wall">
   </picture>
 </p>
 
