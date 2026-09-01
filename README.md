@@ -74,7 +74,7 @@ Remote media is copied into your attachment folder under a name derived from its
 
 **Notes are written once.** Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
 
-## What Touches the Network
+## Privacy
 
 Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. There are no analytics and nothing is reported anywhere.
 
