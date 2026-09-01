@@ -7,7 +7,7 @@
 
 # Oriko
 
-Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall and downloads a local copy of each clipping's media so it survives link rot. Clippings are plain markdown notes and stay readable without the plugin.
+Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall and downloads a local copy of each clipping's media, so clippings keep their images and videos even if the source page is deleted. Clippings are plain markdown notes and stay readable without the plugin.
 
 *The name is Japanese: an oriko (織り子) is a weaver, someone who turns loose threads into one cloth. Weaving scattered inspiration into a single wall is the whole idea.*
 

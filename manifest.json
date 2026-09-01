@@ -3,7 +3,7 @@
   "name": "Oriko",
   "version": "0.1.51",
   "minAppVersion": "1.13.0",
-  "description": "A visual wall for your web clippings, with local media downloads so they survive link rot.",
+  "description": "A pannable, zoomable wall of your web clippings. Sort them into grids, filter by any property, and clip from your phone. Media is downloaded into your vault, so clippings keep their images and videos even if the source page is deleted.",
   "author": "Trevor Tarakjian",
   "authorUrl": "https://github.com/trevware",
   "fundingUrl": "https://buymeacoffee.com/trevware",
