@@ -7,7 +7,7 @@
 
 # Oriko
 
-Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall, downloads a local copy of each clipping's media so posts survive their source going dark, and keeps everything in plain markdown notes that read fine without it.
+Turn your web clippings into a wall of pictures. Oriko lays out every clipping in your folder as a pannable, zoomable masonry wall, downloads a local copy of each clipping's media so posts survive link rot, and keeps everything in plain markdown notes that read fine without it.
 
 *The name is Japanese: an oriko (織り子) is a weaver, someone who turns loose threads into one cloth. Weaving scattered inspiration into a single wall is the whole idea.*
 
@@ -46,13 +46,13 @@ On iOS you can clip straight from any app's share sheet with the **[Clip to Orik
 
 Every clipping is a tile: pan and pinch on a phone, scroll and zoom on a desktop, and click or tap a tile to open it full screen with its properties and actions. Videos can autoplay muted while they are in view, respecting Reduce Motion. Select many at once with a drag on desktop or a long press on mobile, then move, export or delete them together.
 
-The full-screen view zooms and pans the original, shows the picture's own color palette, and describes the clipping beside it. Its Source row links out to the original page (so do **Open in browser** in the tile's context menu and in the view's bar), its bar opens the note, exports, edits properties and deletes, and each button carries its key: ⏎ for the note, B for the browser, P for properties, ⌫ to delete.
+The full-screen view zooms and pans the original, shows the picture's own color palette, and shows the clipping's details beside it. Its Source row links out to the original page (so do **Open in browser** in the tile's context menu and in the view's bar), its bar opens the note, exports, edits properties and deletes, and each button shows its key: ⏎ for the note, B for the browser, P for properties, ⌫ to delete.
 
 ## The Palette
 
 ⌘K, or **Search this grid** from the command palette, opens one input over the dimmed wall that finds both the clippings and the things you can do to them: actions, grids, filter values, capture, and every clipping in the vault by name, each with a preview. A command that needs an argument opens a second stage in place, so moving four clippings to another grid is one gesture.
 
-The wall answers the keyboard elsewhere too: ⌘1 through ⌘9 switch grids in their stored order, ⌘N clips whatever is on the clipboard, ⌘E exports the selection, and the arrow keys walk the tiles.
+Beyond the palette, ⌘1 through ⌘9 switch grids in their stored order, ⌘N clips whatever is on the clipboard, ⌘E exports the selection, and the arrow keys move between tiles.
 
 ## Grids
 
@@ -66,13 +66,13 @@ Any frontmatter property can become a filter. Enable properties under **Settings
 
 Remote media is copied into your attachment folder under a name derived from its URL, so the same asset shared by several clippings is stored once. Posters and thumbnails are generated for videos and GIFs, and downloads above a size cap are skipped.
 
-**Optional tools.** [yt-dlp](https://github.com/yt-dlp/yt-dlp) fetches the full video of a clipped post, and [ffmpeg](https://ffmpeg.org) renders previews for formats the app cannot play. Install them with your package manager: `brew install yt-dlp ffmpeg` on macOS, winget or scoop on Windows, apt and friends on Linux. Oriko finds them on PATH and in common install locations, and **Settings → Downloads** takes an explicit path when yours lives somewhere unusual.
+**Optional tools.** [yt-dlp](https://github.com/yt-dlp/yt-dlp) fetches the full video of a clipped post, and [ffmpeg](https://ffmpeg.org) renders previews for formats the app cannot play. Install them with your package manager: `brew install yt-dlp ffmpeg` on macOS, winget or scoop on Windows, apt on Linux. Oriko finds them on PATH and in common install locations, and **Settings → Downloads** takes an explicit path if yours is installed elsewhere.
 
-**Phones get videos through a desktop.** Some videos can only be fetched on desktop, through the community resolvers or yt-dlp. A clip made on your phone gets its poster right away; the next time a desktop opens the vault, it downloads the full video. Once that file syncs back, the phone adopts it automatically and the tile plays. The video has to fit within your sync service's file size limit to make the trip.
+**Phones get videos through a desktop.** Some videos can only be fetched on desktop, through the community resolvers or yt-dlp. A clip made on your phone gets its poster right away; the next time a desktop opens the vault, it downloads the full video. Once that file syncs back, the phone adopts it automatically and the tile plays. The video has to be within your sync service's file size limit.
 
-**Cleanup.** **Remove orphaned media** offers up files no clipping points at any more, always behind a confirmation and always to the trash.
+**Cleanup.** **Remove orphaned media** lists files no clipping references and moves them to the trash after a confirmation.
 
-**Your notes stay yours.** Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
+**Notes are written once.** Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
 
 ## What Touches the Network
 
