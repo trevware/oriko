@@ -72,7 +72,7 @@ Remote media is copied into your attachment folder under a name derived from its
 
 **Cleanup.** **Remove orphaned media** lists files no clipping references and moves them to the trash after a confirmation.
 
-**Notes are written once.** Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
+**The note body is never touched.** Oriko writes a note's content once, when it creates it. After that it edits only frontmatter, through Obsidian's own frontmatter API: the `grid` key when you move a clipping, and the properties you edit yourself from the wall.
 
 ## Privacy
 
