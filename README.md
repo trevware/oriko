@@ -40,7 +40,7 @@ Paste a link anywhere on the wall, or run **Clip from clipboard** from the comma
 | Notes from the [Obsidian Web Clipper](https://obsidian.md/clipper) | They appear on the wall, and their remote media is downloaded in the background |
 | A page whose media cannot be scraped | The page itself is scanned as a fallback, so the clipping still gets a picture |
 
-On iOS you can clip straight from any app's share sheet: make a Shortcut that receives URLs and text, runs **Get URLs from Input**, URL-encodes the result, and opens `obsidian://oriko?url=` followed by the encoded text. Sharing a post to that Shortcut opens the wall and clips it, no copy and paste involved.
+On iOS you can clip straight from any app's share sheet with the **[Clip to Oriko Shortcut](https://www.icloud.com/shortcuts/191427deda394d21a3f5c647b436c085)**. Sharing a post to it opens the wall and clips it, no copy and paste involved. To build it yourself: receive URLs and text from the share sheet, run **Get URLs from Input**, URL-encode the result, and open `obsidian://oriko?url=` followed by the encoded text.
 
 ## The Wall
 
