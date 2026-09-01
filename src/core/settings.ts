@@ -42,6 +42,10 @@ export interface OrikoSettings {
    * room the pane has, not which grid is in it.
    */
   tileSize: DensityStage;
+  /** Full path to yt-dlp, "" to discover it on PATH and in common installs. */
+  ytdlpPath: string;
+  /** Full path to ffmpeg, "" to discover it on PATH and in common installs. */
+  ffmpegPath: string;
 }
 
 export const DEFAULT_SETTINGS: OrikoSettings = {
@@ -59,4 +63,6 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
   tileSize: "m",
+  ytdlpPath: "",
+  ffmpegPath: "",
 };

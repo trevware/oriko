@@ -189,6 +189,16 @@ export class OrikoSettingTab extends PluginSettingTab {
             desc: "Pixel width of generated video posters and GIF stills.",
             control: { type: "number", key: "thumbnailWidth" },
           },
+          {
+            name: "yt-dlp path",
+            desc: "Full path to the yt-dlp executable, used to fetch a post's own video. Leave empty to find it on PATH and in common install locations (Homebrew, winget, scoop, chocolatey, ~/.local/bin).",
+            control: { type: "text", key: "ytdlpPath" },
+          },
+          {
+            name: "ffmpeg path",
+            desc: "Full path to the ffmpeg executable, used to render previews for formats the app cannot play. Leave empty to find it the same way.",
+            control: { type: "text", key: "ffmpegPath" },
+          },
         ],
       },
       {

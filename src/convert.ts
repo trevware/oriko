@@ -1,11 +1,14 @@
 import { FileSystemAdapter, Platform, TFile, Vault, normalizePath } from "obsidian";
 import { nodeRequire } from "./core/system";
+import { executableCandidates } from "./core/tools";
+import type { ToolEnv } from "./core/tools";
 
 /**
- * Renders formats Chromium cannot decode into ones it can, using tools that
- * ship with macOS. `sips` reads every image format on Apple's list, which
- * covers HEIC, TIFF, RAW from every major camera vendor, EXR and Radiance
- * HDR. `ffmpeg` pulls a frame out of a container Chromium will not play.
+ * Renders formats Chromium cannot decode into ones it can. `sips` ships with
+ * macOS and reads every image format on Apple's list, which covers HEIC,
+ * TIFF, RAW from every major camera vendor, EXR and Radiance HDR. `ffmpeg`
+ * is user-installed on any desktop platform and pulls a frame out of a
+ * container Chromium will not play.
  *
  * Everything here is best-effort and desktop-only. When a tool is missing
  * the original stays archived and the clipping simply has no tile, which is
@@ -13,13 +16,62 @@ import { nodeRequire } from "./core/system";
  */
 
 const SIPS = "/usr/bin/sips";
-
-const FFMPEG_CANDIDATES = [
-  "/opt/homebrew/bin/ffmpeg",
-  "/usr/local/bin/ffmpeg",
-  "/usr/bin/ffmpeg",
-];
 const TIMEOUT_MS = 30000;
+
+/**
+ * Paths from settings, "" meaning discover. Module state because the path
+ * functions are called from deep inside conversion helpers that have no
+ * settings in reach; main.ts sets this on load and on every settings change.
+ */
+let toolOverrides = { ytdlp: "", ffmpeg: "" };
+
+export function setToolOverrides(next: { ytdlp: string; ffmpeg: string }): void {
+  toolOverrides = next;
+}
+
+interface ProcessLike {
+  env?: Record<string, string | undefined>;
+  platform?: string;
+}
+
+function toolEnv(): ToolEnv {
+  const proc = (globalThis as { process?: ProcessLike }).process;
+  const windows = proc?.platform === "win32";
+  return {
+    pathVar: proc?.env?.PATH ?? proc?.env?.Path ?? "",
+    delimiter: windows ? ";" : ":",
+    windows,
+  };
+}
+
+/**
+ * Install locations that commonly sit off Obsidian's PATH: Electron carries
+ * the desktop session's environment, which on macOS skips the shell profile
+ * Homebrew edits, and on Windows a fresh install's PATH entry only reaches
+ * apps started after it. Scanned after PATH, so PATH still wins when set.
+ */
+function fixedCandidates(name: string): string[] {
+  const proc = (globalThis as { process?: ProcessLike }).process;
+  const env = proc?.env ?? {};
+  if (proc?.platform === "win32") {
+    return [
+      env.LOCALAPPDATA && `${env.LOCALAPPDATA}\\Microsoft\\WinGet\\Links\\${name}.exe`,
+      env.USERPROFILE && `${env.USERPROFILE}\\scoop\\shims\\${name}.exe`,
+      "C:\\ProgramData\\chocolatey\\bin\\" + name + ".exe",
+    ].filter((p): p is string => Boolean(p));
+  }
+  return [
+    `/opt/homebrew/bin/${name}`,
+    `/usr/local/bin/${name}`,
+    `/usr/bin/${name}`,
+    env.HOME && `${env.HOME}/.local/bin/${name}`,
+    `/snap/bin/${name}`,
+  ].filter((p): p is string => Boolean(p));
+}
+
+function toolPath(name: "yt-dlp" | "ffmpeg", override: string): string | null {
+  return firstExisting(executableCandidates(name, toolEnv(), fixedCandidates(name), override));
+}
 
 interface ChildProcessModule {
   execFile: (
@@ -96,7 +148,7 @@ function firstExisting(paths: string[]): string | null {
 }
 
 export function ffmpegPath(): string | null {
-  return firstExisting(FFMPEG_CANDIDATES);
+  return toolPath("ffmpeg", toolOverrides.ffmpeg);
 }
 
 export function sipsPath(): string | null {
@@ -134,14 +186,8 @@ export async function extractVideoFrame(
 }
 
 
-const YTDLP_CANDIDATES = [
-  "/opt/homebrew/bin/yt-dlp",
-  "/usr/local/bin/yt-dlp",
-  "/usr/bin/yt-dlp",
-];
-
 export function ytdlpPath(): string | null {
-  return firstExisting(YTDLP_CANDIDATES);
+  return toolPath("yt-dlp", toolOverrides.ytdlp);
 }
 
 /** Runs a command and resolves its stdout, or null if it failed. */

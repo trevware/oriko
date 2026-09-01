@@ -11,6 +11,7 @@ import {
   parseYaml,
 } from "obsidian";
 import { buildDiagnostics } from "./core/diagnose";
+import { setToolOverrides } from "./convert";
 import { ArchiveService } from "./archive-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
@@ -465,6 +466,7 @@ export default class OrikoPlugin extends Plugin {
     // A stage that no longer exists, or a hand-edited data.json, lands on the
     // default rather than on a wall laid out to an undefined width.
     if (!isStage(this.settings.tileSize)) this.settings.tileSize = DEFAULT_SETTINGS.tileSize;
+    setToolOverrides({ ytdlp: this.settings.ytdlpPath, ffmpeg: this.settings.ffmpegPath });
   }
 
   async saveSettings(): Promise<void> {
@@ -476,6 +478,7 @@ export default class OrikoPlugin extends Plugin {
     }
     await this.saveData(local);
     await this.writeShared();
+    setToolOverrides({ ytdlp: this.settings.ytdlpPath, ffmpeg: this.settings.ffmpegPath });
 
     // Saving is also how an open wall hears about it. Every caller of this
     // already means "the settings have changed", so there is no second thing
