@@ -64,11 +64,15 @@ Any frontmatter property can become a filter. Enable properties under **Settings
 
 ## Downloads
 
-Remote media is copied into your attachment folder under a name derived from its URL, so the same asset shared by several clippings is stored once. Posters and thumbnails are generated for videos and GIFs, downloads above a size cap are skipped, and **Remove orphaned media** offers up files no clipping points at any more, always behind a confirmation and always to the trash. Two optional desktop tools unlock more: [yt-dlp](https://github.com/yt-dlp/yt-dlp) fetches the full video of a clipped post, and [ffmpeg](https://ffmpeg.org) renders previews for formats the app cannot play. Install them with your package manager (`brew install yt-dlp ffmpeg` on macOS, winget or scoop on Windows, apt and friends on Linux); Oriko finds them on PATH and in common install locations, and **Settings → Downloads** takes an explicit path when yours lives somewhere unusual.
+Remote media is copied into your attachment folder under a name derived from its URL, so the same asset shared by several clippings is stored once. Posters and thumbnails are generated for videos and GIFs, and downloads above a size cap are skipped.
 
-Some videos can only be fetched on desktop, through the community resolvers or yt-dlp. A clip made on your phone gets its poster right away; the next time a desktop opens the vault, it downloads the full video into the attachment folder. Once that file syncs back, the phone adopts it automatically and the tile plays. The video has to fit within your sync service's file size limit to make the trip.
+**Optional tools.** [yt-dlp](https://github.com/yt-dlp/yt-dlp) fetches the full video of a clipped post, and [ffmpeg](https://ffmpeg.org) renders previews for formats the app cannot play. Install them with your package manager: `brew install yt-dlp ffmpeg` on macOS, winget or scoop on Windows, apt and friends on Linux. Oriko finds them on PATH and in common install locations, and **Settings → Downloads** takes an explicit path when yours lives somewhere unusual.
 
-Notes are never rewritten. Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
+**Phones get videos through a desktop.** Some videos can only be fetched on desktop, through the community resolvers or yt-dlp. A clip made on your phone gets its poster right away; the next time a desktop opens the vault, it downloads the full video. Once that file syncs back, the phone adopts it automatically and the tile plays. The video has to fit within your sync service's file size limit to make the trip.
+
+**Cleanup.** **Remove orphaned media** offers up files no clipping points at any more, always behind a confirmation and always to the trash.
+
+**Your notes stay yours.** Oriko writes a note once when it creates one, and the only property it ever edits afterwards is the `grid` key and the properties you have explicitly enabled, through Obsidian's own frontmatter API.
 
 ## What Touches the Network
 
