@@ -178,6 +178,7 @@ export class OrikoView extends ItemView {
 
     this.grid = new GridRenderer(this.app, this.contentEl);
     this.grid.setDensity(this.plugin.settings.tileSize);
+    this.grid.setTileProperties(this.plugin.settings.tileProperties);
     this.playback = new PlaybackController(
       this.grid.viewportEl,
       this.plugin.settings.autoplayVideo
@@ -581,6 +582,11 @@ export class OrikoView extends ItemView {
    */
   refreshFacets(): void {
     this.applyFilter({ replace: true });
+  }
+
+  /** Settings changed the tile list; the wall redraws its badges in place. */
+  refreshTileProperties(): void {
+    this.grid?.setTileProperties(this.plugin.settings.tileProperties);
   }
 
   /** Public: the ⌘K command in main.ts drives the palette through this. */

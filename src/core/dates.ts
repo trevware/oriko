@@ -192,3 +192,36 @@ const pad2 = (n: number): string => String(n).padStart(2, "0");
 export function todayISO(now: Date = new Date()): string {
   return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
 }
+
+const HOUR = 3_600_000;
+
+/**
+ * How long ago a value happened, the way a feed labels it: `3h ago`, `2d ago`,
+ * `1mo ago`. Empty for a value that is not a date, so a caller can fall back
+ * to showing the raw text.
+ *
+ * A bare date has no time of day, so it is measured in whole calendar days
+ * from local midnight: the day a clipping was made reads as `today` all day,
+ * not as `9h ago` by the afternoon. A value in the future clamps to now.
+ */
+export function relativeLabel(value: string, now: number): string {
+  if (!looksLikeDate(value)) return "";
+  const at = parseDate(value);
+  if (Number.isNaN(at)) return "";
+
+  if (DATE_ONLY.test(value)) {
+    const days = Math.max(0, Math.round((startOfDay(now) - at) / DAY));
+    return days === 0 ? "today" : ago(days * DAY);
+  }
+  return ago(Math.max(0, now - at));
+}
+
+function ago(elapsed: number): string {
+  if (elapsed < 60_000) return "now";
+  if (elapsed < HOUR) return `${Math.floor(elapsed / 60_000)}m ago`;
+  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h ago`;
+  if (elapsed < 7 * DAY) return `${Math.floor(elapsed / DAY)}d ago`;
+  if (elapsed < 30 * DAY) return `${Math.floor(elapsed / (7 * DAY))}w ago`;
+  if (elapsed < 365 * DAY) return `${Math.floor(elapsed / (30 * DAY))}mo ago`;
+  return `${Math.floor(elapsed / (365 * DAY))}y ago`;
+}

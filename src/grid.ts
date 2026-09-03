@@ -18,6 +18,7 @@ import {
   zoomAt,
 } from "./core/camera";
 import type { Camera, PinchStart, Point } from "./core/camera";
+import { tileBadges } from "./core/badges";
 import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
 import type { DensityStage } from "./core/density";
 import {
@@ -87,14 +88,6 @@ interface TileElement {
   id: string;
   signature: string;
   kind: string;
-}
-
-function domainOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }
 
 /**
@@ -245,6 +238,36 @@ export class GridRenderer {
 
   get zoom(): number {
     return this.camera.zoom;
+  }
+
+  /** Frontmatter keys shown on a hovered tile; see badges.ts. */
+  private tileProperties: readonly string[] = [];
+
+  /**
+   * Redraws every mounted card's badges in place. A card keeps its DOM for as
+   * long as its cover is unchanged, so this is the only way a settings change
+   * reaches tiles already on screen.
+   */
+  setTileProperties(keys: readonly string[]): void {
+    this.tileProperties = [...keys];
+    for (const [id, element] of this.mounted) {
+      const model = this.byId.get(id);
+      const meta = element.root.querySelector<HTMLElement>(".pg-meta");
+      if (!model || !meta) continue;
+      meta.empty();
+      this.paintBadges(meta, model);
+    }
+  }
+
+  private paintBadges(meta: HTMLElement, model: TileModel): void {
+    const badges = tileBadges(model.record, this.tileProperties, Date.now());
+    if (badges.length === 0) return;
+    const top = meta.createDiv({ cls: "pg-badges pg-badges-top" });
+    const bottom = meta.createDiv({ cls: "pg-badges pg-badges-bottom" });
+    for (const badge of badges) {
+      const corner = badge.corner === "top-right" ? top : bottom;
+      corner.createSpan({ cls: "pg-badge", text: badge.text });
+    }
   }
 
   /**
@@ -1491,15 +1514,7 @@ export class GridRenderer {
       element.media = image;
     }
 
-    const meta = frame.createDiv({ cls: "pg-meta" });
-    meta.createDiv({ cls: "pg-title", text: model.record.title });
-    const sub = meta.createDiv({ cls: "pg-sub" });
-    const domain = domainOf(model.record.source);
-    if (domain) sub.createSpan({ text: domain });
-    if (model.record.categories.length) {
-      if (domain) sub.createSpan({ cls: "pg-dot", text: "·" });
-      sub.createSpan({ text: model.record.categories.join(", ") });
-    }
+    this.paintBadges(frame.createDiv({ cls: "pg-meta" }), model);
 
     // Armed on the card because the id is in scope here; every way out of
     // a press (a second finger, movement past the slop, the lift) is on the

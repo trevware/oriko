@@ -390,50 +390,74 @@
 }
 
 
+/* Hover reveals a handful of pills pinned to the corners, not a caption
+   band: the card stays a picture, and what the pills say is chosen in
+   Settings → Oriko → Show on tiles. Pointer events stay off so a pill can
+   never take a click meant for the card. */
 .pg-meta {
   position: absolute;
-  inset: auto 0 0 0;
-  padding: 28px 12px 10px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
-  color: #fff;
+  inset: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   opacity: 0;
   transition: opacity 120ms ease;
   pointer-events: none;
 }
 
 /* Same reason as the tips: a tapped card would keep its hover state, and
-   the title it reveals, long after the finger had gone. */
+   the pills it reveals, long after the finger had gone. */
 @media (hover: hover) {
   .pg-tile:hover .pg-meta {
     opacity: 1;
   }
 }
 
-/* At the tightest stage a column is narrower than the title needs, and the
-   gradient would cover most of the picture the stage exists to show more
-   of. The card stays a picture; the title is one hover-tip away. */
+/* At the tightest stage a column is narrower than a pill row needs, and
+   the stage exists to show more of the picture. The card stays a picture. */
 .pg-viewport[data-density="xs"] .pg-meta {
   display: none;
 }
 
-.pg-title {
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.pg-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 0;
 }
 
-.pg-sub {
-  margin-top: 3px;
+/* Dates stack in the top-right corner, everything else in the bottom-left,
+   matching the way a feed labels a post. */
+.pg-badges-top {
+  justify-content: flex-end;
+  align-self: flex-end;
+}
+
+.pg-badges-bottom {
+  justify-content: flex-start;
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.pg-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.62);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  color: #fff;
   font-size: 11px;
-  opacity: 0.75;
-  display: flex;
-  gap: 5px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pg-media {

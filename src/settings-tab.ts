@@ -41,10 +41,6 @@ class PropertySuggest extends AbstractInputSuggest<string> {
 }
 
 export class OrikoSettingTab extends PluginSettingTab {
-  /** Set while the text control is built, so the Add button beside it can
-      commit the same value the Enter key does. */
-  private addProperty: (() => void) | null = null;
-
   constructor(app: App, private plugin: OrikoPlugin) {
     super(app, plugin);
   }
@@ -54,7 +50,7 @@ export class OrikoSettingTab extends PluginSettingTab {
    * and redraws this tab so a property moves between the enabled list and the
    * one below it.
    */
-  private async commit(properties: string[]): Promise<void> {
+  private async commitFilterProperties(properties: string[]): Promise<void> {
     this.plugin.settings.filterProperties = properties;
     await this.plugin.saveSettings();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
@@ -63,12 +59,54 @@ export class OrikoSettingTab extends PluginSettingTab {
     this.update();
   }
 
+  /** Same shape as above: every open wall redraws its badges in place. */
+  private async commitTileProperties(properties: string[]): Promise<void> {
+    this.plugin.settings.tileProperties = properties;
+    await this.plugin.saveSettings();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
+      if (leaf.view instanceof OrikoView) leaf.view.refreshTileProperties();
+    }
+    this.update();
+  }
+
   private paintFilterProperties(containerEl: HTMLElement): void {
-    const enabled = this.plugin.settings.filterProperties;
+    this.paintPropertyList(containerEl, {
+      enabled: this.plugin.settings.filterProperties,
+      intro: "Offered by the filter menu, alongside media type and source.",
+      empty: "None. The menu still offers Media type and Source.",
+      commit: (keys) => this.commitFilterProperties(keys),
+    });
+  }
+
+  private paintTileProperties(containerEl: HTMLElement): void {
+    this.paintPropertyList(containerEl, {
+      enabled: this.plugin.settings.tileProperties,
+      intro:
+        "Shown as small pills when you hover a tile. A date shows as how long ago it was, in the top corner; everything else sits in the bottom corner.",
+      empty: "None. Tiles stay plain pictures.",
+      commit: (keys) => this.commitTileProperties(keys),
+    });
+  }
+
+  /**
+   * A list of property names as chips, with a type-ahead to add one. Shared
+   * by the filter list and the tile list, which are the same control over
+   * two settings.
+   */
+  private paintPropertyList(
+    containerEl: HTMLElement,
+    spec: {
+      enabled: string[];
+      intro: string;
+      empty: string;
+      commit: (keys: string[]) => Promise<void>;
+    }
+  ): void {
+    const enabled = spec.enabled;
 
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text: "Offered by the filter menu, alongside media type and source.",
+      text: spec.intro,
     });
 
     // Chips rather than a settings row each. One row per property put a
@@ -80,13 +118,10 @@ export class OrikoSettingTab extends PluginSettingTab {
       chip.createSpan({ text: facetLabel(key) });
       const remove = chip.createEl("button", { cls: "pg-prop-remove", text: "\u00d7" });
       remove.setAttribute("aria-label", `Remove ${facetLabel(key)}`);
-      remove.onclick = () => void this.commit(enabled.filter((k) => k !== key));
+      remove.onclick = () => void spec.commit(enabled.filter((k) => k !== key));
     }
     if (enabled.length === 0) {
-      chips.createSpan({
-        cls: "pg-props-empty",
-        text: "None. The menu still offers Media type and Source.",
-      });
+      chips.createSpan({ cls: "pg-props-empty", text: spec.empty });
     }
 
     // Suggested first, so type-ahead puts the properties worth filtering by at
@@ -95,6 +130,10 @@ export class OrikoSettingTab extends PluginSettingTab {
     const available = surveyProperties(this.plugin.index.records())
       .filter((stat) => !enabled.includes(stat.key))
       .map((stat) => stat.key);
+
+    // Set while the text control is built, so the Add button beside it can
+    // commit the same value the Enter key does.
+    let addTyped: (() => void) | null = null;
 
     new Setting(containerEl)
       .setName("Add a property")
@@ -110,7 +149,7 @@ export class OrikoSettingTab extends PluginSettingTab {
           const name = key.trim();
           if (done || !name || enabled.includes(name)) return;
           done = true;
-          void this.commit([...enabled, name]);
+          void spec.commit([...enabled, name]);
         };
 
         new PropertySuggest(this.app, text.inputEl, available, add);
@@ -120,11 +159,9 @@ export class OrikoSettingTab extends PluginSettingTab {
           event.preventDefault();
           add(text.getValue());
         };
-        this.addProperty = () => add(text.getValue());
+        addTyped = () => add(text.getValue());
       })
-      .addButton((button) =>
-        button.setButtonText("Add").onClick(() => this.addProperty?.())
-      );
+      .addButton((button) => button.setButtonText("Add").onClick(() => addTyped?.()));
   }
 
   /**
@@ -211,6 +248,22 @@ export class OrikoSettingTab extends PluginSettingTab {
             name: "ffmpeg path",
             desc: "Full path to the ffmpeg executable, used to render previews for formats the app cannot play. Leave empty to find it the same way.",
             control: { type: "text", key: "ffmpegPath" },
+          },
+        ],
+      },
+      {
+        type: "group",
+        heading: "Show on tiles",
+        items: [
+          {
+            name: "Show on tiles",
+            aliases: ["badges", "tile properties", "hover"],
+            render: (setting) => {
+              const el = setting.settingEl;
+              el.empty();
+              el.addClass("pg-props-setting");
+              this.paintTileProperties(el);
+            },
           },
         ],
       },

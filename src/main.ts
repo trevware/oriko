@@ -472,6 +472,9 @@ export default class OrikoPlugin extends Plugin {
     this.settings.filterProperties = [
       ...(this.settings.filterProperties ?? DEFAULT_SETTINGS.filterProperties),
     ];
+    this.settings.tileProperties = [
+      ...(this.settings.tileProperties ?? DEFAULT_SETTINGS.tileProperties),
+    ];
     // A stage that no longer exists, or a hand-edited data.json, lands on the
     // default rather than on a wall laid out to an undefined width.
     if (!isStage(this.settings.tileSize)) this.settings.tileSize = DEFAULT_SETTINGS.tileSize;

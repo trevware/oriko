@@ -5,6 +5,7 @@ import {
   dateTokenMatches,
   isDateProperty,
   looksLikeDate,
+  relativeLabel,
   todayISO,
   tokenLabel,
 } from "../src/core/dates";
@@ -169,5 +170,38 @@ describe("date tokens", () => {
     expect(tokenLabel("before:2026-08-19")).toBe("Before 2026-08-19");
     expect(tokenLabel("since:2026-08-19")).toBe("On or after 2026-08-19");
     expect(tokenLabel("empty")).toBe("Is empty");
+  });
+});
+
+describe("relativeLabel", () => {
+  const HOUR = 3_600_000;
+  const DAY = 86_400_000;
+
+  it("reads a value under a minute old as now", () => {
+    expect(relativeLabel(new Date(NOW - 20_000).toISOString(), NOW)).toBe("now");
+  });
+
+  it("counts minutes, hours and days", () => {
+    expect(relativeLabel(new Date(NOW - 5 * 60_000).toISOString(), NOW)).toBe("5m ago");
+    expect(relativeLabel(new Date(NOW - 3 * HOUR).toISOString(), NOW)).toBe("3h ago");
+    expect(relativeLabel(new Date(NOW - 2 * DAY).toISOString(), NOW)).toBe("2d ago");
+  });
+
+  it("switches to weeks, months and years as the value ages", () => {
+    expect(relativeLabel(new Date(NOW - 9 * DAY).toISOString(), NOW)).toBe("1w ago");
+    expect(relativeLabel(new Date(NOW - 35 * DAY).toISOString(), NOW)).toBe("1mo ago");
+    expect(relativeLabel(new Date(NOW - 400 * DAY).toISOString(), NOW)).toBe("1y ago");
+  });
+
+  it("reads a bare date made today as today, not in the future", () => {
+    expect(relativeLabel(daysAgo(0), NOW)).toBe("today");
+  });
+
+  it("reads a bare date from yesterday as a day ago", () => {
+    expect(relativeLabel(daysAgo(1), NOW)).toBe("1d ago");
+  });
+
+  it("returns an empty string for a value that is not a date", () => {
+    expect(relativeLabel("soon", NOW)).toBe("");
   });
 });
