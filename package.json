@@ -1,6 +1,6 @@
 {
   "name": "oriko",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "description": "A fast masonry grid over your Obsidian web clippings, with local media archiving.",
   "main": "main.js",
   "type": "module",
