@@ -143,6 +143,22 @@ describe("buildCommands", () => {
     expect(values.every((v) => v.keepOpen)).toBe(true);
   });
 
+  it("reads an empty value as Is empty in the facet stage, as the menu does", () => {
+    const ctx = context({
+      facets: {
+        categories: [
+          { value: "design", count: 2 },
+          { value: "", count: 13 },
+        ],
+        status: [],
+        kind: [],
+        domain: [],
+      },
+    });
+    const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
+    expect(values.map((v) => v.label)).toEqual(["design", "Is empty"]);
+  });
+
   it("marks the facet values already filtering the wall, in the count's slot", () => {
     const ctx = context({
       facets: {

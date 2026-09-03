@@ -275,7 +275,9 @@ function filterCommands(context: PaletteContext): PaletteCommand[] {
         items: () =>
           (context.facets[def.id] ?? []).map((entry) => ({
             id: `filter:${def.id}:${entry.value}`,
-            label: entry.value,
+            // Read as words where the value is a marker: the empty row's
+            // value is the blank string, which drew a row with no text.
+            label: valueLabel(def, entry.value),
             // No left icon at all, so the list drops the gutter. A chosen
             // value marks itself where its count was: the count of a value
             // you have already picked is not what you read that row for.
