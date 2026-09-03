@@ -10,7 +10,7 @@ import { ConfirmDeleteModal } from "./confirm";
 import { isDateToken, todayISO } from "./core/dates";
 import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
-import { isEditable, withValue, withoutValue } from "./core/editable";
+import { holdingAcross, isEditable, toggleAcross, withValue } from "./core/editable";
 import { ContextMenu } from "./context-menu";
 import {
   openDeleteGrid,
@@ -189,8 +189,13 @@ export class OrikoView extends ItemView {
     this.grid.onHoverMedia = (media) => this.playback?.hover(media);
 
     this.grid.onDeleteRequested = (ids: string[]) => this.confirmDelete(ids);
+    this.grid.onPropertiesRequested = (ids: string[]) => {
+      const anchor = this.actionBar?.propertiesAnchor() ?? { x: 0, y: 0 };
+      this.editProperties(ids, anchor.x, anchor.y);
+    };
 
     this.actionBar = new ActionBar(this.contentEl, {
+      onProperties: (x, y) => this.editProperties(this.grid?.selectedIds() ?? [], x, y),
       onDelete: () => this.confirmDelete(this.grid?.selectedIds() ?? []),
       onDone: () => this.grid?.clearSelection(),
     });
@@ -302,7 +307,7 @@ export class OrikoView extends ItemView {
       onReveal: (id) => this.revealFirstFile(id),
       onDelete: (id) => this.confirmDelete([id]),
       onOpenNote: (id) => this.openNote(id),
-      onEditProperties: (id, x, y) => this.editProperties(id, x, y),
+      onEditProperties: (id, x, y) => this.editProperties([id], x, y),
       isMenuOpen: () => this.menu?.isOpen ?? false,
     }, () => this.plugin.settings.filterProperties);
     this.detail.onClosed = () => {
@@ -672,21 +677,22 @@ export class OrikoView extends ItemView {
   }
 
   /**
-   * The rows for editing every editable property of one clipping.
+   * The rows for editing every editable property of a selection.
    *
-   * One clipping only. Across a selection a value is held by some and not
-   * others, and a tick that means "some of these" is a different control than
-   * this one, not a wider version of it. Shared with the detail view's bar so
-   * both surfaces offer the same rows and reach the same single writer.
+   * One clipping or many: each value row reads across the whole selection, a
+   * tick where all hold it, a dash where some do, and a tap makes it
+   * everywhere or nowhere (toggleAcross). Shared with the detail view's bar
+   * and the action bar so every surface offers the same rows and reaches the
+   * same single writer, one file at a time.
    */
-  propertyRows(id: string): MenuItem[] {
+  propertyRows(ids: string[]): MenuItem[] {
     const rows: MenuItem[] = [];
     for (const def of this.defs()) {
       if (def.source !== "property" || !def.key || !isEditable(def.key)) continue;
       rows.push({
         icon: def.icon,
         label: def.label,
-        submenu: this.propertyMenu(id, def.key),
+        submenu: this.propertyMenu(ids, def.key),
       });
     }
     return rows;
@@ -707,7 +713,7 @@ export class OrikoView extends ItemView {
     const count = n === 1 ? "1 selected" : `${n} selected`;
 
     const reach: MenuItem[] = [];
-    const describe: MenuItem[] = n === 1 ? this.propertyRows(ids[0]) : [];
+    const describe: MenuItem[] = this.propertyRows(ids);
     const file: MenuItem[] = [];
     const destroy: MenuItem[] = [];
 
@@ -789,8 +795,9 @@ export class OrikoView extends ItemView {
    * ticked in a row, which only reads correctly if each click repaints them
    * from the state it just wrote.
    */
-  private editProperties(id: string, x: number, y: number): void {
-    const rows = (): MenuItem[] => this.propertyRows(id);
+  private editProperties(ids: string[], x: number, y: number): void {
+    if (ids.length === 0) return;
+    const rows = (): MenuItem[] => this.propertyRows(ids);
     const items = rows();
     if (items.length === 0) {
       new Notice("Oriko: no editable properties are enabled in settings");
@@ -1414,35 +1421,31 @@ export class OrikoView extends ItemView {
     return fresh;
   }
 
-  private propertyMenu(path: string, key: string): MenuItem[] {
-    const held = this.heldValues(path, key);
+  private propertyMenu(paths: string[], key: string): MenuItem[] {
+    const holdings = paths.map((path) => this.heldValues(path, key));
     const { values, single } = this.vocabularyFor(key);
 
+    // Recorded before the writes, and the writes are not waited on. The menu
+    // rebuilds from the record on the same tick as the click; the notes
+    // catch up on their own, one processFrontMatter each.
+    const write = (next: string[][]): void => {
+      paths.forEach((path, index) => {
+        this.edited.set(this.editKey(path, key), next[index]);
+        void this.setProperty(path, key, next[index]);
+      });
+    };
+
     const rows: MenuItem[] = values.map((entry) => {
-      const on = held.includes(entry.value);
+      const holding = holdingAcross(holdings, entry.value);
       return {
         icon: "",
         label: entry.value,
         detail: String(entry.count),
-        detailIcon: on ? "check" : undefined,
+        // A dash for "some of these": not a tick, since it is not set
+        // everywhere, and not blank, since it is not absent either.
+        detailIcon: holding === "all" ? "check" : holding === "some" ? "minus" : undefined,
         keepOpen: true,
-        onSelect: () => {
-          // A property no clipping holds more than one of reads as a choice,
-          // so picking replaces rather than adds. Picking the one already set
-          // clears it, which is the only way to unset from a list of values.
-          const next = single
-            ? on
-              ? []
-              : [entry.value]
-            : on
-              ? withoutValue(held, entry.value)
-              : withValue(held, entry.value);
-          // Recorded before the write, and the write is not waited on. The
-          // menu rebuilds from this on the same tick as the click; the note
-          // catches up on its own.
-          this.edited.set(this.editKey(path, key), next);
-          void this.setProperty(path, key, next);
-        },
+        onSelect: () => write(toggleAcross(holdings, entry.value, single)),
       };
     });
 
@@ -1478,15 +1481,12 @@ export class OrikoView extends ItemView {
         // value to create here, so the fuller prompt takes over.
         if (!wanted || known(wanted)) {
           this.menu?.close();
-          this.promptPropertyValue(path, key, single, held);
+          this.promptPropertyValue(paths, key, single, holdings);
           return;
         }
 
-        // Recorded before the write and not waited on, exactly as the value
-        // rows do it, so the tick lands on the keystroke that caused it.
-        const next = single ? [wanted] : withValue(held, wanted);
-        this.edited.set(this.editKey(path, key), next);
-        void this.setProperty(path, key, next);
+        // A new value is held by nothing yet, so this is always an add.
+        write(toggleAcross(holdings, wanted, single));
       },
     });
 
@@ -1545,16 +1545,27 @@ export class OrikoView extends ItemView {
   }
 
   private promptPropertyValue(
-    path: string,
+    paths: string[],
     key: string,
     single: boolean,
-    held: string[]
+    holdings: string[][]
   ): void {
     const options = propertyVocabulary(this.facets, key).values;
 
     const apply = (value: string): void => {
       this.sheet?.close();
-      void this.setProperty(path, key, single ? [value] : withValue(held, value));
+      // Chosen from a list of what to add, so it is an add for every clipping
+      // in the selection, including any that already hold it.
+      const next = holdings.map((held) => (single ? [value] : withValue(held, value)));
+      paths.forEach((path, index) => {
+        this.edited.set(this.editKey(path, key), next[index]);
+        void this.setProperty(path, key, next[index]);
+      });
+    };
+
+    const mark = (value: string): string | undefined => {
+      const holding = holdingAcross(holdings, value);
+      return holding === "all" ? "check" : holding === "some" ? "minus" : undefined;
     };
 
     this.sheet?.open({
@@ -1570,7 +1581,7 @@ export class OrikoView extends ItemView {
         const rows: SheetRow[] = options.map((entry) => ({
           label: entry.value,
           detail: String(entry.count),
-          detailIcon: held.includes(entry.value) ? "check" : undefined,
+          detailIcon: mark(entry.value),
           onChoose: () => apply(entry.value),
         }));
 

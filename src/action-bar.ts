@@ -2,6 +2,8 @@ import { setIcon } from "obsidian";
 import { attachTip } from "./core/tip";
 
 export interface ActionBarHandlers {
+  /** Opens the property menu for the selection, anchored to the button. */
+  onProperties: (x: number, y: number) => void;
   onDelete: () => void;
   /** Leaves selection mode with nothing selected. */
   onDone: () => void;
@@ -15,6 +17,7 @@ export interface ActionBarHandlers {
 export class ActionBar {
   private root: HTMLElement;
   private count: HTMLElement;
+  private properties: HTMLElement;
 
   constructor(container: HTMLElement, handlers: ActionBarHandlers) {
     this.root = container.createDiv({ cls: "pg-actionbar" });
@@ -36,10 +39,28 @@ export class ActionBar {
 
     this.root.createDiv({ cls: "pg-bar-divider" });
 
+    // Same icon, label and key as the detail view's, since it is the same
+    // menu: what one clipping is, asked of several at once.
+    this.properties = this.button("sliders-horizontal", "Properties", "P", () => {
+      const { x, y } = this.propertiesAnchor();
+      handlers.onProperties(x, y);
+    });
+
     this.button("trash-2", "Delete", "⌫", handlers.onDelete);
   }
 
-  private button(icon: string, label: string, shortcut: string, onClick: () => void): void {
+  /** Where the property menu opens from, whether by click or by key. */
+  propertiesAnchor(): { x: number; y: number } {
+    const rect = this.properties.getBoundingClientRect();
+    return { x: rect.left + rect.width / 2, y: rect.top };
+  }
+
+  private button(
+    icon: string,
+    label: string,
+    shortcut: string,
+    onClick: () => void
+  ): HTMLElement {
     const button = this.root.createEl("button", { cls: "pg-actionbar-button" });
     setIcon(button, icon);
     attachTip(button, label, shortcut);
@@ -48,6 +69,7 @@ export class ActionBar {
       event.stopPropagation();
       onClick();
     };
+    return button;
   }
 
   setSelection(ids: string[]): void {

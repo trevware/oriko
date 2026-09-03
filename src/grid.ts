@@ -189,6 +189,7 @@ export class GridRenderer {
   onZoomChanged: (zoom: number) => void = () => {};
   onSelectionChanged: (ids: string[]) => void = () => {};
   onDeleteRequested: (ids: string[]) => void = () => {};
+  onPropertiesRequested: (ids: string[]) => void = () => {};
   onContextRequested: (ids: string[], x: number, y: number) => void = () => {};
   onExportRequested: (ids: string[]) => void = () => {};
   onOpenDetail: (
@@ -596,6 +597,13 @@ export class GridRenderer {
       if (event.key === "Escape" && this.selection.size > 0) {
         event.preventDefault();
         this.clearSelection();
+        return;
+      }
+
+      const modified = event.metaKey || event.ctrlKey || event.altKey;
+      if ((event.key === "p" || event.key === "P") && this.selection.size > 0 && !modified) {
+        event.preventDefault();
+        this.onPropertiesRequested([...this.selection]);
         return;
       }
 

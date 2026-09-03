@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { STATUSES, isEditable, withValue, withoutValue } from "../src/core/editable";
+import {
+  STATUSES,
+  holdingAcross,
+  isEditable,
+  toggleAcross,
+  withValue,
+  withoutValue,
+} from "../src/core/editable";
 
 describe("isEditable", () => {
   it("refuses every key the Web Clipper owns", () => {
@@ -69,5 +76,45 @@ describe("withoutValue", () => {
 describe("STATUSES", () => {
   it("is the vocabulary the vault defines, in reading order", () => {
     expect(STATUSES).toEqual(["unread", "read", "archived"]);
+  });
+});
+
+describe("holdingAcross", () => {
+  it("is all when every clipping holds the value", () => {
+    expect(holdingAcross([["design"], ["design", "ios"]], "design")).toBe("all");
+  });
+
+  it("is some when only part of the selection holds it", () => {
+    expect(holdingAcross([["design"], ["ios"]], "design")).toBe("some");
+  });
+
+  it("is none when nothing holds it", () => {
+    expect(holdingAcross([["ios"], []], "design")).toBe("none");
+  });
+
+  it("is none for an empty selection", () => {
+    expect(holdingAcross([], "design")).toBe("none");
+  });
+});
+
+describe("toggleAcross", () => {
+  it("removes a value every clipping holds, from each of them", () => {
+    expect(toggleAcross([["design"], ["design", "ios"]], "design", false)).toEqual([[], ["ios"]]);
+  });
+
+  it("adds a value only some hold, to the ones missing it, without duplicating", () => {
+    expect(toggleAcross([["design"], ["ios"]], "design", false)).toEqual([["design"], ["ios", "design"]]);
+  });
+
+  it("replaces on a single-choice property, and clears when all already hold it", () => {
+    expect(toggleAcross([["unread"], ["read"]], "read", true)).toEqual([["read"], ["read"]]);
+    expect(toggleAcross([["read"], ["read"]], "read", true)).toEqual([[], []]);
+  });
+
+  it("returns new lists", () => {
+    const held = [["design"]];
+    const next = toggleAcross(held, "ios", false);
+    expect(held).toEqual([["design"]]);
+    expect(next[0]).not.toBe(held[0]);
   });
 });

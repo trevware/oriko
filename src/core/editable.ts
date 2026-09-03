@@ -50,3 +50,31 @@ export function withValue(values: string[], value: string): string[] {
 export function withoutValue(values: string[], value: string): string[] {
   return values.filter((held) => held !== value);
 }
+
+/** Whether a value is held by every clipping in a selection, some, or none. */
+export type Holding = "all" | "some" | "none";
+
+export function holdingAcross(held: readonly (readonly string[])[], value: string): Holding {
+  const count = held.filter((values) => values.includes(value)).length;
+  if (count === 0) return "none";
+  return count === held.length ? "all" : "some";
+}
+
+/**
+ * One tap on a value across a selection: held by all, it comes off all of
+ * them; held by some or none, it goes on all of them. The tick and the dash
+ * both mean "not yet everywhere", and the tap makes it everywhere. A
+ * single-choice property replaces rather than adds, as it does for one
+ * clipping. Returns new lists; never edits the ones it was given.
+ */
+export function toggleAcross(
+  held: readonly (readonly string[])[],
+  value: string,
+  single: boolean
+): string[][] {
+  const everywhere = holdingAcross(held, value) === "all";
+  return held.map((values) => {
+    if (everywhere) return single ? [] : withoutValue([...values], value);
+    return single ? [value] : withValue([...values], value);
+  });
+}
