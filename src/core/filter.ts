@@ -148,6 +148,11 @@ export function typedFacets(
  */
 export const EMPTY_VALUE = "";
 
+/** Whether a value is the facet's "is empty" row, whichever spelling its shape uses. */
+export function isEmptyValue(def: FacetDef, value: string): boolean {
+  return def.shape === "date" ? value === "empty" : value === EMPTY_VALUE;
+}
+
 /** How a facet's value reads: a date token or the empty marker as words, anything else as itself. */
 export function valueLabel(def: FacetDef, value: string): string {
   if (def.shape === "date") return tokenLabel(value);

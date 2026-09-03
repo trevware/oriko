@@ -7,6 +7,7 @@ import {
   facetDefs,
   facetLabel,
   facetsOf,
+  isEmptyValue,
   isFilterEmpty,
   matchesFilter,
   propertyVocabulary,
@@ -465,5 +466,16 @@ describe("is empty on a property facet", () => {
   it("does not leak into the editing vocabulary", () => {
     const { values } = propertyVocabulary(tiles, "categories");
     expect(values.some((entry) => entry.value === EMPTY_VALUE)).toBe(false);
+  });
+});
+
+describe("isEmptyValue", () => {
+  it("knows each shape's spelling of empty, and nothing else", () => {
+    const [categories] = facetDefs(["categories"]);
+    const published = { ...facetDefs(["published"])[0], shape: "date" as const, now: 0 };
+    expect(isEmptyValue(categories, EMPTY_VALUE)).toBe(true);
+    expect(isEmptyValue(categories, "empty")).toBe(false);
+    expect(isEmptyValue(published, "empty")).toBe(true);
+    expect(isEmptyValue(published, EMPTY_VALUE)).toBe(false);
   });
 });

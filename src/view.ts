@@ -39,6 +39,7 @@ import {
   facetDefs,
   facetLabel,
   facetsOf,
+  isEmptyValue,
   isFilterEmpty,
   matchesFilter,
   propertyVocabulary,
@@ -1156,6 +1157,8 @@ export class OrikoView extends ItemView {
           // a clipping carries, so they are read back as words here. Any other
           // facet's value is already the word.
           label: valueLabel(def, value),
+          // Absence is set apart from the values it is the absence of.
+          divider: isEmptyValue(def, value),
           detail: String(count),
           detailIcon: chosen.includes(value) ? "check" : undefined,
           keepOpen: true,

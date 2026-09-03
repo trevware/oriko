@@ -32,6 +32,8 @@ export interface SheetRow {
       choice: one that creates what a search has just failed to find. */
   alwaysShow?: boolean;
   destructive?: boolean;
+  /** Draws a rule above this row, for grouping without a heading. Mirrors MenuItem.divider. */
+  divider?: boolean;
   onChoose?: () => void;
 }
 
@@ -338,6 +340,9 @@ export class Sheet {
       // to and the cursor arithmetic never sees it.
       if (row.heading && !swatches) {
         host.createDiv({ cls: "pg-palette-section", text: row.heading });
+      }
+      if (row.divider && !swatches && this.rows.length > 0) {
+        host.createDiv({ cls: "pg-menu-divider" });
       }
       this.rows.push(row);
       this.rowEls.push(

@@ -1,5 +1,5 @@
 import { Notice } from "obsidian";
-import { isFilterEmpty, toggleFacet, valueLabel } from "./core/filter";
+import { isEmptyValue, isFilterEmpty, toggleFacet, valueLabel } from "./core/filter";
 import type { FacetDef, FacetValue, FilterState } from "./core/filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
 import { isSmartGrid, reorderTarget, validateGridName } from "./core/spaces";
@@ -221,6 +221,8 @@ function ruleValuesScreen(
         icon: "",
         label: valueLabel(def, entry.value),
         value: entry.value,
+        // Absence is set apart from the values it is the absence of.
+        divider: isEmptyValue(def, entry.value),
         detail: String(entry.count),
         detailIcon: chosen.includes(entry.value) ? "check" : undefined,
         onChoose: () => {
