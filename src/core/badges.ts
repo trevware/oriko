@@ -2,14 +2,13 @@
  * What a tile shows about its clipping on hover, as a handful of small
  * pills. Pure: grid.ts renders what this returns.
  *
- * The user picks the frontmatter keys (Settings → Oriko → Show on tiles).
- * Which corner a value lands in is decided by what it is, not by which key
- * carried it: anything that reads as a date becomes a relative time in the
- * top-right, and everything else is a pill in the bottom-left, one per value,
- * in the order the keys were chosen.
+ * Two slots, chosen in Settings → Oriko → Show on tiles. The top-right holds
+ * one date, read as a relative time; the bottom-left holds one property, a
+ * pill per value. One of each, not a list: a tile has room for a glance,
+ * and a row of mixed properties reads as noise at that size.
  */
 
-import { looksLikeDate, relativeLabel } from "./dates";
+import { relativeLabel } from "./dates";
 import { domainOf } from "./scan";
 import type { ClippingRecord } from "./scan";
 
@@ -20,24 +19,27 @@ export interface TileBadge {
   text: string;
 }
 
-export function tileBadges(
-  record: ClippingRecord,
-  keys: readonly string[],
-  now: number
-): TileBadge[] {
+export interface TileSlots {
+  /** Frontmatter key shown top-right as a relative time; "" for none. */
+  date: string;
+  /** Frontmatter key shown bottom-left, one pill per value; "" for none. */
+  property: string;
+}
+
+export function tileBadges(record: ClippingRecord, slots: TileSlots, now: number): TileBadge[] {
   const out: TileBadge[] = [];
-  for (const key of keys) {
-    for (const raw of record.properties[key] ?? []) {
+
+  const when = slots.date ? (record.properties[slots.date] ?? [])[0]?.trim() : "";
+  const label = when ? relativeLabel(when, now) : "";
+  if (label) out.push({ corner: "top-right", text: label });
+
+  if (slots.property) {
+    for (const raw of record.properties[slots.property] ?? []) {
       const value = raw.trim();
       if (!value) continue;
-      if (looksLikeDate(value)) {
-        const label = relativeLabel(value, now);
-        if (label) out.push({ corner: "top-right", text: label });
-        continue;
-      }
       // A URL is unreadable at pill size; its host is the part that means
       // anything on a wall.
-      const text = key === "source" ? domainOf(value) || value : value;
+      const text = slots.property === "source" ? domainOf(value) || value : value;
       out.push({ corner: "bottom-left", text });
     }
   }

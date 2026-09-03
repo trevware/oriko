@@ -30,40 +30,37 @@ function record(over: Partial<ClippingRecord> = {}): ClippingRecord {
 }
 
 describe("tileBadges", () => {
-  it("puts a date in the top-right as a relative time and each tag bottom-left", () => {
-    expect(tileBadges(record(), ["created", "categories"], NOW)).toEqual([
+  it("puts the date in the top-right as a relative time and each tag bottom-left", () => {
+    expect(tileBadges(record(), { date: "created", property: "categories" }, NOW)).toEqual([
       { corner: "top-right", text: "2d ago" },
       { corner: "bottom-left", text: "tools" },
       { corner: "bottom-left", text: "cli" },
     ]);
   });
 
-  it("keeps the order of the chosen keys", () => {
-    expect(tileBadges(record(), ["status", "categories"], NOW).map((b) => b.text)).toEqual([
-      "unread",
-      "tools",
-      "cli",
+  it("shows only the first value of the date property", () => {
+    const r = record({ properties: { ...record().properties, created: ["2026-09-01", "2026-08-01"] } });
+    expect(tileBadges(r, { date: "created", property: "" }, NOW)).toEqual([
+      { corner: "top-right", text: "2d ago" },
     ]);
   });
 
+  it("skips a date property whose value is not a date", () => {
+    const r = record({ properties: { ...record().properties, created: ["soon"] } });
+    expect(tileBadges(r, { date: "created", property: "" }, NOW)).toEqual([]);
+  });
+
   it("renders source as its domain", () => {
-    expect(tileBadges(record(), ["source"], NOW)).toEqual([
+    expect(tileBadges(record(), { date: "", property: "source" }, NOW)).toEqual([
       { corner: "bottom-left", text: "example.com" },
     ]);
   });
 
-  it("skips a key the clipping does not carry", () => {
-    expect(tileBadges(record(), ["missing", "author"], NOW)).toEqual([
-      { corner: "bottom-left", text: "Someone" },
-    ]);
+  it("skips a property the clipping does not carry", () => {
+    expect(tileBadges(record(), { date: "missing", property: "missing" }, NOW)).toEqual([]);
   });
 
-  it("treats a date-looking value under any key as a date", () => {
-    const r = record({ properties: { ...record().properties, published: ["2026-08-30"] } });
-    expect(tileBadges(r, ["published"], NOW)).toEqual([{ corner: "top-right", text: "4d ago" }]);
-  });
-
-  it("returns nothing when no keys are chosen", () => {
-    expect(tileBadges(record(), [], NOW)).toEqual([]);
+  it("returns nothing when nothing is chosen", () => {
+    expect(tileBadges(record(), { date: "", property: "" }, NOW)).toEqual([]);
   });
 });

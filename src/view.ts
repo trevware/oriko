@@ -178,7 +178,7 @@ export class OrikoView extends ItemView {
 
     this.grid = new GridRenderer(this.app, this.contentEl);
     this.grid.setDensity(this.plugin.settings.tileSize);
-    this.grid.setTileProperties(this.plugin.settings.tileProperties);
+    this.grid.setTileSlots(this.tileSlots());
     this.playback = new PlaybackController(
       this.grid.viewportEl,
       this.plugin.settings.autoplayVideo
@@ -584,9 +584,13 @@ export class OrikoView extends ItemView {
     this.applyFilter({ replace: true });
   }
 
-  /** Settings changed the tile list; the wall redraws its badges in place. */
+  /** Settings changed a tile corner; the wall redraws its badges in place. */
   refreshTileProperties(): void {
-    this.grid?.setTileProperties(this.plugin.settings.tileProperties);
+    this.grid?.setTileSlots(this.tileSlots());
+  }
+
+  private tileSlots(): { date: string; property: string } {
+    return { date: this.plugin.settings.tileDate, property: this.plugin.settings.tileProperty };
   }
 
   /** Public: the ⌘K command in main.ts drives the palette through this. */

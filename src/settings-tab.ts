@@ -1,5 +1,6 @@
 import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import type { SettingDefinitionItem } from "obsidian";
+import { isDateProperty } from "./core/dates";
 import { surveyProperties } from "./core/facet-catalog";
 import { facetLabel } from "./core/filter";
 import { OrikoView, VIEW_TYPE_GRID } from "./view";
@@ -60,13 +61,39 @@ export class OrikoSettingTab extends PluginSettingTab {
   }
 
   /** Same shape as above: every open wall redraws its badges in place. */
-  private async commitTileProperties(properties: string[]): Promise<void> {
-    this.plugin.settings.tileProperties = properties;
+  private async commitTileSlot(key: "tileDate" | "tileProperty", value: string): Promise<void> {
+    this.plugin.settings[key] = value;
     await this.plugin.saveSettings();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID)) {
       if (leaf.view instanceof OrikoView) leaf.view.refreshTileProperties();
     }
-    this.update();
+  }
+
+  /**
+   * Which properties a dropdown offers. Dates and everything else are
+   * separated by what the vault actually holds under each key, the same
+   * test the filter menu uses to decide a facet is a date. The current
+   * choice is always listed, so a key that has since left the vault still
+   * shows as chosen rather than silently reading as None.
+   */
+  private slotOptions(dates: boolean, current: string): Record<string, string> {
+    const byKey = new Map<string, Set<string>>();
+    for (const record of this.plugin.index.records()) {
+      for (const [key, list] of Object.entries(record.properties)) {
+        if (list.length === 0) continue;
+        let seen = byKey.get(key);
+        if (!seen) byKey.set(key, (seen = new Set()));
+        for (const value of list) seen.add(value);
+      }
+    }
+    const keys = surveyProperties(this.plugin.index.records())
+      .map((stat) => stat.key)
+      .filter((key) => isDateProperty(byKey.get(key) ?? []) === dates);
+    if (current && !keys.includes(current)) keys.unshift(current);
+
+    const options: Record<string, string> = { "": "None" };
+    for (const key of keys) options[key] = facetLabel(key);
+    return options;
   }
 
   private paintFilterProperties(containerEl: HTMLElement): void {
@@ -75,16 +102,6 @@ export class OrikoSettingTab extends PluginSettingTab {
       intro: "Offered by the filter menu, alongside media type and source.",
       empty: "None. The menu still offers Media type and Source.",
       commit: (keys) => this.commitFilterProperties(keys),
-    });
-  }
-
-  private paintTileProperties(containerEl: HTMLElement): void {
-    this.paintPropertyList(containerEl, {
-      enabled: this.plugin.settings.tileProperties,
-      intro:
-        "Shown as small pills when you hover a tile. A date shows as how long ago it was, in the top corner; everything else sits in the bottom corner.",
-      empty: "None. Tiles stay plain pictures.",
-      commit: (keys) => this.commitTileProperties(keys),
     });
   }
 
@@ -256,13 +273,29 @@ export class OrikoSettingTab extends PluginSettingTab {
         heading: "Show on tiles",
         items: [
           {
-            name: "Show on tiles",
-            aliases: ["badges", "tile properties", "hover"],
+            name: "Top corner",
+            desc: "A date, shown as how long ago it was when you hover a tile.",
+            aliases: ["badges", "hover", "date"],
             render: (setting) => {
-              const el = setting.settingEl;
-              el.empty();
-              el.addClass("pg-props-setting");
-              this.paintTileProperties(el);
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOptions(this.slotOptions(true, this.plugin.settings.tileDate))
+                  .setValue(this.plugin.settings.tileDate)
+                  .onChange((value) => void this.commitTileSlot("tileDate", value))
+              );
+            },
+          },
+          {
+            name: "Bottom corner",
+            desc: "Any other property, one pill per value. A row too long for the tile scrolls by itself while you hover.",
+            aliases: ["badges", "hover", "tags"],
+            render: (setting) => {
+              setting.addDropdown((dropdown) =>
+                dropdown
+                  .addOptions(this.slotOptions(false, this.plugin.settings.tileProperty))
+                  .setValue(this.plugin.settings.tileProperty)
+                  .onChange((value) => void this.commitTileSlot("tileProperty", value))
+              );
             },
           },
         ],

@@ -19,6 +19,7 @@ import {
 } from "./core/camera";
 import type { Camera, PinchStart, Point } from "./core/camera";
 import { tileBadges } from "./core/badges";
+import type { TileSlots } from "./core/badges";
 import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
 import type { DensityStage } from "./core/density";
 import {
@@ -240,16 +241,16 @@ export class GridRenderer {
     return this.camera.zoom;
   }
 
-  /** Frontmatter keys shown on a hovered tile; see badges.ts. */
-  private tileProperties: readonly string[] = [];
+  /** What a hovered tile shows; see badges.ts. */
+  private tileSlots: TileSlots = { date: "", property: "" };
 
   /**
    * Redraws every mounted card's badges in place. A card keeps its DOM for as
    * long as its cover is unchanged, so this is the only way a settings change
    * reaches tiles already on screen.
    */
-  setTileProperties(keys: readonly string[]): void {
-    this.tileProperties = [...keys];
+  setTileSlots(slots: TileSlots): void {
+    this.tileSlots = { ...slots };
     for (const [id, element] of this.mounted) {
       const model = this.byId.get(id);
       const meta = element.root.querySelector<HTMLElement>(".pg-meta");
@@ -260,13 +261,35 @@ export class GridRenderer {
   }
 
   private paintBadges(meta: HTMLElement, model: TileModel): void {
-    const badges = tileBadges(model.record, this.tileProperties, Date.now());
+    const badges = tileBadges(model.record, this.tileSlots, Date.now());
     if (badges.length === 0) return;
     const top = meta.createDiv({ cls: "pg-badges pg-badges-top" });
     const bottom = meta.createDiv({ cls: "pg-badges pg-badges-bottom" });
+    const track = bottom.createDiv({ cls: "pg-badges-track" });
     for (const badge of badges) {
-      const corner = badge.corner === "top-right" ? top : bottom;
+      const corner = badge.corner === "top-right" ? top : track;
       corner.createSpan({ cls: "pg-badge", text: badge.text });
+    }
+  }
+
+  /**
+   * A bottom row wider than the tile scrolls itself while hovered. Measured
+   * on the way in rather than at paint, because the pills are laid out
+   * after the card is and the tile's width changes with every stage. The
+   * distance goes into a custom property the keyframes read, so the CSS
+   * owns the motion and Reduce Motion can switch it off there.
+   */
+  private armMarquee(root: HTMLElement): void {
+    const bottom = root.querySelector<HTMLElement>(".pg-badges-bottom");
+    const track = bottom?.querySelector<HTMLElement>(".pg-badges-track");
+    if (!bottom || !track) return;
+    const overflow = track.scrollWidth - bottom.clientWidth;
+    bottom.toggleClass("is-overflowing", overflow > 0);
+    if (overflow > 0) {
+      bottom.style.setProperty("--pg-marquee", `${-overflow}px`);
+      // Around 60px a second, so a long row is readable and a slightly long
+      // one is not a crawl.
+      bottom.style.setProperty("--pg-marquee-time", `${Math.max(1.2, overflow / 60)}s`);
     }
   }
 
@@ -1522,6 +1545,10 @@ export class GridRenderer {
     element.root.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.pointerType !== "touch") return;
       this.armLongPress(model.id, { x: event.clientX, y: event.clientY });
+    });
+    element.root.addEventListener("pointerenter", (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      this.armMarquee(element.root);
     });
 
     element.root.oncontextmenu = (event: MouseEvent) => {

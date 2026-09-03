@@ -434,15 +434,43 @@
   align-self: flex-end;
 }
 
+/* One row, never wrapped: a second row of pills climbs the picture. A row
+   wider than the tile is clipped here and its track scrolls, see below. */
 .pg-badges-bottom {
-  justify-content: flex-start;
-  align-self: flex-start;
+  flex-wrap: nowrap;
+  align-self: stretch;
   margin-top: auto;
+  overflow: hidden;
+}
+
+.pg-badges-track {
+  display: flex;
+  gap: 5px;
+  width: max-content;
+  max-width: none;
+}
+
+/* The marquee. armMarquee measures the overflow into --pg-marquee on the way
+   in, and the animation only runs while the card is hovered, so nothing on
+   the wall moves unbidden. Held at each end so both ends can be read. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .pg-tile:hover .pg-badges-bottom.is-overflowing .pg-badges-track {
+    animation: pg-marquee var(--pg-marquee-time, 2s) ease-in-out 600ms infinite alternate;
+  }
+}
+
+@keyframes pg-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--pg-marquee, 0px), 0, 0);
+  }
 }
 
 .pg-badge {
   display: inline-block;
-  max-width: 100%;
+  flex: none;
   padding: 4px 9px;
   border-radius: 999px;
   background: rgba(20, 20, 24, 0.62);

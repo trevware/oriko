@@ -25,11 +25,12 @@ export interface OrikoSettings {
   filterProperties: string[];
 
   /**
-   * Frontmatter keys shown on a tile when it is hovered, in order. A date
-   * reads as a relative time in the top-right; anything else is a pill in
-   * the bottom-left. See badges.ts.
+   * What a hovered tile shows, see badges.ts. `tileDate` is a date property
+   * read as a relative time in the top-right; `tileProperty` is any other
+   * property, a pill per value in the bottom-left. "" leaves a corner empty.
    */
-  tileProperties: string[];
+  tileDate: string;
+  tileProperty: string;
 
   /**
    * Grids the user created, in the order they appear in the switcher, which
@@ -72,7 +73,8 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   thumbnailWidth: 400,
   useResolvers: true,
   filterProperties: ["categories", "status"],
-  tileProperties: ["created", "categories"],
+  tileDate: "created",
+  tileProperty: "categories",
   grids: [],
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",
