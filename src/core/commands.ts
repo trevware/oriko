@@ -1,4 +1,4 @@
-import { tokenLabel } from "./dates";
+import { valueLabel } from "./filter";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
 import { hotkeyPosition } from "./spaces";
 import type { GridSpace } from "./spaces";
@@ -328,7 +328,7 @@ export function facetValueCommands(context: PaletteContext): PaletteCommand[] {
       // clipping carries, so they are read back as words here, and matched as
       // the words they are read as: "empty" is shown as "Is empty", and that
       // is what the highlight ranges have to index into.
-      const shown = def.shape === "date" ? tokenLabel(entry.value) : entry.value;
+      const shown = valueLabel(def, entry.value);
       items.push({
         id: `filter:${def.id}:${entry.value}`,
         label: `${def.label}: ${shown}`,

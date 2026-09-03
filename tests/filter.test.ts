@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMPTY_VALUE,
   activeCount,
   smartMembers,
   emptyFilter,
@@ -12,6 +13,7 @@ import {
   pruneFilter,
   toggleFacet,
   typedFacets,
+  valueLabel,
 } from "../src/core/filter";
 import type { FilterState } from "../src/core/filter";
 import type { TileModel } from "../src/core/tile";
@@ -430,5 +432,38 @@ describe("smartMembers", () => {
     const members = smartMembers(tiles, { categories: ["design"] }, DEFS);
     const shown = members.filter((t) => matchesFilter(t, { status: ["read"] }, DEFS));
     expect(shown.map((t) => t.id)).toEqual(["b"]);
+  });
+});
+
+describe("is empty on a property facet", () => {
+  const categories = DEFS.find((def) => def.id === "categories")!;
+
+  it("matches a tile that holds no value for the key", () => {
+    const filter = { categories: [EMPTY_VALUE] };
+    expect(matchesFilter(tiles[3], filter, DEFS)).toBe(true);
+    expect(matchesFilter(tiles[0], filter, DEFS)).toBe(false);
+  });
+
+  it("is counted alongside the values, and listed after them", () => {
+    const values = facetsOf(tiles, DEFS).categories;
+    expect(values[values.length - 1]).toEqual({ value: EMPTY_VALUE, count: 1 });
+  });
+
+  it("is not offered when every tile holds a value", () => {
+    const values = facetsOf(tiles.slice(0, 3), DEFS).categories;
+    expect(values.some((entry) => entry.value === EMPTY_VALUE)).toBe(false);
+  });
+
+  it("reads as Is empty, on a date facet too, and leaves real values alone", () => {
+    expect(valueLabel(categories, EMPTY_VALUE)).toBe("Is empty");
+    expect(valueLabel(categories, "design")).toBe("design");
+    const published = { ...facetDefs(["published"])[0], shape: "date" as const, now: 0 };
+    expect(valueLabel(published, "empty")).toBe("Is empty");
+    expect(valueLabel(published, "before:2026-01-01")).toBe("Before 2026-01-01");
+  });
+
+  it("does not leak into the editing vocabulary", () => {
+    const { values } = propertyVocabulary(tiles, "categories");
+    expect(values.some((entry) => entry.value === EMPTY_VALUE)).toBe(false);
   });
 });

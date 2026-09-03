@@ -1,6 +1,5 @@
 import { Notice } from "obsidian";
-import { tokenLabel } from "./core/dates";
-import { isFilterEmpty, toggleFacet } from "./core/filter";
+import { isFilterEmpty, toggleFacet, valueLabel } from "./core/filter";
 import type { FacetDef, FacetValue, FilterState } from "./core/filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
 import { isSmartGrid, reorderTarget, validateGridName } from "./core/spaces";
@@ -178,7 +177,7 @@ function ruleCount(grid: GridSpace): string {
 /** How a facet's chosen values read on the rules screen's row for it. */
 function chosenLabel(def: FacetDef, values: readonly string[]): string {
   if (values.length === 0) return "Any";
-  const shown = def.shape === "date" ? values.map(tokenLabel) : values;
+  const shown = values.map((value) => valueLabel(def, value));
   return shown.join(", ");
 }
 
@@ -220,7 +219,7 @@ function ruleValuesScreen(
         // marks itself where its count was: the count of a value you have
         // already picked is not what you read that row for.
         icon: "",
-        label: def.shape === "date" ? tokenLabel(entry.value) : entry.value,
+        label: valueLabel(def, entry.value),
         value: entry.value,
         detail: String(entry.count),
         detailIcon: chosen.includes(entry.value) ? "check" : undefined,

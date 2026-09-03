@@ -1,4 +1,4 @@
-import { bucketLabels, dateBuckets, dateTokenMatches, isDateProperty } from "./dates";
+import { bucketLabels, dateBuckets, dateTokenMatches, isDateProperty, tokenLabel } from "./dates";
 import { domainOf } from "./scan";
 import type { TileModel } from "./tile";
 
@@ -138,6 +138,22 @@ export function typedFacets(
   });
 }
 
+/**
+ * The value a property facet reports for a tile that holds nothing under its
+ * key, so "is empty" is a row like any other rather than a predicate beside
+ * the list. The blank string cannot collide with a real value: the scanner
+ * drops blanks, so no clipping ever holds one. Date facets spell theirs
+ * `empty` (dates.ts) and have since before this existed; rules on disk name
+ * it, so it stays.
+ */
+export const EMPTY_VALUE = "";
+
+/** How a facet's value reads: a date token or the empty marker as words, anything else as itself. */
+export function valueLabel(def: FacetDef, value: string): string {
+  if (def.shape === "date") return tokenLabel(value);
+  return value === EMPTY_VALUE ? "Is empty" : value;
+}
+
 export function emptyFilter(): FilterState {
   return {};
 }
@@ -168,7 +184,7 @@ function valuesFor(tile: TileModel, def: FacetDef): string[] {
     case "property": {
       if (!def.key) return [];
       const held = tile.record.properties[def.key] ?? [];
-      if (def.shape !== "date") return held;
+      if (def.shape !== "date") return held.length === 0 ? [EMPTY_VALUE] : held;
       // A date expands to every bucket it still falls inside. Several values
       // from one is exactly what a multi-valued property like categories
       // already does, so nothing downstream has to know these are dates.
@@ -310,8 +326,15 @@ function tally(tiles: TileModel[], def: FacetDef): FacetValue[] {
   }
 
   // Most used first, then alphabetically, so the order is stable between
-  // openings rather than shuffling as counts happen to tie.
-  return values.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+  // openings rather than shuffling as counts happen to tie. Empty goes last
+  // whatever its count: it is the absence of the values above it, not one of
+  // them, and on a wall that is mostly unfiled it would otherwise lead.
+  return values.sort(
+    (a, b) =>
+      Number(a.value === EMPTY_VALUE) - Number(b.value === EMPTY_VALUE) ||
+      b.count - a.count ||
+      a.value.localeCompare(b.value)
+  );
 }
 
 /**

@@ -234,6 +234,10 @@ describe("assignableValue", () => {
     });
   });
 
+  it("refuses an is-empty rule, which is the absence of a value rather than one to write", () => {
+    expect(assignableValue(smart({ categories: [""] }), defs)).toBeNull();
+  });
+
   it("refuses a manual grid, which is moved into rather than matched", () => {
     expect(assignableValue({ name: "Manga", icon: "archive" }, defs)).toBeNull();
   });

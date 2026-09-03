@@ -1,4 +1,4 @@
-import { isFilterEmpty } from "./filter";
+import { EMPTY_VALUE, isFilterEmpty } from "./filter";
 import type { FacetDef, FilterState } from "./filter";
 import type { ClippingRecord } from "./scan";
 
@@ -68,6 +68,8 @@ export function assignableValue(
   // A date facet's values are buckets and comparisons, which is to say
   // groupings rather than anything a note could be given.
   if (def.shape === "date") return null;
+  // "Is empty" is the absence of a value, not one to write.
+  if (values[0] === EMPTY_VALUE) return null;
 
   return { key: def.key, value: values[0] };
 }

@@ -7,7 +7,7 @@ import { ActionBar } from "./action-bar";
 import { buildCommands, facetValueCommands } from "./core/commands";
 import type { PaletteContext } from "./core/commands";
 import { ConfirmDeleteModal } from "./confirm";
-import { isDateToken, todayISO, tokenLabel } from "./core/dates";
+import { isDateToken, todayISO } from "./core/dates";
 import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
 import { isEditable, withValue, withoutValue } from "./core/editable";
@@ -45,6 +45,7 @@ import {
   pruneFilter,
   toggleFacet,
   typedFacets,
+  valueLabel,
 } from "./core/filter";
 import type { FacetDef, FilterState } from "./core/filter";
 import { SpaceBar } from "./space-bar";
@@ -1147,7 +1148,7 @@ export class OrikoView extends ItemView {
           // A date facet's values are groups and comparisons rather than words
           // a clipping carries, so they are read back as words here. Any other
           // facet's value is already the word.
-          label: def.shape === "date" ? tokenLabel(value) : value,
+          label: valueLabel(def, value),
           detail: String(count),
           detailIcon: chosen.includes(value) ? "check" : undefined,
           keepOpen: true,
