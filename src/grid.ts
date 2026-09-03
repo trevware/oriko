@@ -124,13 +124,6 @@ export class GridRenderer {
    * wall restages instead of every survivor sliding to a new spot.
    */
   private restaging = false;
-  /**
-   * The wall has been emptied ahead of a reflow (vacate) and is waiting for
-   * the relayout that brings it back. That relayout restages whatever the
-   * width turns out to be: a pane that ends where it started still has to
-   * bring its tiles back.
-   */
-  private vacated = false;
   /** Elements playing their leave animation, no longer eligible for reuse. */
   private leaving = new Set<TileElement>();
 
@@ -461,7 +454,6 @@ export class GridRenderer {
     this.entering.delete(id);
     const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
     element.root.style.setProperty("--pg-enter-delay", `${delay}ms`);
-    element.root.removeClass("is-vacating");
     element.root.addClass("is-entering");
     window.setTimeout(() => element.root.removeClass("is-entering"), delay + ENTER_MS + 60);
   }
@@ -497,30 +489,6 @@ export class GridRenderer {
   }
 
   /**
-   * Empties the wall ahead of a reflow, if one is coming.
-   *
-   * Called on the first notice of a resize, while the pane is still moving.
-   * Every mounted tile plays its arrival in reverse and holds invisible, so
-   * the pane animates over a bare wall rather than over tiles frozen at
-   * positions that are about to be wrong; relayout({ restage }) then pops
-   * them back in at their new places once the pane settles. Only a width
-   * change reflows, so only a width change empties the wall.
-   */
-  vacateIfReflowing(): void {
-    if (this.vacated || !this.placed) return;
-    const width = this.viewport.clientWidth;
-    if (width === 0 || width === this.contentWidth) return;
-    this.vacated = true;
-    let order = 0;
-    for (const element of this.mounted.values()) {
-      const delay = Math.min(order++, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
-      element.root.style.setProperty("--pg-enter-delay", `${delay}ms`);
-      element.root.removeClass("is-entering");
-      element.root.addClass("is-vacating");
-    }
-  }
-
-  /**
    * `restage` plays a width change the way a grid switch is played: every
    * tile pops in at its new place and nothing glides there. A reflow moves
    * every tile along its own path at once, which reads as jitter, and each
@@ -544,13 +512,10 @@ export class GridRenderer {
     // reveals empty space around it rather than reflowing the columns.
     const anchor = this.anchor();
     const size = this.viewportSize();
-    // A vacated wall restages on whatever relayout comes next, asked to or
-    // not: a measurement landing first must not leave it empty.
-    if (this.placed && (this.vacated || (options.restage && size.width !== this.contentWidth))) {
+    if (options.restage && this.placed && size.width !== this.contentWidth) {
       this.entering = new Set(this.tiles.map((t) => t.id));
       this.restaging = true;
     }
-    this.vacated = false;
     this.contentWidth = size.width;
     const columns = columnsForWidth(size.width, this.targetColumnWidth, GAP);
 
@@ -1307,7 +1272,6 @@ export class GridRenderer {
     tile.root.setCssStyles({ display: "none" });
     tile.root.removeClass("is-gliding");
     tile.root.removeClass("is-entering");
-    tile.root.removeClass("is-vacating");
     tile.root.empty();
     tile.id = "";
     tile.signature = "";
