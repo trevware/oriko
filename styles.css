@@ -1519,9 +1519,13 @@
 
 /* Sits apart from the two controls on the other side, but at full strength:
    a permanent control that fades out at rest reads as one that has been
-   dismissed, and you cannot tell it is clickable without finding it first. */
-.pg-space-manage,
-.pg-space-filter,
+   dismissed, and you cannot tell it is clickable without finding it first.
+
+   Selectors carry the bar and the element, as the detail bar's do: a theme
+   that styles every button (Primary sets button:not(.clickable-icon) to its
+   own radius) outranks a bare class, and the pills went square under it. */
+.pg-spacebar button.pg-space-manage,
+.pg-spacebar button.pg-space-filter,
 .pg-detail button.pg-detail-back {
   width: 48px;
   height: 38px;
@@ -1553,7 +1557,7 @@
   display: none;
 }
 
-.pg-space-switch {
+.pg-spacebar button.pg-space-switch {
   gap: 8px;
   height: 38px;
   padding: 0 12px;
@@ -1586,7 +1590,7 @@
   text-overflow: ellipsis;
 }
 
-.pg-space-create {
+.pg-spacebar button.pg-space-create {
   width: 56px;
   height: 38px;
   border-radius: 19px;
