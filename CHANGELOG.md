@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **You can now choose what a tile tells you about its clipping.** Hover a tile and you'll see a couple of small pills instead of the old caption band: how long ago it was clipped in the top corner ("2d ago", "3w ago"), and its tags along the bottom. Pick what goes in each corner under Settings → Oriko → Show on tiles: "Top corner" offers your date properties, "Bottom corner" everything else, and either can be None. A property with several values (tags, say) gets a pill each, and a row too long for the tile scrolls by itself while you hover. The source shows as just the site's name.
+- **You can now choose what a tile tells you about its clipping.** Hover a tile and you'll see a couple of small pills instead of the old caption band: how long ago it was clipped in the top corner ("2d ago", "3w ago"), and its tags along the bottom. Pick what goes in each corner under Settings → Oriko → Show on tiles: "Top corner" offers your date properties, "Bottom corner" everything else, and either can be None. A property with several values (tags, say) runs them together in the one pill, and when that's too long for the tile it ticks across like a news ticker while you hover. The source shows as just the site's name.
 
 ### Changed
 - **The title no longer appears on the tile.** It was the one thing on the hover band, and it covered the picture more than it helped. The title is still in the details panel and in the palette. If you miss it, choose Title as the bottom corner under Show on tiles.

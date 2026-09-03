@@ -30,11 +30,10 @@ function record(over: Partial<ClippingRecord> = {}): ClippingRecord {
 }
 
 describe("tileBadges", () => {
-  it("puts the date in the top-right as a relative time and each tag bottom-left", () => {
+  it("puts the date in the top-right as a relative time and the tags in one bottom-left pill", () => {
     expect(tileBadges(record(), { date: "created", property: "categories" }, NOW)).toEqual([
       { corner: "top-right", text: "2d ago" },
-      { corner: "bottom-left", text: "tools" },
-      { corner: "bottom-left", text: "cli" },
+      { corner: "bottom-left", text: "tools \u00b7 cli" },
     ]);
   });
 

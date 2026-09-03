@@ -50,6 +50,11 @@ const GAP = 6;
  * animate it without laying out.
  */
 const SELECT_LIFT = 4;
+
+/** Horizontal padding inside a pill, matching .pg-badge in styles.css. */
+const TICKER_PAD = 9;
+/** Space between the two copies of a ticking pill's text, matching .pg-ticker-copy. */
+const TICKER_GAP = 24;
 /** Must match the leave animation in styles.css. */
 /* Must outlast the pg-vanish keyframes, or the element returns to the pool
    mid-animation and the departure is cut off. */
@@ -265,31 +270,43 @@ export class GridRenderer {
     if (badges.length === 0) return;
     const top = meta.createDiv({ cls: "pg-badges pg-badges-top" });
     const bottom = meta.createDiv({ cls: "pg-badges pg-badges-bottom" });
-    const track = bottom.createDiv({ cls: "pg-badges-track" });
     for (const badge of badges) {
-      const corner = badge.corner === "top-right" ? top : track;
-      corner.createSpan({ cls: "pg-badge", text: badge.text });
+      if (badge.corner === "top-right") {
+        top.createSpan({ cls: "pg-badge", text: badge.text });
+        continue;
+      }
+      // The text twice, so a ticking pill has a copy following the first
+      // around and the loop never shows a gap. The copy is decoration.
+      const pill = bottom.createSpan({ cls: "pg-badge pg-ticker" });
+      const track = pill.createSpan({ cls: "pg-ticker-track" });
+      track.createSpan({ cls: "pg-ticker-text", text: badge.text });
+      const copy = track.createSpan({ cls: "pg-ticker-text pg-ticker-copy", text: badge.text });
+      copy.setAttribute("aria-hidden", "true");
     }
   }
 
   /**
-   * A bottom row wider than the tile scrolls itself while hovered. Measured
-   * on the way in rather than at paint, because the pills are laid out
-   * after the card is and the tile's width changes with every stage. The
-   * distance goes into a custom property the keyframes read, so the CSS
-   * owns the motion and Reduce Motion can switch it off there.
+   * A bottom pill whose text is wider than the tile ticks while hovered.
+   * Measured on the way in rather than at paint, because the pill is laid
+   * out after the card is and the tile's width changes with every stage.
+   * One loop carries the text exactly one copy's width plus the gap, which
+   * is where the second copy sits, so the end of the loop is
+   * indistinguishable from its start. The distance goes into a custom
+   * property the keyframes read, so the CSS owns the motion and Reduce
+   * Motion can switch it off there.
    */
-  private armMarquee(root: HTMLElement): void {
-    const bottom = root.querySelector<HTMLElement>(".pg-badges-bottom");
-    const track = bottom?.querySelector<HTMLElement>(".pg-badges-track");
-    if (!bottom || !track) return;
-    const overflow = track.scrollWidth - bottom.clientWidth;
-    bottom.toggleClass("is-overflowing", overflow > 0);
-    if (overflow > 0) {
-      bottom.style.setProperty("--pg-marquee", `${-overflow}px`);
-      // Around 60px a second, so a long row is readable and a slightly long
-      // one is not a crawl.
-      bottom.style.setProperty("--pg-marquee-time", `${Math.max(1.2, overflow / 60)}s`);
+  private armTicker(root: HTMLElement): void {
+    const pill = root.querySelector<HTMLElement>(".pg-ticker");
+    const text = pill?.querySelector<HTMLElement>(".pg-ticker-text");
+    if (!pill || !text) return;
+    const width = text.scrollWidth;
+    const overflowing = width > pill.clientWidth - TICKER_PAD * 2;
+    pill.toggleClass("is-overflowing", overflowing);
+    if (overflowing) {
+      const travel = width + TICKER_GAP;
+      pill.style.setProperty("--pg-ticker", `${-travel}px`);
+      // Around 40px a second: a ticker, not a crawl and not a blur.
+      pill.style.setProperty("--pg-ticker-time", `${travel / 40}s`);
     }
   }
 
@@ -1548,7 +1565,7 @@ export class GridRenderer {
     });
     element.root.addEventListener("pointerenter", (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
-      this.armMarquee(element.root);
+      this.armTicker(element.root);
     });
 
     element.root.oncontextmenu = (event: MouseEvent) => {

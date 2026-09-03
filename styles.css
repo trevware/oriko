@@ -434,43 +434,58 @@
   align-self: flex-end;
 }
 
-/* One row, never wrapped: a second row of pills climbs the picture. A row
-   wider than the tile is clipped here and its track scrolls, see below. */
+/* One pill along the bottom, its values run together inside it. A pill
+   wider than the tile clips at its own edge and its text ticks, see below. */
 .pg-badges-bottom {
   flex-wrap: nowrap;
-  align-self: stretch;
+  align-self: flex-start;
+  max-width: 100%;
   margin-top: auto;
+}
+
+.pg-ticker {
+  max-width: 100%;
   overflow: hidden;
 }
 
-.pg-badges-track {
-  display: flex;
-  gap: 5px;
-  width: max-content;
-  max-width: none;
+.pg-ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
 }
 
-/* The marquee. armMarquee measures the overflow into --pg-marquee on the way
-   in, and the animation only runs while the card is hovered, so nothing on
-   the wall moves unbidden. Held at each end so both ends can be read. */
+/* The second copy only exists once the text is known to overflow; before
+   that the pill must size to the text alone. */
+.pg-ticker-copy {
+  display: none;
+  margin-left: 24px;
+}
+
+.pg-ticker.is-overflowing .pg-ticker-copy {
+  display: inline;
+}
+
+/* The ticker. armTicker measures one copy's width into --pg-ticker on the
+   way in, and the animation only runs while the card is hovered, so nothing
+   on the wall moves unbidden. Linear and one way, the way a ticker reads. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .pg-tile:hover .pg-badges-bottom.is-overflowing .pg-badges-track {
-    animation: pg-marquee var(--pg-marquee-time, 2s) ease-in-out 600ms infinite alternate;
+  .pg-tile:hover .pg-ticker.is-overflowing .pg-ticker-track {
+    animation: pg-ticker var(--pg-ticker-time, 4s) linear 500ms infinite;
   }
 }
 
-@keyframes pg-marquee {
+@keyframes pg-ticker {
   from {
     transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(var(--pg-marquee, 0px), 0, 0);
+    transform: translate3d(var(--pg-ticker, 0px), 0, 0);
   }
 }
 
 .pg-badge {
   display: inline-block;
   flex: none;
+  max-width: 100%;
   padding: 4px 9px;
   border-radius: 999px;
   background: rgba(20, 20, 24, 0.62);

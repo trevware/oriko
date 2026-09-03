@@ -3,8 +3,8 @@
  * pills. Pure: grid.ts renders what this returns.
  *
  * Two slots, chosen in Settings → Oriko → Show on tiles. The top-right holds
- * one date, read as a relative time; the bottom-left holds one property, a
- * pill per value. One of each, not a list: a tile has room for a glance,
+ * one date, read as a relative time; the bottom-left holds one property, its
+ * values in a single pill. One of each, not a list: a tile has room for a glance,
  * and a row of mixed properties reads as noise at that size.
  */
 
@@ -34,14 +34,15 @@ export function tileBadges(record: ClippingRecord, slots: TileSlots, now: number
   if (label) out.push({ corner: "top-right", text: label });
 
   if (slots.property) {
-    for (const raw of record.properties[slots.property] ?? []) {
-      const value = raw.trim();
-      if (!value) continue;
+    const values = (record.properties[slots.property] ?? [])
+      .map((raw) => raw.trim())
+      .filter(Boolean)
       // A URL is unreadable at pill size; its host is the part that means
       // anything on a wall.
-      const text = slots.property === "source" ? domainOf(value) || value : value;
-      out.push({ corner: "bottom-left", text });
-    }
+      .map((value) => (slots.property === "source" ? domainOf(value) || value : value));
+    // One pill, the values run together inside it: a bar reads cleaner than
+    // a row of bubbles, and a bar can tick when it is too long.
+    if (values.length) out.push({ corner: "bottom-left", text: values.join(" \u00b7 ") });
   }
   return out;
 }

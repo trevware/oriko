@@ -287,7 +287,7 @@ export class OrikoSettingTab extends PluginSettingTab {
           },
           {
             name: "Bottom corner",
-            desc: "Any other property, one pill per value. A row too long for the tile scrolls by itself while you hover.",
+            desc: "Any other property, its values in one pill. Text too long for the tile ticks across while you hover.",
             aliases: ["badges", "hover", "tags"],
             render: (setting) => {
               setting.addDropdown((dropdown) =>
