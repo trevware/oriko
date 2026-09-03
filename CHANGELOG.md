@@ -5,7 +5,7 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.54] - 2026-09-03
 
 ### Added
 - **You can now choose what a tile tells you about its clipping.** Hover a tile and you'll see a couple of small pills instead of the old caption band: how long ago it was clipped in the top corner ("2d ago", "3w ago"), and its tags along the bottom. Pick what goes in each corner under Settings → Oriko → Show on tiles: "Top corner" offers your date properties, "Bottom corner" everything else, and either can be None. A property with several values (tags, say) runs them together in the one pill, and when that's too long for the tile it ticks across like a news ticker while you hover. The source shows as just the site's name.
