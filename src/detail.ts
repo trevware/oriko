@@ -73,14 +73,6 @@ const EASE = "cubic-bezier(0.4, 0, 0.12, 1)";
    squash stop reading as weight and start reading as a wobble. */
 const OPEN_SHAPE: FlightShape = { arc: 0.09, arcCap: 74, stretch: 0.035 };
 
-function domainOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
-
 /**
  * Full-bleed view of a single clipping, flying out of the card that was
  * clicked and back into it on close.
@@ -583,20 +575,20 @@ export class DetailView {
       field("Resolution", `${model.width} × ${model.height}`);
     }
     field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
-    // Shown as the domain, since the full URL is soup, but the row is the
-    // whole address: a link out to the page itself, full URL on hover.
+    // The whole address, as a link out to the page. It was shown as the
+    // domain with the URL on hover, and the hover is not there on a phone;
+    // the value wraps anywhere, so a long one costs lines, not clipping.
     if (isHttpUrl(model.record.source)) {
       const block = panel.createDiv({ cls: "pg-detail-field" });
       block.createDiv({ cls: "pg-detail-label", text: "Source" });
       const value = block.createDiv({ cls: "pg-detail-value" });
-      const link = value.createEl("a", {
+      value.createEl("a", {
         cls: "pg-detail-link",
-        text: domainOf(model.record.source),
+        text: model.record.source,
         href: model.record.source,
       });
-      link.title = model.record.source;
     } else {
-      field("Source", domainOf(model.record.source));
+      field("Source", model.record.source);
     }
     field("Date", model.record.created ? `Clipped ${model.record.created}` : "");
 

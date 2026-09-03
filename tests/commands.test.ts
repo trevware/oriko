@@ -157,6 +157,7 @@ describe("buildCommands", () => {
     });
     const values = find(ctx, "filter:categories")?.stage?.items() ?? [];
     expect(values.map((v) => v.label)).toEqual(["design", "Is empty"]);
+    expect(values.map((v) => v.divider ?? false)).toEqual([false, true]);
   });
 
   it("marks the facet values already filtering the wall, in the count's slot", () => {

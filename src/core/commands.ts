@@ -1,4 +1,4 @@
-import { valueLabel } from "./filter";
+import { isEmptyValue, valueLabel } from "./filter";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
 import { hotkeyPosition } from "./spaces";
 import type { GridSpace } from "./spaces";
@@ -41,6 +41,8 @@ export interface PaletteCommand {
    * every other row then reserves while saying nothing.
    */
   detailIcon?: string;
+  /** Draws a rule above this row, for grouping without a heading. Mirrors MenuItem.divider. */
+  divider?: boolean;
   /** Extra words to match on that the row never displays. */
   keywords?: string;
   /**
@@ -278,6 +280,8 @@ function filterCommands(context: PaletteContext): PaletteCommand[] {
             // Read as words where the value is a marker: the empty row's
             // value is the blank string, which drew a row with no text.
             label: valueLabel(def, entry.value),
+            // Absence is set apart from the values it is the absence of.
+            divider: isEmptyValue(def, entry.value),
             // No left icon at all, so the list drops the gutter. A chosen
             // value marks itself where its count was: the count of a value
             // you have already picked is not what you read that row for.

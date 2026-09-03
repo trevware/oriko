@@ -384,6 +384,7 @@ export class Palette {
   }
 
   private paintRow(list: HTMLElement, row: PaletteRow): HTMLElement {
+    if (row.divider && list.childElementCount > 0) list.createDiv({ cls: "pg-menu-divider" });
     const el = list.createDiv({ cls: "pg-palette-item" });
     if (row.destructive) el.addClass("is-destructive");
 

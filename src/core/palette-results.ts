@@ -24,6 +24,8 @@ export interface PaletteRow {
   detail?: string;
   /** Shown in place of `detail`, to mark the row's state. */
   detailIcon?: string;
+  /** Draws a rule above this row, for grouping without a heading. */
+  divider?: boolean;
   destructive?: boolean;
   /** Runs of the label that matched, for highlighting. */
   ranges: MatchRange[];
@@ -88,6 +90,7 @@ function commandRow(command: PaletteCommand, ranges: MatchRange[]): PaletteRow {
     icon: command.icon,
     detail: command.detail,
     detailIcon: command.detailIcon,
+    divider: command.divider,
     destructive: command.destructive,
     ranges: shift(ranges, offset),
     command,
