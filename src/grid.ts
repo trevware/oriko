@@ -488,7 +488,17 @@ export class GridRenderer {
     return best;
   }
 
-  relayout(): void {
+  /**
+   * `restage` plays a width change the way a grid switch is played: every
+   * tile pops in at its new place and nothing glides there. A reflow moves
+   * every tile along its own path at once, which reads as jitter, and each
+   * glide is a transform transition on a tile that may be a playing video;
+   * the pop is bounded by what is on screen and lands rather than cuts.
+   * Only a width change restages, since only a width change reflows: a
+   * height change (the keyboard, a status bar) leaves every position as it
+   * was, and popping the wall for that would be noise.
+   */
+  relayout(options: { restage?: boolean } = {}): void {
     // A pane behind another tab measures 0 by 0. Laying it out then would
     // fall back to viewportSize's nominal size and arrange the wall for a
     // pane that does not exist, moving the camera to suit; switching back
@@ -502,6 +512,10 @@ export class GridRenderer {
     // reveals empty space around it rather than reflowing the columns.
     const anchor = this.anchor();
     const size = this.viewportSize();
+    if (options.restage && this.placed && size.width !== this.contentWidth) {
+      this.entering = new Set(this.tiles.map((t) => t.id));
+      this.restaging = true;
+    }
     this.contentWidth = size.width;
     const columns = columnsForWidth(size.width, this.targetColumnWidth, GAP);
 

@@ -370,9 +370,13 @@ export class OrikoView extends ItemView {
     // its width over a couple of hundred milliseconds, and laying the wall
     // out on every frame of that rewrote every visible tile's size and
     // re-rasterized every video each time, which is what the toggle spent
-    // its animation on. One layout at the end glides the tiles once. The
-    // detail panel is a single element and keeps following live.
-    const relayoutSettled = settled(() => this.grid?.relayout(), RESIZE_SETTLE_MS);
+    // its animation on. One layout at the end, restaged like a grid switch
+    // rather than glided. The detail panel is a single element and keeps
+    // following live.
+    const relayoutSettled = settled(
+      () => this.grid?.relayout({ restage: true }),
+      RESIZE_SETTLE_MS
+    );
     this.register(() => relayoutSettled.cancel());
     this.observer = new ResizeObserver(() => {
       relayoutSettled.call();
