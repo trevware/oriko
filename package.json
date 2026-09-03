@@ -8,12 +8,15 @@
     "dev": "node esbuild.config.mjs --watch",
     "build": "tsc --noEmit && node esbuild.config.mjs --production",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint ."
   },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.10.2",
     "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "obsidian": "^1.13.1",
     "typescript": "^5.7.2",
     "vitest": "^3.2.6"

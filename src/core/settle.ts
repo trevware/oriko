@@ -1,3 +1,10 @@
+/** The two timer calls settled() needs, so the host is a parameter: the
+    view passes its window; a test passes node's. */
+export interface Timers {
+  setTimeout(fn: () => void, ms: number): unknown;
+  clearTimeout(id: unknown): void;
+}
+
 /**
  * Runs `fn` once the calls stop coming for `ms`.
  *
@@ -7,16 +14,20 @@
  * and re-rasterizes its frame, which is what a sidebar toggle was spending
  * its whole animation on.
  */
-export function settled(fn: () => void, ms: number): { call: () => void; cancel: () => void } {
-  let timer: ReturnType<typeof setTimeout> | null = null;
+export function settled(
+  fn: () => void,
+  ms: number,
+  timers: Timers
+): { call: () => void; cancel: () => void } {
+  let timer: unknown = null;
   const cancel = (): void => {
-    if (timer !== null) clearTimeout(timer);
+    if (timer !== null) timers.clearTimeout(timer);
     timer = null;
   };
   return {
     call: () => {
       cancel();
-      timer = setTimeout(() => {
+      timer = timers.setTimeout(() => {
         timer = null;
         fn();
       }, ms);

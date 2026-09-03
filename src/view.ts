@@ -375,7 +375,8 @@ export class OrikoView extends ItemView {
     // following live.
     const relayoutSettled = settled(
       () => this.grid?.relayout({ restage: true }),
-      RESIZE_SETTLE_MS
+      RESIZE_SETTLE_MS,
+      window
     );
     this.register(() => relayoutSettled.cancel());
     this.observer = new ResizeObserver(() => {

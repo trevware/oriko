@@ -10,7 +10,7 @@ export function nodeRequire(name: string): unknown {
     // Module-scope require is the only route to node builtins in Obsidian's
     // renderer: globalThis.require does not exist there, and this degrades
     // to null on mobile, which every caller treats as the tool being absent.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports -- module-scope require is the only route to node builtins in the renderer; it degrades to null on mobile, which every caller treats as the tool being absent
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef -- module-scope require is the only route to node builtins in the renderer; it degrades to null on mobile, which every caller treats as the tool being absent
     return require(name);
   } catch {
     return null;

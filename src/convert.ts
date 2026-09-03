@@ -34,8 +34,13 @@ interface ProcessLike {
   platform?: string;
 }
 
+/** Electron's process object, present on desktop and absent on mobile. */
+function hostProcess(): ProcessLike | undefined {
+  return (window as unknown as { process?: ProcessLike }).process;
+}
+
 function toolEnv(): ToolEnv {
-  const proc = (globalThis as { process?: ProcessLike }).process;
+  const proc = hostProcess();
   const windows = proc?.platform === "win32";
   return {
     pathVar: proc?.env?.PATH ?? proc?.env?.Path ?? "",
@@ -51,7 +56,7 @@ function toolEnv(): ToolEnv {
  * apps started after it. Scanned after PATH, so PATH still wins when set.
  */
 function fixedCandidates(name: string): string[] {
-  const proc = (globalThis as { process?: ProcessLike }).process;
+  const proc = hostProcess();
   const env = proc?.env ?? {};
   if (proc?.platform === "win32") {
     return [

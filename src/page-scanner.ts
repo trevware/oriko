@@ -90,7 +90,9 @@ export async function scanPage(
 ): Promise<ScannedPage> {
   if (!scanAvailable()) throw new Error("scanning needs the desktop app");
 
-  const view = document.createElement("webview") as WebviewLike;
+  // Obsidian's helper, as the directory's lint asks; the tag is cast because
+  // webview is Electron's and not in HTMLElementTagNameMap.
+  const view = createEl("webview" as keyof HTMLElementTagNameMap) as unknown as WebviewLike;
   view.setAttribute("src", url);
   Object.assign(view.style, {
     position: "fixed",

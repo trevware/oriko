@@ -68,7 +68,7 @@ export class OrikoSettingTab extends PluginSettingTab {
 
     containerEl.createEl("p", {
       cls: "setting-item-description",
-      text: "Offered by the filter menu, alongside Media type and Source.",
+      text: "Offered by the filter menu, alongside media type and source.",
     });
 
     // Chips rather than a settings row each. One row per property put a
@@ -100,7 +100,7 @@ export class OrikoSettingTab extends PluginSettingTab {
       .setName("Add a property")
       .setDesc("Suggestions come from your clippings. Any name works.")
       .addText((text) => {
-        text.setPlaceholder("property name");
+        text.setPlaceholder("Property name");
 
         // One shot: commit re-renders the tab and rebuilds these closures, so
         // a suggester pick and the Enter key both landing would otherwise add
@@ -155,7 +155,7 @@ export class OrikoSettingTab extends PluginSettingTab {
         items: [
           {
             name: "Autoplay videos",
-            desc: "Play video tiles while they are in view. Reduce Motion always wins.",
+            desc: "Play video tiles while they are in view. Every playing video holds decoded frames in memory, so a wall of them can use a lot of RAM. Reduce Motion always wins.",
             control: { type: "toggle", key: "autoplayVideo" },
           },
           {
