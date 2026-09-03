@@ -8,6 +8,7 @@ import { buildCommands, facetValueCommands } from "./core/commands";
 import type { PaletteContext } from "./core/commands";
 import { ConfirmDeleteModal } from "./confirm";
 import { isDateToken, todayISO } from "./core/dates";
+import { settled } from "./core/settle";
 import { Sheet } from "./sheet";
 import type { SheetRow } from "./sheet";
 import { holdingAcross, isEditable, toggleAcross, withValue } from "./core/editable";
@@ -93,6 +94,8 @@ const PALETTE_CLIPPINGS = 8;
  * next, minutes later.
  */
 const REVEAL_WINDOW_MS = 20000;
+/** How long the pane has to hold still before the wall is laid out for it. */
+const RESIZE_SETTLE_MS = 120;
 
 export class OrikoView extends ItemView {
   private grid: GridRenderer | null = null;
@@ -108,6 +111,8 @@ export class OrikoView extends ItemView {
   private pendingReveal: { path: string; until: number } | null = null;
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
+  /** A refresh that arrived while a menu, sheet or selection was up. */
+  private refreshHeld = false;
   /**
    * The narrowing on the grid now showing. Dropped on a switch and never
    * written to disk: a filter hides things, and one that outlives the grid it
@@ -202,6 +207,7 @@ export class OrikoView extends ItemView {
     });
     this.grid.onSelectionChanged = (ids: string[]) => {
       this.actionBar?.setSelection(ids);
+      if (ids.length === 0) this.releaseRefresh();
       // The wall's own controls give up the bottom to the selection bar,
       // there being room for only one of them across a phone.
       if (Platform.isMobile) this.spaceBar?.setHidden(ids.length > 0);
@@ -209,6 +215,8 @@ export class OrikoView extends ItemView {
 
     this.menu = new ContextMenu(this.contentEl);
     this.sheet = new Sheet(this.contentEl);
+    this.menu.onClosed = () => this.releaseRefresh();
+    this.sheet.onClosed = () => this.releaseRefresh();
     this.grid.onContextRequested = (ids, x, y) => {
       this.edited.clear();
       this.vocabularies.clear();
@@ -358,8 +366,16 @@ export class OrikoView extends ItemView {
       if (this.contentEl.scrollLeft !== 0) this.contentEl.scrollLeft = 0;
     });
 
+    // The wall waits for the pane to stop moving. A sidebar toggle animates
+    // its width over a couple of hundred milliseconds, and laying the wall
+    // out on every frame of that rewrote every visible tile's size and
+    // re-rasterized every video each time, which is what the toggle spent
+    // its animation on. One layout at the end glides the tiles once. The
+    // detail panel is a single element and keeps following live.
+    const relayoutSettled = settled(() => this.grid?.relayout(), RESIZE_SETTLE_MS);
+    this.register(() => relayoutSettled.cancel());
     this.observer = new ResizeObserver(() => {
-      this.grid?.relayout();
+      relayoutSettled.call();
       this.detail?.relayout();
     });
     this.observer.observe(this.contentEl);
@@ -912,6 +928,15 @@ export class OrikoView extends ItemView {
       this.paint(options);
       return;
     }
+    // Held while a menu, a sheet or the selection bar is up. A repaint
+    // re-runs the filter, and on a wall narrowed to "is empty" the clipping
+    // being given its first category would vanish under the menu before the
+    // second could be given. What was changed is on disk already; the wall
+    // catches up when the surface comes down (releaseRefresh).
+    if (this.holdingRefresh()) {
+      this.refreshHeld = true;
+      return;
+    }
     if (this.refreshFrame) return;
     this.refreshFrame = window.requestAnimationFrame(() => {
       this.refreshFrame = 0;
@@ -922,6 +947,29 @@ export class OrikoView extends ItemView {
   private cancelRefresh(): void {
     if (this.refreshFrame) window.cancelAnimationFrame(this.refreshFrame);
     this.refreshFrame = 0;
+    this.refreshHeld = false;
+  }
+
+  private holdingRefresh(): boolean {
+    return (
+      (this.menu?.isOpen ?? false) ||
+      (this.sheet?.isOpen ?? false) ||
+      (this.grid?.selectedIds().length ?? 0) > 0
+    );
+  }
+
+  /**
+   * Runs a held refresh once nothing is holding it. A tick later rather than
+   * now: the menu's New value row closes the menu and opens the sheet in the
+   * same call, and the wall must not repaint in the gap between.
+   */
+  private releaseRefresh(): void {
+    if (!this.refreshHeld) return;
+    queueMicrotask(() => {
+      if (!this.refreshHeld || this.holdingRefresh()) return;
+      this.refreshHeld = false;
+      this.refresh();
+    });
   }
 
   /**

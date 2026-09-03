@@ -744,7 +744,11 @@ export class Sheet {
     }
   }
 
+  /** Runs whenever an open sheet closes. Set once by the owner. */
+  onClosed: (() => void) | null = null;
+
   close(): void {
+    const wasOpen = this.panel !== null;
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
     this.backdrop?.remove();
@@ -759,5 +763,6 @@ export class Sheet {
     this.rows = [];
     this.rowEls = [];
     this.active = 0;
+    if (wasOpen) this.onClosed?.();
   }
 }

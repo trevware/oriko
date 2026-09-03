@@ -130,6 +130,8 @@ export class ContextMenu {
   private leaving: HTMLElement[] = [];
   /** Runs when the menu closes without a row being chosen. */
   private onDismiss: (() => void) | null = null;
+  /** Runs whenever an open menu closes, chosen or not. Set once by the owner. */
+  onClosed: (() => void) | null = null;
 
   constructor(private container: HTMLElement) {}
 
@@ -632,6 +634,7 @@ export class ContextMenu {
   close(immediate = false): void {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
+    const wasOpen = this.panel !== null;
     const dismissed = this.onDismiss;
     this.onDismiss = null;
     this.closeSub(immediate);
@@ -646,6 +649,7 @@ export class ContextMenu {
     // After the panel is gone, so whatever the hook opens is not replaced by
     // the teardown of this one.
     if (dismissed) dismissed();
+    if (wasOpen) this.onClosed?.();
   }
 
   /** Drops is-open so CSS runs the leave, then removes the nodes. */
