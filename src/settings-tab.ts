@@ -180,6 +180,19 @@ export class OrikoSettingTab extends PluginSettingTab {
             control: { type: "toggle", key: "useResolvers" },
           },
           {
+            name: "Shared clips go to",
+            desc: "Where a link sent from another app is filed: the share sheet on a phone, or the obsidian://oriko link on a desktop. Clips made inside the wall always go to the grid on screen.",
+            control: {
+              type: "dropdown",
+              key: "sharedClipTarget",
+              options: {
+                "last-opened": "Last opened grid",
+                home: `${this.plugin.settings.homeGridName} (home)`,
+                ask: "Ask each time",
+              },
+            },
+          },
+          {
             name: "Maximum file size (MB)",
             desc: "Skip downloads larger than this.",
             control: { type: "number", key: "maxSizeMb" },

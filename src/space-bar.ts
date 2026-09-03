@@ -31,6 +31,8 @@ export class SpaceBar {
   private filterCount: HTMLElement;
   private shownCount = -1;
   private switcher: HTMLElement;
+  /** Where a menu about grids opens from when nothing was clicked. */
+  switcherAnchor: () => { x: number; y: number } = () => ({ x: 0, y: 0 });
   private icon: HTMLElement;
   private label: HTMLElement;
 
@@ -79,6 +81,11 @@ export class SpaceBar {
       // with the button's, so it opens leftward and upward out of it.
       const rect = this.switcher.getBoundingClientRect();
       handlers.onSwitcher(rect.right, rect.top - LAUNCH_GAP);
+    };
+
+    this.switcherAnchor = () => {
+      const rect = this.switcher.getBoundingClientRect();
+      return { x: rect.right, y: rect.top - LAUNCH_GAP };
     };
 
     const create = right.createEl("button", { cls: "pg-space-create" });

@@ -1,5 +1,5 @@
 import type { DensityStage } from "./density";
-import type { GridSpace } from "./spaces";
+import type { GridSpace, SharedClipTarget } from "./spaces";
 
 export interface OrikoSettings {
   clippingsFolder: string;
@@ -35,6 +35,13 @@ export interface OrikoSettings {
   homeGridIcon: string;
   /** Name of the grid on screen, persisted so a restart reopens where you were. */
   activeGrid: string;
+  /**
+   * Where a clip arriving through the obsidian://oriko URI is filed: the
+   * share sheet on a phone, a terminal on a desktop. In-app clips always go
+   * to the open grid; this exists because on a phone the open grid is
+   * whatever was left up hours ago.
+   */
+  sharedClipTarget: SharedClipTarget;
   /** Whether the layer panel is showing, kept so it opens as you left it. */
   /**
    * How densely the wall is packed, as a named stage (see density.ts). One
@@ -62,6 +69,7 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",
+  sharedClipTarget: "last-opened",
   tileSize: "m",
   ytdlpPath: "",
   ffmpegPath: "",

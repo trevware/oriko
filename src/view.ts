@@ -107,16 +107,12 @@ export class OrikoView extends ItemView {
   private onGridKey: ((event: KeyboardEvent) => void) | null = null;
   private refreshFrame = 0;
   /**
-   * One filter per grid, kept for the session.
-   *
-   * Keyed by grid name, so it follows a rename and goes with a deletion. Not
-   * written to disk: a filter hides things, and one that survives a restart
-   * becomes a wall that looks emptier than it is for a reason nobody
-   * remembers. Within a session the count on the filter button is the
-   * reminder, which is why retaining it across switches is safe and
-   * retaining it across launches is not.
+   * The narrowing on the grid now showing. Dropped on a switch and never
+   * written to disk: a filter hides things, and one that outlives the grid it
+   * was set on becomes a wall that looks emptier than it is for a reason
+   * nobody remembers. Each grid opens whole.
    */
-  private filters = new Map<string, FilterState>();
+  private filter: FilterState = emptyFilter();
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -1116,18 +1112,13 @@ export class OrikoView extends ItemView {
       counting towards the badge instead of claiming a narrowing that
       matchesFilter is no longer applying. */
   private activeFilter(): FilterState {
-    const stored = this.filters.get(this.activeGrid().name) ?? emptyFilter();
-    const pruned = pruneFilter(stored, this.defs());
-    if (pruned !== stored) {
-      if (isFilterEmpty(pruned)) this.filters.delete(this.activeGrid().name);
-      else this.filters.set(this.activeGrid().name, pruned);
-    }
+    const pruned = pruneFilter(this.filter, this.defs());
+    if (pruned !== this.filter) this.filter = pruned;
     return pruned;
   }
 
   private setFilter(next: FilterState): void {
-    if (isFilterEmpty(next)) this.filters.delete(this.activeGrid().name);
-    else this.filters.set(this.activeGrid().name, next);
+    this.filter = next;
     // Straight to the narrowing pass; the tiles behind it have not changed.
     this.applyFilter({ replace: true });
     // Placed at the top, as a grid switch is. Left to relayout, the camera
@@ -1331,10 +1322,10 @@ export class OrikoView extends ItemView {
     if (this.plugin.settings.activeGrid === name) return;
     this.plugin.settings.activeGrid = name;
 
-    // Selection and camera describe tiles that are about to be replaced. The
-    // filter does not: each grid keeps its own, so switching restores
-    // whatever this one was last narrowed to.
+    // Selection, filter and camera all describe tiles that are about to be
+    // replaced, so none of them carries over.
     this.grid?.clearSelection();
+    this.filter = emptyFilter();
     // replace, not add: departing tiles go straight back to the pool so the
     // arrivals can recycle them, and the camera is placed rather than tweened.
     // The arrivals still pop.
@@ -1652,6 +1643,34 @@ export class OrikoView extends ItemView {
     this.menu?.open(items, x, y);
   }
 
+  /**
+   * Asks which grid a shared clip goes to, then files it there.
+   *
+   * Home and the manual grids only: a smart grid cannot be filed into
+   * (fileableGrid), so offering it would be a row that lands somewhere else.
+   * Dismissing the menu files to home rather than dropping the share: the
+   * link was sent here to be kept, and a tap away is not a change of mind
+   * about that.
+   */
+  pickGridAndClip(url: string): void {
+    const home = this.plugin.settings.homeGridName;
+    const { manual } = groupedGrids(this.allGrids());
+    const items: MenuItem[] = manual.map((placed, index) => ({
+      icon: placed.grid.icon,
+      label: placed.grid.name,
+      heading: index === 0 ? "Clip to" : undefined,
+      onSelect: () => {
+        const target = placed.grid.name === home ? "" : placed.grid.name;
+        void this.plugin.capture.capture(url, target);
+      },
+    }));
+    const anchor = this.spaceBar?.switcherAnchor() ?? { x: 0, y: 0 };
+    this.menu?.open(items, anchor.x, anchor.y, undefined, false, () => {
+      new Notice(`Oriko: saved to ${home}`);
+      void this.plugin.capture.capture(url, "");
+    });
+  }
+
   /** Where the active grid sits in settings.grids, or -1 for home. */
   private activeGridIndex(): number {
     const active = this.activeGrid().name;
@@ -1876,11 +1895,6 @@ export class OrikoView extends ItemView {
           entry.icon = next.icon;
         }
         if (settings.activeGrid === from) settings.activeGrid = next.name;
-        const carried = this.filters.get(from);
-        if (carried) {
-          this.filters.delete(from);
-          this.filters.set(next.name, carried);
-        }
         await this.plugin.saveSettings();
 
         // Renaming home rewrites only the notes that spell it out; the rest
@@ -1905,11 +1919,12 @@ export class OrikoView extends ItemView {
       remove: async (index) => {
         const [removed] = settings.grids.splice(index, 1);
         if (!removed) return;
-        this.filters.delete(removed.name);
         // Members keep a key that no longer resolves, which spaces.ts reads as
         // home. Nothing is rewritten, so recreating the grid undoes this.
         if (settings.activeGrid === removed.name) {
           settings.activeGrid = settings.homeGridName;
+          // Home arrives whole, as it would through activate().
+          this.filter = emptyFilter();
         }
         await this.plugin.saveSettings();
         this.spaceBar?.setActive(this.activeGrid());

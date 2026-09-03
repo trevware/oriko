@@ -72,6 +72,48 @@ export function assignableValue(
   return { key: def.key, value: values[0] };
 }
 
+/**
+ * The grid a new clipping should carry when filed into `active`, or "" when
+ * that is home.
+ *
+ * A smart grid is never it. Nothing is filed into one: its membership is
+ * computed, and writing its name into `grid:` would put the clipping in a
+ * collection that no wall reads. Home would not show it, because the key
+ * names a registered grid; the smart grid would not show it either, because
+ * it ignores the key and asks its rules. The clipping would exist and be
+ * visible nowhere, which is the exact failure effectiveGrid's fallbacks are
+ * there to prevent. A name that no longer exists falls back the same way.
+ */
+export function fileableGrid(active: string, home: string, grids: readonly GridSpace[]): string {
+  if (active === home) return "";
+  const found = grids.find((grid) => grid.name === active);
+  if (!found || isSmartGrid(found)) return "";
+  return active;
+}
+
+/**
+ * Where a clip that arrived from outside the app goes: the share sheet on a
+ * phone, the URI from a terminal on a desktop.
+ *
+ * `last-opened` files into whatever grid is on screen, which is also where an
+ * in-app clip goes. `home` ignores the open grid, because on a phone "the
+ * open grid" is whatever was left up hours ago. `ask` puts the choice to the
+ * user each time.
+ */
+export type SharedClipTarget = "last-opened" | "home" | "ask";
+
+/** The grid a shared clip should carry, "" for home, or null to ask first. */
+export function sharedClipGrid(
+  mode: SharedClipTarget,
+  active: string,
+  home: string,
+  grids: readonly GridSpace[]
+): string | null {
+  if (mode === "ask") return null;
+  if (mode === "home") return "";
+  return fileableGrid(active, home, grids);
+}
+
 /** The grid a record actually appears in, after both fallbacks. */
 export function effectiveGrid(
   record: ClippingRecord,

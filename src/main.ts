@@ -30,6 +30,7 @@ import {
 import { describeFiles } from "./core/media-refs";
 import { installRepair } from "./repair";
 import { sharedHttpUrl } from "./core/resolve";
+import { sharedClipGrid } from "./core/spaces";
 import { ORIKO_ICON_ID, ORIKO_ICON_SVG } from "./core/icon";
 import { ConfirmSweepModal } from "./confirm";
 import { findOrphans, removeMedia, staleKeys } from "./sweep";
@@ -107,7 +108,12 @@ export default class OrikoPlugin extends Plugin {
       }
       // The view first, so the capture's progress bar has a wall to sit on
       // and the clipped tile has somewhere to fly in.
-      void this.activateView().then(() => this.capture.capture(url));
+      void this.activateView().then((view) => {
+        const s = this.settings;
+        const grid = sharedClipGrid(s.sharedClipTarget, s.activeGrid, s.homeGridName, s.grids);
+        if (grid !== null || !view) return this.capture.capture(url, grid ?? undefined);
+        view.pickGridAndClip(url);
+      });
     };
     this.registerObsidianProtocolHandler("oriko", handleClipUri);
 
@@ -327,14 +333,17 @@ export default class OrikoPlugin extends Plugin {
     await this.capture.captureFromClipboard();
   }
 
-  async activateView(): Promise<void> {
+  /** Opens the wall, or brings it forward, and hands back its view. */
+  async activateView(): Promise<OrikoView | null> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_GRID);
-    if (existing.length > 0) {
-      await this.app.workspace.revealLeaf(existing[0]);
-      return;
+    let leaf = existing[0];
+    if (leaf) {
+      await this.app.workspace.revealLeaf(leaf);
+    } else {
+      leaf = this.app.workspace.getLeaf("tab");
+      await leaf.setViewState({ type: VIEW_TYPE_GRID, active: true });
     }
-    const leaf = this.app.workspace.getLeaf("tab");
-    await leaf.setViewState({ type: VIEW_TYPE_GRID, active: true });
+    return leaf.view instanceof OrikoView ? leaf.view : null;
   }
 
   /** Where the vault's half of the settings lives. */

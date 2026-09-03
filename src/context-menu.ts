@@ -128,6 +128,8 @@ export class ContextMenu {
    * once rather than letting a stack of ghosts build up.
    */
   private leaving: HTMLElement[] = [];
+  /** Runs when the menu closes without a row being chosen. */
+  private onDismiss: (() => void) | null = null;
 
   constructor(private container: HTMLElement) {}
 
@@ -140,7 +142,8 @@ export class ContextMenu {
     clientX: number,
     clientY: number,
     rebuild?: () => MenuItem[],
-    elevated = false
+    elevated = false,
+    onDismiss?: () => void
   ): void {
     // Immediate: the old panel is being replaced right now, so fading it out
     // underneath its replacement would only show two menus at once.
@@ -149,6 +152,7 @@ export class ContextMenu {
     if (items.length === 0) return;
     this.rebuild = rebuild ?? null;
     this.elevated = elevated;
+    this.onDismiss = onDismiss ?? null;
 
     this.backdrop = this.container.createDiv({ cls: "pg-menu-backdrop" });
     this.panel = this.container.createDiv({ cls: "pg-menu" });
@@ -373,6 +377,8 @@ export class ContextMenu {
       else this.rerender();
       return;
     }
+    // A choice is not a dismissal: the hook is dropped before close() runs.
+    this.onDismiss = null;
     this.close();
     void current.onSelect?.(typed);
   }
@@ -626,6 +632,8 @@ export class ContextMenu {
   close(immediate = false): void {
     if (this.onKey) document.removeEventListener("keydown", this.onKey, true);
     this.onKey = null;
+    const dismissed = this.onDismiss;
+    this.onDismiss = null;
     this.closeSub(immediate);
     this.rows = [];
     this.rebuild = null;
@@ -635,6 +643,9 @@ export class ContextMenu {
     this.dismiss([this.backdrop, this.panel], immediate);
     this.backdrop = null;
     this.panel = null;
+    // After the panel is gone, so whatever the hook opens is not replaced by
+    // the teardown of this one.
+    if (dismissed) dismissed();
   }
 
   /** Drops is-open so CSS runs the leave, then removes the nodes. */

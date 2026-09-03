@@ -2,7 +2,7 @@ import { App, Notice, TFile, normalizePath, requestUrl } from "obsidian";
 import type { ArchiveService } from "./archive-service";
 import { todayISO as today } from "./core/dates";
 import { extensionForMime } from "./core/formats";
-import { isSmartGrid } from "./core/spaces";
+import { fileableGrid } from "./core/spaces";
 import type { ClippingIndex } from "./index-store";
 import {
   ResolvedLink,
@@ -156,31 +156,24 @@ export class CaptureService {
   }
 
   /**
-   * The grid a new clipping should carry, or "" when that is home.
-   *
-   * A smart grid is never it. Nothing is filed into one: its membership is
-   * computed, and writing its name into `grid:` would put the clipping in a
-   * collection that no wall reads. Home would not show it, because the key
-   * names a registered grid; the smart grid would not show it either, because
-   * it ignores the key and asks its rules. The clipping would exist and be
-   * visible nowhere, which is the exact failure effectiveGrid's fallbacks are
-   * there to prevent.
+   * The grid a new clipping carries, or "" when that is home: the open grid,
+   * unless the caller already decided (a shared clip routed by the setting).
    */
-  private targetGrid(): string {
+  private targetGrid(explicit?: string): string {
+    if (explicit !== undefined) return explicit;
     const settings = this.settings();
-    if (settings.activeGrid === settings.homeGridName) return "";
-
-    const active = settings.grids.find((grid) => grid.name === settings.activeGrid);
-    if (active && isSmartGrid(active)) return "";
-
-    return settings.activeGrid;
+    return fileableGrid(settings.activeGrid, settings.homeGridName, settings.grids);
   }
 
   private report(fraction: number | null, label: string): void {
     this.onProgress?.({ fraction, label });
   }
 
-  async capture(raw: string): Promise<void> {
+  /**
+   * `grid` is where to file it, "" for home. Left out, the open grid is used,
+   * which is what an in-app clip means.
+   */
+  async capture(raw: string, grid?: string): Promise<void> {
     const url = cleanUrl(raw);
     if (!isHttpUrl(url)) {
       new Notice("Oriko: that is not a link");
@@ -205,7 +198,7 @@ export class CaptureService {
       // a page's own picture always wins, which is what the reverted
       // scan-by-default got backwards.
       if (scanAvailable()) {
-        const outcome = await this.scanAndSave(url);
+        const outcome = await this.scanAndSave(url, grid);
         if (outcome.ok) return;
         console.warn(`Oriko: scan of ${url} failed (${outcome.reason})`);
       }
@@ -244,7 +237,7 @@ export class CaptureService {
     }
 
     this.report(0.85, "Creating clipping…");
-    const file = await this.createNote({ ...link, media });
+    const file = await this.createNote({ ...link, media }, undefined, grid);
     if (!file) {
       this.onProgress?.(null);
       return;
@@ -369,7 +362,10 @@ export class CaptureService {
    * no notice itself: the caller decides whether a failure is the end of
    * the story or a fallback to something else.
    */
-  private async scanAndSave(url: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+  private async scanAndSave(
+    url: string,
+    grid?: string
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
     this.report(null, "Loading page…");
     let scanned;
     try {
@@ -407,8 +403,10 @@ export class CaptureService {
       published: "",
       media: [],
     };
-    const file = await this.createNote(link, (grid) =>
-      buildScanNote(link.title, url, attachment, today(), grid)
+    const file = await this.createNote(
+      link,
+      (target) => buildScanNote(link.title, url, attachment, today(), target),
+      grid
     );
     if (!file) return { ok: false, reason: "could not create the note" };
     await this.index.handleModify(file);
@@ -418,7 +416,8 @@ export class CaptureService {
 
   private async createNote(
     link: ResolvedLink,
-    content?: (grid: string) => string
+    content?: (grid: string) => string,
+    explicitGrid?: string
   ): Promise<TFile | null> {
     const folder = normalizePath(this.settings().clippingsFolder);
     if (!this.app.vault.getFolderByPath(folder)) {
@@ -434,7 +433,7 @@ export class CaptureService {
     }
 
     try {
-      const grid = this.targetGrid();
+      const grid = this.targetGrid(explicitGrid);
       return await this.app.vault.create(path, content ? content(grid) : buildNote(link, today(), grid));
     } catch (error) {
       new Notice(`Oriko: could not create the note (${String(error)})`);
