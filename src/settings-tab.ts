@@ -181,7 +181,7 @@ export class OrikoSettingTab extends PluginSettingTab {
           },
           {
             name: "Shared clips go to",
-            desc: "Where a link sent from another app is filed: the share sheet on a phone, or the obsidian://oriko link on a desktop. Clips made inside the wall always go to the grid on screen.",
+            desc: "Where a link shared from another app is filed. Clips made on the wall go to the grid on screen.",
             control: {
               type: "dropdown",
               key: "sharedClipTarget",
