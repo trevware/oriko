@@ -57,6 +57,8 @@ const ENTER_MS = 460;
 /** Per-tile delay when several enter at once, capped so a big batch is not slow. */
 const ENTER_STAGGER_MS = 28;
 const ENTER_STAGGER_CAP = 6;
+/** The arrival run backwards, ahead of a reflow. Matches .is-vacating in styles.css. */
+const VACATE_MS = 260;
 const OVERSCAN = 600;
 const MAX_OVERSCAN = 1500;
 /**
@@ -131,6 +133,9 @@ export class GridRenderer {
    * bring its tiles back.
    */
   private vacated = false;
+  /** When the last vacating tile finishes shrinking out; the restage waits for it. */
+  private vacateUntil = 0;
+  private vacateTimer = 0;
   /** Elements playing their leave animation, no longer eligible for reuse. */
   private leaving = new Set<TileElement>();
 
@@ -511,6 +516,7 @@ export class GridRenderer {
     const width = this.viewport.clientWidth;
     if (width === 0 || width === this.contentWidth) return;
     this.vacated = true;
+    this.vacateUntil = performance.now() + VACATE_MS + ENTER_STAGGER_CAP * ENTER_STAGGER_MS;
     let order = 0;
     for (const element of this.mounted.values()) {
       const delay = Math.min(order++, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
@@ -531,6 +537,24 @@ export class GridRenderer {
    * was, and popping the wall for that would be noise.
    */
   relayout(options: { restage?: boolean } = {}): void {
+    // A vacated wall comes back only once it has finished going: the pane
+    // often settles before the last tile has shrunk out, and restaging then
+    // cut the departure to a flash. The layout itself can wait; nothing is
+    // visible to be laid out.
+    if (this.vacated) {
+      const remaining = this.vacateUntil - performance.now();
+      if (remaining > 0) {
+        window.clearTimeout(this.vacateTimer);
+        this.vacateTimer = window.setTimeout(() => {
+          this.vacateTimer = 0;
+          this.relayout(options);
+        }, remaining);
+        return;
+      }
+    }
+    window.clearTimeout(this.vacateTimer);
+    this.vacateTimer = 0;
+
     // A pane behind another tab measures 0 by 0. Laying it out then would
     // fall back to viewportSize's nominal size and arrange the wall for a
     // pane that does not exist, moving the camera to suit; switching back
@@ -1659,6 +1683,7 @@ export class GridRenderer {
     if (this.onBlur) window.removeEventListener("blur", this.onBlur);
     if (this.frame) window.cancelAnimationFrame(this.frame);
     if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
+    window.clearTimeout(this.vacateTimer);
     this.mounted.clear();
     this.measured.clear();
     this.pool = [];
