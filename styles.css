@@ -577,6 +577,18 @@
   }
 }
 
+/* Vacating: the arrival run backwards, ahead of a reflow. Holds at the
+   start of the pop (invisible, small) until the settled relayout restages
+   the tile, which swaps this class for is-entering. */
+.pg-tile.is-vacating {
+  pointer-events: none;
+}
+
+.pg-tile.is-vacating .pg-frame {
+  animation: pg-pop 260ms cubic-bezier(0.55, 0, 0.85, 0.35) reverse both;
+  animation-delay: var(--pg-enter-delay, 0ms);
+}
+
 /* Departure: tip away and shrink out while the survivors glide up behind it.
    Starts from whatever tilt the card was holding, so deleting the card under
    the cursor does not snap it flat before it goes. */
@@ -603,6 +615,7 @@
 @media (prefers-reduced-motion: reduce) {
   .pg-tile.is-gliding,
   .pg-tile.is-entering .pg-frame,
+  .pg-tile.is-vacating .pg-frame,
   .pg-tile.is-leaving .pg-frame,
   .pg-media {
     animation: none;

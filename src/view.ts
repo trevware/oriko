@@ -379,6 +379,9 @@ export class OrikoView extends ItemView {
     );
     this.register(() => relayoutSettled.cancel());
     this.observer = new ResizeObserver(() => {
+      // Emptied on the first notice, so the pane animates over a bare wall
+      // and the tiles come back once, at their new places.
+      this.grid?.vacateIfReflowing();
       relayoutSettled.call();
       this.detail?.relayout();
     });
