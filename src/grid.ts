@@ -600,21 +600,23 @@ export class GridRenderer {
   }
 
   /** The tile nearest the viewport centre, used to hold position across a relayout. */
-  private anchor(): { id: string; y: number } | null {
-    if (!this.placed || this.layout.positions.length === 0) return null;
+  /**
+   * The tiles nearest the viewport centre, nearest first, to hold position
+   * across a relayout. Several rather than one: the nearest may be the very
+   * thing being removed (a folder just deleted, a clipping just trashed),
+   * and with no surviving anchor the wall used to jump by however much the
+   * layout changed above the fold. relayout takes the first that survives.
+   */
+  private anchor(): Array<{ id: string; y: number }> {
+    if (!this.placed || this.layout.positions.length === 0) return [];
     const band = visibleContentBand(this.camera, this.viewportSize());
     const centre = band.top + band.height / 2;
 
-    let best: { id: string; y: number } | null = null;
-    let bestDistance = Infinity;
-    for (const p of this.layout.positions) {
-      const distance = Math.abs(p.y + p.h / 2 - centre);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = { id: p.id, y: p.y };
-      }
-    }
-    return best;
+    return this.layout.positions
+      .map((p) => ({ id: p.id, y: p.y, distance: Math.abs(p.y + p.h / 2 - centre) }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 8)
+      .map(({ id, y }) => ({ id, y }));
   }
 
   /**
@@ -639,7 +641,7 @@ export class GridRenderer {
 
     // The wall is laid out at the unzoomed viewport width, so zooming out
     // reveals empty space around it rather than reflowing the columns.
-    const anchor = this.anchor();
+    const anchors = this.anchor();
     const size = this.viewportSize();
     if (options.restage && this.placed && size.width !== this.contentWidth) {
       this.entering = new Set(this.tiles.map((t) => t.id));
@@ -687,14 +689,18 @@ export class GridRenderer {
     if (!this.placed && this.tiles.length > 0) {
       this.placed = true;
       this.camera = initialCamera(size, this.contentSize());
-    } else if (anchor && !options.hold) {
+    } else if (anchors.length > 0 && !options.hold) {
       // `hold` keeps the camera where it is. A corner drag reflows the wall
       // under the pointer several times a second, and following the anchor
       // tile through each reflow moved the wall while the hand was still.
       // Adding a clipping inserts at the top and pushes everything down;
       // shift the camera by the same amount so the view does not jump.
-      const moved = this.layout.positions.find((p) => p.id === anchor.id);
-      if (moved) this.camera = preserveAnchor(this.camera, anchor.y, moved.y);
+      for (const anchor of anchors) {
+        const moved = this.positionById.get(anchor.id);
+        if (!moved) continue;
+        this.camera = preserveAnchor(this.camera, anchor.y, moved.y);
+        break;
+      }
     }
 
     this.applyCamera();

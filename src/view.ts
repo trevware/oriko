@@ -2227,7 +2227,9 @@ export class OrikoView extends ItemView {
           this.spaceBar?.setFolder(null);
         }
         await this.plugin.saveSettings();
-        this.refresh({ replace: true });
+        // A plain refresh, so the members glide back out onto the wall and
+        // the camera holds on whatever it was anchored to.
+        this.refresh();
       },
     };
   }
