@@ -2374,7 +2374,10 @@ body.is-mobile .pg-spacebar button:active {
   position: absolute;
   inset: 0;
   display: grid;
-  gap: 3px;
+  /* The wall's own spacing: the 6px layout gap plus the 4px inset either
+     card keeps, so the covers sit apart the way tiles do. */
+  gap: 14px;
+  padding: 14px;
   overflow: hidden;
   border-radius: inherit;
   /* One column: a wide cover on top and two beneath it. */
@@ -2399,6 +2402,7 @@ body.is-mobile .pg-spacebar button:active {
 .pg-folder-cover {
   position: relative;
   overflow: hidden;
+  border-radius: 10px;
   background: var(--background-modifier-hover);
 }
 
