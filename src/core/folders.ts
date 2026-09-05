@@ -98,15 +98,23 @@ export function collagePlan(count: number, width: FolderWidth): CoverSpan[] {
   });
 }
 
-const HEIGHT_RATIO: Record<FolderWidth, number> = { 1: 1.15, 2: 0.55, full: 0 };
+const HEIGHT_RATIO: Record<FolderWidth, number> = { 1: 1.3, 2: 0.66, full: 0 };
+
+/**
+ * A full-width card's height, as a multiple of one column's width. Its own
+ * constant because the card's width says nothing about the wall: a wall of
+ * six narrow columns and a wall of two wide ones both want the card about
+ * as tall as a tile is wide.
+ */
+export const FULL_HEIGHT = 1.3;
 
 /**
  * Height over width for a tile of this span. Full width is the exception:
- * its height is one column's width, which the caller knows and this does
- * not, so it is returned as 0 and the caller substitutes.
+ * its height follows the column, not the card, so it is returned as 0 and
+ * the caller uses FULL_HEIGHT against the column width instead.
  */
 export function heightRatioFor(width: FolderWidth): number {
-  return width === "full" ? 1 : HEIGHT_RATIO[width];
+  return width === "full" ? FULL_HEIGHT : HEIGHT_RATIO[width];
 }
 
 export function folderTileId(folder: FolderSpace): string {
