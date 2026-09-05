@@ -5,6 +5,14 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **You can now gather clippings into folders on a grid.** Select a few tiles, right-click and choose Move to folder → New folder…, give it a name and an icon, and they collapse into one card on the wall: a collage of what's inside, with the name and a count along the bottom. Click the card to see the folder as a wall of its own (Escape or the back button beside the grid switcher takes you out again), and anything you clip while you're in there lands in the folder. The same options are in the palette under Move to folder, and New folder sits beside New grid.
+- **Folder cards can be resized.** Hover a folder and drag any corner to stretch it across one column, two, or the whole width of the wall; on a phone, hold your finger on the card first to bring the corners up. A wider card shows more of what's inside. Right-click the card for Size if you'd rather pick from a list, and for Edit folder and Remove folder. Removing a folder puts its clippings back on the wall and deletes nothing.
+
+Keep in mind that a folder belongs to one grid, and its clippings belong to that grid too: moving a clipping to another grid takes it out of the folder. Folders travel between your devices the same way grids do, through the shared note in your clippings folder, so a folder made on the desktop is on your phone after a sync, at the same size.
+
 ## [0.1.54] - 2026-09-03
 
 ### Added

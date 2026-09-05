@@ -58,6 +58,10 @@ Beyond the palette, ⌘1 through ⌘9 switch grids in their stored order, ⌘N c
 
 Grids are boards. A clipping belongs to a grid through a single `grid` property in its frontmatter, home shows everything, and smart grids collect clippings by rule. The set of grids is shared across your devices through one small note in the clippings folder, so a board made on your desktop is on your phone after a sync.
 
+## Folders
+
+Folders are piles inside a grid. Select some tiles and choose **Move to folder** to gather them into one card on the wall, a collage of what is inside with a name and a count. Click the card to open the folder as a wall of its own, and drag any corner of the card to make it one column wide, two, or the full width of the wall. A clipping belongs to a folder through a `folder` property beside `grid`, and the folders themselves travel between devices with the grids.
+
 ## Filters
 
 Any frontmatter property can become a filter. Enable properties under **Settings → Filter properties**, then slice the wall from the filter button: categories, status, domain, dates, whatever your clippings carry.
