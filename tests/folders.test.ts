@@ -91,6 +91,23 @@ describe("partitionWall", () => {
   });
 });
 
+describe("partitionWall order", () => {
+  it("lays folders widest first so the wall has no bare columns beside a narrow one", () => {
+    const narrow: FolderSpace = { name: "Golf", icon: "folder", grid: "", width: 1 };
+    const wide: FolderSpace = { name: "Clothing", icon: "folder", grid: "", width: "full" };
+    const mid: FolderSpace = { name: "Film", icon: "folder", grid: "", width: 2 };
+    const { folders } = partitionWall([], [narrow, wide, mid], "");
+    expect(folders.map((f) => f.folder.name)).toEqual(["Clothing", "Film", "Golf"]);
+  });
+
+  it("keeps stored order among folders of one width", () => {
+    const a: FolderSpace = { name: "A", icon: "folder", grid: "", width: 1 };
+    const b: FolderSpace = { name: "B", icon: "folder", grid: "", width: 1 };
+    const { folders } = partitionWall([], [b, a], "");
+    expect(folders.map((f) => f.folder.name)).toEqual(["B", "A"]);
+  });
+});
+
 describe("fileableFolder", () => {
   it("returns the open folder's name when it is registered on the grid", () => {
     expect(fileableFolder("Kitchen", "", [KITCHEN, FILM])).toBe("Kitchen");

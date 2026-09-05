@@ -113,6 +113,51 @@ describe("computeLayout", () => {
     expect(positions[0].h).toBe(508);
   });
 
+  it("backfills the hole a spanning item leaves with later tiles that fit", () => {
+    // Column 1 is 300 tall and column 2 is 100 tall when the wide item
+    // arrives, so it sits at 300 and leaves a 200 hole in column 2.
+    const items: LayoutItem[] = [
+      { id: "a", width: 100, height: 300 },
+      { id: "b", width: 100, height: 100 },
+      { id: "wide", width: 200, height: 100, span: 2 },
+      { id: "fits", width: 100, height: 150 },
+      { id: "after", width: 100, height: 100 },
+    ];
+    const { positions } = computeLayout(items, 200, 2, 0);
+    const fits = positions.find((p) => p.id === "fits")!;
+    expect(fits.x).toBe(100);
+    expect(fits.y).toBe(100);
+    // The rest carries on below the wide item, not inside the hole.
+    const after = positions.find((p) => p.id === "after")!;
+    expect(after.y).toBe(400);
+  });
+
+  it("leaves a hole alone when nothing later is short enough for it", () => {
+    const items: LayoutItem[] = [
+      { id: "a", width: 100, height: 300 },
+      { id: "b", width: 100, height: 100 },
+      { id: "wide", width: 200, height: 100, span: 2 },
+      { id: "tall", width: 100, height: 500 },
+    ];
+    const { positions } = computeLayout(items, 200, 2, 0);
+    expect(positions.find((p) => p.id === "tall")!.y).toBe(400);
+  });
+
+  it("fills a hole with more than one tile when they stack inside it", () => {
+    const items: LayoutItem[] = [
+      { id: "a", width: 100, height: 300 },
+      { id: "b", width: 100, height: 100 },
+      { id: "wide", width: 200, height: 100, span: 2 },
+      { id: "one", width: 100, height: 100 },
+      { id: "two", width: 100, height: 100 },
+      { id: "three", width: 100, height: 100 },
+    ];
+    const { positions } = computeLayout(items, 200, 2, 0);
+    expect(positions.find((p) => p.id === "one")!.y).toBe(100);
+    expect(positions.find((p) => p.id === "two")!.y).toBe(200);
+    expect(positions.find((p) => p.id === "three")!.y).toBe(400);
+  });
+
   it("reports total height as the tallest column", () => {
     const items: LayoutItem[] = [
       { id: "a", width: 100, height: 300 },

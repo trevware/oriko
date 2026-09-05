@@ -48,9 +48,35 @@ export function computeLayout(
   const columnWidth = (containerWidth - gap * (columnCount - 1)) / columnCount;
   const heights = new Array<number>(columnCount).fill(0);
   const positions: Position[] = [];
+  /**
+   * Space left under a spanning item where a column was shorter than the
+   * run it bridged. Single items that fit are dropped in here first, so a
+   * wide folder over uneven columns does not leave the wall bare beside it.
+   * `top` is where the next tile would start; `bottom` is the last edge a
+   * tile may reach and still leave the gap before the item above the hole.
+   */
+  const holes: Array<{ column: number; top: number; bottom: number }> = [];
 
   for (const item of items) {
     const span = Math.max(1, Math.min(columnCount, Math.floor(item.span ?? 1)));
+    const ratio = item.width > 0 && item.height > 0 ? item.height / item.width : 1;
+
+    if (span === 1) {
+      const h = Math.round(columnWidth * ratio);
+      const hole = holes.find((candidate) => h <= candidate.bottom - candidate.top);
+      if (hole) {
+        positions.push({
+          id: item.id,
+          x: Math.round(hole.column * (columnWidth + gap)),
+          y: Math.round(hole.top),
+          w: Math.floor(columnWidth),
+          h,
+        });
+        hole.top += h + gap;
+        if (hole.bottom - hole.top <= 0) holes.splice(holes.indexOf(hole), 1);
+        continue;
+      }
+    }
     // The run of `span` adjacent columns whose highest bottom edge is lowest.
     // For a single column that is the shortest column, as it always was.
     // Epsilon keeps ties resolving to the leftmost run, which is what makes
@@ -67,15 +93,17 @@ export function computeLayout(
     }
 
     const w = columnWidth * span + gap * (span - 1);
-    const ratio = item.width > 0 && item.height > 0 ? item.height / item.width : 1;
     const h = Math.round(w * ratio);
     const x = Math.round(target * (columnWidth + gap));
     const y = Math.round(targetTop);
 
     positions.push({ id: item.id, x, y, w: Math.floor(w), h });
-    // Every column under a spanning item starts below it, so nothing later
-    // can tuck in beside it.
-    for (let k = target; k < target + span; k++) heights[k] = y + h + gap;
+    // Every column under a spanning item starts below it. What a shorter
+    // column had left above it is kept as a hole for later single tiles.
+    for (let k = target; k < target + span; k++) {
+      if (span > 1 && heights[k] < y) holes.push({ column: k, top: heights[k], bottom: y - gap });
+      heights[k] = y + h + gap;
+    }
   }
 
   const totalHeight = Math.max(0, Math.max(...heights) - gap);

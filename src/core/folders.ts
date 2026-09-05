@@ -126,8 +126,8 @@ export function spanFor(width: FolderWidth, columns: number): number {
 /**
  * Splits a grid's tiles into its folder tiles and the loose remainder.
  *
- * Folders are pinned first in stored order: a folder is a place you go back
- * to, and a place should not move. An empty folder is still a tile, because
+ * Folders are pinned first, widest first and otherwise in stored order: a
+ * folder is a place you go back to, and a place should not move. An empty folder is still a tile, because
  * it was just made and has to be on the wall to be filled. A tile naming a
  * folder on some other grid is loose here; from this grid's point of view
  * that folder is not registered.
@@ -137,7 +137,16 @@ export function partitionWall(
   folders: readonly FolderSpace[],
   grid: string
 ): { folders: FolderTileModel[]; loose: TileModel[] } {
-  const here = folders.filter((folder) => folder.grid === grid);
+  // Widest first, and stored order within a width. A full-width folder
+  // placed after a narrow one has to wait until every column is level, and
+  // the columns beside the narrow one stay bare until it lands; leading
+  // with the wide ones lays them while the wall is still level.
+  const rank: Record<FolderWidth, number> = { full: 0, 2: 1, 1: 2 };
+  const here = folders
+    .filter((folder) => folder.grid === grid)
+    .map((folder, index) => ({ folder, index }))
+    .sort((a, b) => rank[a.folder.width] - rank[b.folder.width] || a.index - b.index)
+    .map((entry) => entry.folder);
   const byName = new Map(here.map((folder) => [folder.name, folder]));
   const members = new Map<string, TileModel[]>(here.map((folder) => [folder.name, []]));
   const loose: TileModel[] = [];
