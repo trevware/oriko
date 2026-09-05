@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS } from "./settings";
 import type { OrikoSettings } from "./settings";
-import { isFolderWidth } from "./folders";
+import { readFolderWidth } from "./folders";
 import type { FolderSpace } from "./folders";
 import type { GridSpace } from "./spaces";
 
@@ -106,15 +106,21 @@ function isGrid(value: unknown): value is GridSpace {
   return grid.rules === undefined || (typeof grid.rules === "object" && grid.rules !== null);
 }
 
-function isFolder(value: unknown): value is FolderSpace {
-  if (typeof value !== "object" || value === null) return false;
+/**
+ * A folder as the file spells it, or null. A width the wall cannot lay out
+ * is a folder it cannot show, and showing it at some guessed size would
+ * then be written back as the truth; the retired "full" is the exception,
+ * read as three.
+ */
+function readFolder(value: unknown): FolderSpace | null {
+  if (typeof value !== "object" || value === null) return null;
   const folder = value as Partial<FolderSpace>;
-  if (typeof folder.name !== "string" || folder.name === "") return false;
-  if (typeof folder.icon !== "string") return false;
-  if (typeof folder.grid !== "string") return false;
-  // A width the wall cannot lay out is a folder it cannot show, and showing
-  // it at some guessed size would then be written back as the truth.
-  return isFolderWidth(folder.width);
+  if (typeof folder.name !== "string" || folder.name === "") return null;
+  if (typeof folder.icon !== "string") return null;
+  if (typeof folder.grid !== "string") return null;
+  const width = readFolderWidth(folder.width);
+  if (width === null) return null;
+  return { name: folder.name, icon: folder.icon, grid: folder.grid, width };
 }
 
 function strings(value: unknown): string[] | null {
@@ -137,7 +143,9 @@ export function parseShared(raw: unknown, fallback: SharedConfig): SharedConfig 
   const grids = Array.isArray(from.grids) ? from.grids.filter(isGrid) : null;
   // Missing is the pre-folders file, and that means no folders rather than
   // whatever this device last saw: the file is the truth for the vault.
-  const folders = Array.isArray(from.folders) ? from.folders.filter(isFolder) : [];
+  const folders = Array.isArray(from.folders)
+    ? from.folders.map(readFolder).filter((f): f is FolderSpace => f !== null)
+    : [];
   const properties = strings(from.filterProperties);
 
   return {

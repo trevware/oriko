@@ -11,10 +11,14 @@ import type { TileModel } from "./tile";
  * mistake. Design: docs/superpowers/specs/2026-09-05-folders-design.md.
  */
 
-/** Columns the tile spans. "full" is however many the wall has. */
-export type FolderWidth = 1 | 2 | "full";
+/**
+ * Columns the tile spans. Three at most: a card the whole width of a wide
+ * wall stretched its covers into letterbox crops, and three columns is as
+ * wide as the collage stays readable. A narrower wall clamps the span.
+ */
+export type FolderWidth = 1 | 2 | 3;
 
-export const FOLDER_WIDTHS: readonly FolderWidth[] = [1, 2, "full"];
+export const FOLDER_WIDTHS: readonly FolderWidth[] = [1, 2, 3];
 
 export interface FolderSpace {
   /** Identity and display both. This is the value written to `folder:`. */
@@ -39,13 +43,13 @@ export interface FolderTileModel {
  * tile is as a fraction of its width. Kept together because a change to one
  * is a change to the other: more covers need more room.
  */
-export const COVER_COUNT: Record<FolderWidth, number> = { 1: 3, 2: 6, full: 10 };
+export const COVER_COUNT: Record<FolderWidth, number> = { 1: 3, 2: 6, 3: 10 };
 
 /** The collage's cell grid at each width, two rows deep throughout. */
 export const COLLAGE_GRID: Record<FolderWidth, { columns: number; rows: number }> = {
   1: { columns: 2, rows: 2 },
   2: { columns: 4, rows: 2 },
-  full: { columns: 6, rows: 2 },
+  3: { columns: 6, rows: 2 },
 };
 
 export interface CoverSpan {
@@ -74,7 +78,7 @@ const PLANS: Record<FolderWidth, string[][]> = {
     ["2x2", "1x1", "1x1", "1x1", "1x1"],
     ["2x1", "1x1", "1x1", "1x1", "1x1", "2x1"],
   ],
-  full: [
+  3: [
     [],
     ["6x2"],
     ["3x2", "3x2"],
@@ -98,23 +102,11 @@ export function collagePlan(count: number, width: FolderWidth): CoverSpan[] {
   });
 }
 
-const HEIGHT_RATIO: Record<FolderWidth, number> = { 1: 1.3, 2: 0.66, full: 0 };
+/** Height over width at each span, chosen so the collage's two rows have room. */
+const HEIGHT_RATIO: Record<FolderWidth, number> = { 1: 1.3, 2: 0.66, 3: 0.43 };
 
-/**
- * A full-width card's height, as a multiple of one column's width. Its own
- * constant because the card's width says nothing about the wall: a wall of
- * six narrow columns and a wall of two wide ones both want the card about
- * as tall as a tile is wide.
- */
-export const FULL_HEIGHT = 1.3;
-
-/**
- * Height over width for a tile of this span. Full width is the exception:
- * its height follows the column, not the card, so it is returned as 0 and
- * the caller uses FULL_HEIGHT against the column width instead.
- */
 export function heightRatioFor(width: FolderWidth): number {
-  return width === "full" ? FULL_HEIGHT : HEIGHT_RATIO[width];
+  return HEIGHT_RATIO[width];
 }
 
 export function folderTileId(folder: FolderSpace): string {
@@ -122,13 +114,18 @@ export function folderTileId(folder: FolderSpace): string {
 }
 
 export function isFolderWidth(value: unknown): value is FolderWidth {
-  return value === 1 || value === 2 || value === "full";
+  return value === 1 || value === 2 || value === 3;
+}
+
+/** A stored width, including the retired "full", which reads as three. */
+export function readFolderWidth(value: unknown): FolderWidth | null {
+  if (isFolderWidth(value)) return value;
+  return value === "full" ? 3 : null;
 }
 
 /** The column span a width resolves to on a wall this many columns wide. */
 export function spanFor(width: FolderWidth, columns: number): number {
-  const wanted = width === "full" ? columns : width;
-  return Math.max(1, Math.min(wanted, columns));
+  return Math.max(1, Math.min(width, columns));
 }
 
 /**
@@ -149,7 +146,7 @@ export function partitionWall(
   // placed after a narrow one has to wait until every column is level, and
   // the columns beside the narrow one stay bare until it lands; leading
   // with the wide ones lays them while the wall is still level.
-  const rank: Record<FolderWidth, number> = { full: 0, 2: 1, 1: 2 };
+  const rank: Record<FolderWidth, number> = { 3: 0, 2: 1, 1: 2 };
   const here = folders
     .filter((folder) => folder.grid === grid)
     .map((folder, index) => ({ folder, index }))
@@ -218,8 +215,8 @@ export function validateFolderName(
 /**
  * The width a corner drag lands on. Only the horizontal travel counts, since
  * height follows width, and each column's worth of travel is one step along
- * the three widths, snapping at the midpoint. A wall with one column has one
- * width, and on a two-column wall the second step is already full.
+ * the three widths, snapping at the midpoint. A wall narrower than the width
+ * clamps it, so a drag cannot store a width the wall cannot show.
  */
 export function widthForDrag(
   start: FolderWidth,
@@ -233,5 +230,5 @@ export function widthForDrag(
   const from = FOLDER_WIDTHS.indexOf(start);
   const index = Math.max(0, Math.min(FOLDER_WIDTHS.length - 1, from + steps));
   const width = FOLDER_WIDTHS[index] ?? 1;
-  return width === 2 && columns <= 2 ? "full" : width;
+  return spanFor(width, columns) as FolderWidth;
 }

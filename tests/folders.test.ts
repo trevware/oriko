@@ -94,7 +94,7 @@ describe("partitionWall", () => {
 describe("partitionWall order", () => {
   it("lays folders widest first so the wall has no bare columns beside a narrow one", () => {
     const narrow: FolderSpace = { name: "Golf", icon: "folder", grid: "", width: 1 };
-    const wide: FolderSpace = { name: "Clothing", icon: "folder", grid: "", width: "full" };
+    const wide: FolderSpace = { name: "Clothing", icon: "folder", grid: "", width: 3 };
     const mid: FolderSpace = { name: "Film", icon: "folder", grid: "", width: 2 };
     const { folders } = partitionWall([], [narrow, wide, mid], "");
     expect(folders.map((f) => f.folder.name)).toEqual(["Clothing", "Film", "Golf"]);
@@ -143,8 +143,8 @@ describe("validateFolderName", () => {
 });
 
 describe("spanFor", () => {
-  it("resolves full to the column count", () => {
-    expect(spanFor("full", 4)).toBe(4);
+  it("passes three through on a wide wall", () => {
+    expect(spanFor(3, 4)).toBe(3);
   });
 
   it("clamps a width wider than the wall", () => {
@@ -158,7 +158,7 @@ describe("spanFor", () => {
 
 describe("heightRatioFor and COVER_COUNT", () => {
   it("has a ratio and a cover count for every width", () => {
-    for (const width of [1, 2, "full"] as const) {
+    for (const width of [1, 2, 3] as const) {
       expect(heightRatioFor(width)).toBeGreaterThan(0);
       expect(COVER_COUNT[width]).toBeGreaterThan(0);
     }
@@ -166,13 +166,13 @@ describe("heightRatioFor and COVER_COUNT", () => {
 
   it("shows more covers as the tile widens", () => {
     expect(COVER_COUNT[1]).toBeLessThan(COVER_COUNT[2]);
-    expect(COVER_COUNT[2]).toBeLessThan(COVER_COUNT.full);
+    expect(COVER_COUNT[2]).toBeLessThan(COVER_COUNT[3]);
   });
 });
 
 describe("widthForDrag", () => {
   // 100px columns with a 10px gap on a 4-column wall.
-  const drag = (start: 1 | 2 | "full", dx: number, columns = 4) =>
+  const drag = (start: 1 | 2 | 3, dx: number, columns = 4) =>
     widthForDrag(start, dx, 100, 10, columns);
 
   it("stays put on a small drag", () => {
@@ -183,13 +183,13 @@ describe("widthForDrag", () => {
     expect(drag(1, 60)).toBe(2);
   });
 
-  it("steps from two to full past the next boundary", () => {
-    expect(drag(2, 160)).toBe("full");
+  it("steps from two to three past the next boundary", () => {
+    expect(drag(2, 160)).toBe(3);
   });
 
   it("steps back down when dragged left", () => {
     expect(drag(2, -60)).toBe(1);
-    expect(drag("full", -160, 4)).toBe(2);
+    expect(drag(3, -160, 4)).toBe(2);
   });
 
   it("never goes below one", () => {
@@ -200,20 +200,20 @@ describe("widthForDrag", () => {
     expect(drag(1, 500, 1)).toBe(1);
   });
 
-  it("treats two as full on a two-column wall", () => {
-    expect(drag(1, 60, 2)).toBe("full");
+  it("never stores a width wider than the wall", () => {
+    expect(drag(1, 500, 2)).toBe(2);
   });
 });
 
 describe("collagePlan", () => {
-  const cells = (width: 1 | 2 | "full") => COLLAGE_GRID[width].columns * COLLAGE_GRID[width].rows;
+  const cells = (width: 1 | 2 | 3) => COLLAGE_GRID[width].columns * COLLAGE_GRID[width].rows;
 
   it("gives one span per cover", () => {
-    expect(collagePlan(4, "full")).toHaveLength(4);
+    expect(collagePlan(4, 3)).toHaveLength(4);
   });
 
   it("fills the grid exactly, whatever the count", () => {
-    for (const width of [1, 2, "full"] as const) {
+    for (const width of [1, 2, 3] as const) {
       for (let n = 1; n <= COVER_COUNT[width]; n++) {
         const area = collagePlan(n, width).reduce((sum, s) => sum + s.columns * s.rows, 0);
         expect(area, `${n} covers at width ${width}`).toBe(cells(width));

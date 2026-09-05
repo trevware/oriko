@@ -60,7 +60,7 @@ Grids are boards. A clipping belongs to a grid through a single `grid` property 
 
 ## Folders
 
-Folders are piles inside a grid. Select some tiles and choose **Move to folder** to gather them into one card on the wall, a collage of what is inside with a name and a count. Click the card to open the folder as a wall of its own, and drag any corner of the card to make it one column wide, two, or the full width of the wall. A clipping belongs to a folder through a `folder` property beside `grid`, and the folders themselves travel between devices with the grids.
+Folders are piles inside a grid. Select some tiles and choose **Move to folder** to gather them into one card on the wall, a collage of what is inside with a name and a count. Click the card to open the folder as a wall of its own, and drag any corner of the card to make it one, two or three columns wide. A clipping belongs to a folder through a `folder` property beside `grid`, and the folders themselves travel between devices with the grids.
 
 ## Filters
 

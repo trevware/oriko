@@ -22,14 +22,7 @@ import { tileBadges } from "./core/badges";
 import type { TileSlots } from "./core/badges";
 import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
 import type { DensityStage } from "./core/density";
-import {
-  COVER_COUNT,
-  FULL_HEIGHT,
-  collagePlan,
-  heightRatioFor,
-  spanFor,
-  widthForDrag,
-} from "./core/folders";
+import { COVER_COUNT, collagePlan, heightRatioFor, spanFor, widthForDrag } from "./core/folders";
 import type { FolderTileModel, FolderWidth } from "./core/folders";
 import {
   columnsForWidth,
@@ -643,10 +636,10 @@ export class GridRenderer {
     const folderItems = this.folders.map((f) => {
       const span = spanFor(f.folder.width, columns);
       const w = this.columnWidth * span + GAP * (span - 1);
+      // From the stored width, not the clamped span, so a card keeps its
+      // height on a wall too narrow to show its whole width.
       const h =
-        f.folder.width === "full"
-          ? unit * FULL_HEIGHT
-          : (unit * span + GAP * (span - 1)) * heightRatioFor(f.folder.width);
+        (unit * f.folder.width + GAP * (f.folder.width - 1)) * heightRatioFor(f.folder.width);
       return { id: f.id, width: w, height: h, span };
     });
 

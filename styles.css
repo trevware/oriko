@@ -2392,7 +2392,7 @@ body.is-mobile .pg-spacebar button:active {
   grid-template-columns: repeat(4, 1fr);
 }
 
-.pg-folder-tile[data-width="full"] .pg-folder-collage {
+.pg-folder-tile[data-width="3"] .pg-folder-collage {
   grid-template-columns: repeat(6, 1fr);
 }
 

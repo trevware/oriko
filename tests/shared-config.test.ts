@@ -117,6 +117,14 @@ describe("parseShared folders", () => {
     expect(parsed.folders).toEqual([{ name: "Kitchen", icon: "folder", grid: "", width: 2 }]);
   });
 
+  it("reads the retired full width as three columns", () => {
+    const parsed = parseShared(
+      { folders: [{ name: "Wide", icon: "folder", grid: "", width: "full" }] },
+      fallback
+    );
+    expect(parsed.folders).toEqual([{ name: "Wide", icon: "folder", grid: "", width: 3 }]);
+  });
+
   it("reads an older file without folders as having none", () => {
     expect(parseShared({ grids: [] }, fallback).folders).toEqual([]);
   });
@@ -124,7 +132,7 @@ describe("parseShared folders", () => {
   it("round-trips folders through serialise and extract", () => {
     const shared = {
       ...defaultShared(),
-      folders: [{ name: "Film", icon: "clapperboard", grid: "Design", width: "full" as const }],
+      folders: [{ name: "Film", icon: "clapperboard", grid: "Design", width: 3 as const }],
     };
     expect(parseShared(extractShared(serializeShared(shared)), fallback).folders).toEqual(
       shared.folders

@@ -2159,7 +2159,7 @@ export class OrikoView extends ItemView {
   private openFolderMenu(name: string, x: number, y: number): void {
     const folder = this.foldersHere().find((f) => f.name === name);
     if (!folder) return;
-    const labels: Record<string, string> = { 1: "Small", 2: "Wide", full: "Full width" };
+    const labels: Record<string, string> = { 1: "Small", 2: "Wide", 3: "Extra wide" };
     const items: MenuItem[] = [
       { icon: "folder-open", label: "Open", onSelect: () => this.enterFolder(name) },
       {
