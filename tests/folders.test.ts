@@ -92,19 +92,12 @@ describe("partitionWall", () => {
 });
 
 describe("partitionWall order", () => {
-  it("lays folders widest first so the wall has no bare columns beside a narrow one", () => {
+  it("keeps folders in stored order whatever their widths", () => {
     const narrow: FolderSpace = { name: "Golf", icon: "folder", grid: "", width: 1 };
     const wide: FolderSpace = { name: "Clothing", icon: "folder", grid: "", width: 3 };
     const mid: FolderSpace = { name: "Film", icon: "folder", grid: "", width: 2 };
     const { folders } = partitionWall([], [narrow, wide, mid], "");
-    expect(folders.map((f) => f.folder.name)).toEqual(["Clothing", "Film", "Golf"]);
-  });
-
-  it("keeps stored order among folders of one width", () => {
-    const a: FolderSpace = { name: "A", icon: "folder", grid: "", width: 1 };
-    const b: FolderSpace = { name: "B", icon: "folder", grid: "", width: 1 };
-    const { folders } = partitionWall([], [b, a], "");
-    expect(folders.map((f) => f.folder.name)).toEqual(["B", "A"]);
+    expect(folders.map((f) => f.folder.name)).toEqual(["Golf", "Clothing", "Film"]);
   });
 });
 
