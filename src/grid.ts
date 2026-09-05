@@ -1798,6 +1798,7 @@ export class GridRenderer {
         const image = slot.createEl("img");
         image.decoding = "async";
         image.alt = "";
+        image.draggable = false;
         image.src = src;
         image.addEventListener("error", () => slot.addClass("is-broken"), { once: true });
       } else {

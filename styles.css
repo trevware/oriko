@@ -2412,6 +2412,11 @@ body.is-mobile .pg-spacebar button:active {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* As for a tile's media: holding and moving pans the wall or drags a
+     handle, and must never pick the picture up. */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
 }
 
 .pg-folder-cover.is-broken img {
