@@ -199,7 +199,9 @@ export class GridRenderer {
   private hoveredMedia: HTMLVideoElement | HTMLImageElement | null = null;
   /** The card under the pointer changed. Set by the view, to drive playback
       for a wall whose autoplay is off. */
-  onHoverMedia: ((media: HTMLVideoElement | HTMLImageElement | null) => void) | null = null;
+  onHoverMedia:
+    | ((media: HTMLVideoElement | HTMLImageElement | Array<HTMLVideoElement | HTMLImageElement> | null) => void)
+    | null = null;
 
   /** The card currently open in the detail view, hidden while it is. */
   private focusedId: string | null = null;
@@ -1791,28 +1793,34 @@ export class GridRenderer {
       setIcon(collage.createDiv({ cls: "pg-folder-empty" }), model.folder.icon);
     }
     for (const member of covers) {
-      // A video's poster is the still; a remote video has none and shows its
-      // own first frame instead. An image paints its full source, as tiles do.
-      const still = member.kind === "video" && !member.remote ? member.posterPath : "";
-      const src = still
-        ? this.sourceFor(still, false)
-        : member.kind === "image"
-          ? this.sourceFor(member.filePath, member.remote)
-          : "";
+      // Each cover is built the way its tile's media is, still and all, so
+      // the playback controller can drive it the same way: a video sits on
+      // its poster until played, and a GIF on its still frame.
       const slot = collage.createDiv({ cls: "pg-folder-cover" });
-      if (src) {
+      const still = this.sourceFor(member.posterPath, false);
+      const original = this.sourceFor(member.filePath, member.remote);
+      if (member.kind === "video") {
+        const video = slot.createEl("video");
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = member.remote ? "metadata" : "none";
+        if (still && !member.remote) video.poster = still;
+        if (member.remote) video.src = original;
+        else video.dataset.src = original;
+      } else {
         const image = slot.createEl("img");
         image.decoding = "async";
         image.alt = "";
         image.draggable = false;
-        image.src = src;
+        if (member.animated && still) {
+          image.src = still;
+          image.dataset.stillSrc = still;
+          image.dataset.animatedSrc = original;
+        } else {
+          image.src = original;
+        }
         image.addEventListener("error", () => slot.addClass("is-broken"), { once: true });
-      } else {
-        const video = slot.createEl("video");
-        video.muted = true;
-        video.playsInline = true;
-        video.preload = "metadata";
-        video.src = this.sourceFor(member.filePath, member.remote);
       }
     }
 
@@ -1832,6 +1840,17 @@ export class GridRenderer {
    */
   private installFolder(root: HTMLElement, id: string): void {
     const frame = root.createDiv({ cls: "pg-frame pg-folder" });
+    // The tilt loop, which is what hovers a tile's media, walks the tile
+    // pool and never sees a folder, so the card reports its own hover: every
+    // cover that can move, together.
+    root.addEventListener("pointerenter", (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      this.onHoverMedia?.(this.folderMedia(root));
+    });
+    root.addEventListener("pointerleave", (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      this.onHoverMedia?.(this.hoveredMedia);
+    });
     for (const corner of ["tl", "tr", "bl", "br"]) {
       const handle = frame.createDiv({ cls: `pg-folder-handle is-${corner}` });
       this.installHandle(handle, root, id, corner.endsWith("l") ? -1 : 1);
@@ -1933,7 +1952,17 @@ export class GridRenderer {
       if (media instanceof HTMLVideoElement) out.push(media);
       else if (media instanceof HTMLImageElement && media.dataset.animatedSrc) out.push(media);
     }
+    for (const root of this.mountedFolders.values()) out.push(...this.folderMedia(root));
     return out;
+  }
+
+  /** The covers in a folder card that can move: its videos and its GIFs. */
+  private folderMedia(root: HTMLElement): Array<HTMLVideoElement | HTMLImageElement> {
+    return Array.from(
+      root.querySelectorAll<HTMLVideoElement | HTMLImageElement>(
+        ".pg-folder-cover video, .pg-folder-cover img[data-animated-src]"
+      )
+    );
   }
 
   destroy(): void {

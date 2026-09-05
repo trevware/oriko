@@ -91,7 +91,12 @@ export class PlaybackController {
   private frame = 0;
   /** The one element the pointer is over, or null. Only ever consulted while
       autoplay is off, which is the only time it decides anything. */
-  private hovered: Playable | null = null;
+  /**
+   * What the pointer is over. A set, because a folder card holds several
+   * covers and hovering the card should move all of them, as one tile's
+   * single cover moves when it is hovered.
+   */
+  private hovered = new Set<Playable>();
 
   constructor(
     private root: HTMLElement,
@@ -153,13 +158,16 @@ export class PlaybackController {
    * moves at all, which is the point of it. The setting is a request that the
    * wall not run by itself, not a refusal to ever show you a video.
    */
-  hover(element: Playable | null): void {
-    if (this.hovered === element) return;
+  hover(element: Playable | Playable[] | null): void {
+    const next = new Set<Playable>(
+      element === null ? [] : Array.isArray(element) ? element : [element]
+    );
+    if (next.size === this.hovered.size && [...next].every((e) => this.hovered.has(e))) return;
     const previous = this.hovered;
-    this.hovered = element;
+    this.hovered = next;
 
     if (this.enabled) return;
-    if (previous) this.stop(previous);
+    for (const element of previous) if (!next.has(element)) this.stop(element);
     this.playHovered();
   }
 
@@ -169,9 +177,9 @@ export class PlaybackController {
    * that flag would be the one path that ignores the preference too.
    */
   private playHovered(): void {
-    if (!this.hovered) return;
+    if (this.hovered.size === 0) return;
     if (PlaybackController.prefersReducedMotion()) return;
-    this.play(this.hovered);
+    for (const element of this.hovered) this.play(element);
   }
 
   observe(element: Playable): void {
@@ -183,7 +191,7 @@ export class PlaybackController {
   forget(element: Playable): void {
     this.observer?.unobserve(element);
     this.ratios.delete(element);
-    if (this.hovered === element) this.hovered = null;
+    this.hovered.delete(element);
     this.stop(element);
   }
 
@@ -195,7 +203,7 @@ export class PlaybackController {
         this.ratios.delete(element);
         // Tiles are pooled, so the element the pointer was over can be taken
         // out from under it by a repaint rather than by the pointer leaving.
-        if (this.hovered === element) this.hovered = null;
+        this.hovered.delete(element);
       }
     }
   }
@@ -259,6 +267,6 @@ export class PlaybackController {
     this.observer?.disconnect();
     this.observer = null;
     this.ratios.clear();
-    this.hovered = null;
+    this.hovered.clear();
   }
 }
