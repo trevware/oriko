@@ -5,6 +5,10 @@ export interface ActionBarHandlers {
   /** Opens the property menu for the selection, anchored to the button. */
   onProperties: (x: number, y: number) => void;
   onDelete: () => void;
+  /** Opens the list of grids to move the selection to, anchored to the button. */
+  onMoveToGrid: (x: number, y: number) => void;
+  /** Opens the list of folders to move the selection into, anchored to the button. */
+  onMoveToFolder: (x: number, y: number) => void;
   /** Leaves selection mode with nothing selected. */
   onDone: () => void;
 }
@@ -14,10 +18,16 @@ export interface ActionBarHandlers {
  * selected. Deliberately small: it holds the actions that apply to a
  * selection, and nothing else competes with the wall for attention.
  */
+function anchorOf(button: HTMLElement): { x: number; y: number } {
+  const rect = button.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top };
+}
+
 export class ActionBar {
   private root: HTMLElement;
   private count: HTMLElement;
   private properties: HTMLElement;
+  private folder: HTMLElement;
 
   constructor(container: HTMLElement, handlers: ActionBarHandlers) {
     this.root = container.createDiv({ cls: "pg-actionbar" });
@@ -46,13 +56,28 @@ export class ActionBar {
       handlers.onProperties(x, y);
     });
 
+    // Where the selection lives, beside what it is. Anchored to their own
+    // buttons, as the property menu is, so the list rises out of the bar.
+    const grid = this.button("corner-up-right", "Move to grid", "", () => {
+      const { x, y } = anchorOf(grid);
+      handlers.onMoveToGrid(x, y);
+    });
+    this.folder = this.button("folder", "Move to folder", "", () => {
+      const { x, y } = anchorOf(this.folder);
+      handlers.onMoveToFolder(x, y);
+    });
+
     this.button("trash-2", "Delete", "⌫", handlers.onDelete);
+  }
+
+  /** Folders live on grids that can be filed into; elsewhere the button goes. */
+  setFolderable(folderable: boolean): void {
+    this.folder.toggle(folderable);
   }
 
   /** Where the property menu opens from, whether by click or by key. */
   propertiesAnchor(): { x: number; y: number } {
-    const rect = this.properties.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top };
+    return anchorOf(this.properties);
   }
 
   private button(

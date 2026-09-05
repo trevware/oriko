@@ -1806,9 +1806,11 @@ export class GridRenderer {
       }
     }
 
+    // The same pills a tile shows on hover, kept on: the name is the point.
     const head = frame.createDiv({ cls: "pg-folder-head" });
-    setIcon(head.createDiv({ cls: "pg-folder-icon" }), model.folder.icon);
-    head.createDiv({ cls: "pg-folder-name", text: model.folder.name });
+    const name = head.createDiv({ cls: "pg-folder-name" });
+    setIcon(name.createDiv({ cls: "pg-folder-icon" }), model.folder.icon);
+    name.createSpan({ text: model.folder.name });
     head.createDiv({ cls: "pg-folder-count", text: String(model.members.length) });
 
     for (const corner of ["tl", "tr", "bl", "br"]) {

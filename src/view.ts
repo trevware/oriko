@@ -220,10 +220,15 @@ export class OrikoView extends ItemView {
     this.actionBar = new ActionBar(this.contentEl, {
       onProperties: (x, y) => this.editProperties(this.grid?.selectedIds() ?? [], x, y),
       onDelete: () => this.confirmDelete(this.grid?.selectedIds() ?? []),
+      onMoveToGrid: (x, y) =>
+        this.menu?.open(this.gridMoveRows(this.grid?.selectedIds() ?? []), x, y),
+      onMoveToFolder: (x, y) =>
+        this.menu?.open(this.folderMoveRows(this.grid?.selectedIds() ?? []), x, y),
       onDone: () => this.grid?.clearSelection(),
     });
     this.grid.onSelectionChanged = (ids: string[]) => {
       this.actionBar?.setSelection(ids);
+      this.actionBar?.setFolderable(this.canFile());
       if (ids.length === 0) this.releaseRefresh();
       // The wall's own controls give up the bottom to the selection bar,
       // there being room for only one of them across a phone.
@@ -831,23 +836,10 @@ export class OrikoView extends ItemView {
     }
 
     if (this.canFile()) {
-      const folders = this.foldersHere();
       file.push({
         icon: "folder",
         label: "Move to folder",
-        submenu: [
-          ...folders.map((folder) => ({
-            icon: folder.icon,
-            label: folder.name,
-            onSelect: () => void this.moveToFolder(ids, folder.name),
-          })),
-          {
-            icon: "folder-plus",
-            label: "New folder…",
-            divider: folders.length > 0,
-            onSelect: () => this.promptNewFolder(ids),
-          },
-        ],
+        submenu: this.folderMoveRows(ids),
       });
     }
 
@@ -855,11 +847,7 @@ export class OrikoView extends ItemView {
       file.push({
         icon: "corner-up-right",
         label: "Move to grid",
-        submenu: this.allGrids().map((grid) => ({
-          icon: grid.icon,
-          label: grid.name,
-          onSelect: () => void this.moveTo(ids, grid.name),
-        })),
+        submenu: this.gridMoveRows(ids),
       });
     }
 
@@ -872,6 +860,33 @@ export class OrikoView extends ItemView {
     });
 
     return groupedMenu([reach, describe, file, destroy]);
+  }
+
+  /** The grids a selection can be moved to. One list, for the menu and the bar. */
+  private gridMoveRows(ids: string[]): MenuItem[] {
+    return this.allGrids().map((grid) => ({
+      icon: grid.icon,
+      label: grid.name,
+      onSelect: () => void this.moveTo(ids, grid.name),
+    }));
+  }
+
+  /** The folders here, ending in New folder, which takes the selection with it. */
+  private folderMoveRows(ids: string[]): MenuItem[] {
+    const folders = this.foldersHere();
+    return [
+      ...folders.map((folder) => ({
+        icon: folder.icon,
+        label: folder.name,
+        onSelect: () => void this.moveToFolder(ids, folder.name),
+      })),
+      {
+        icon: "folder-plus",
+        label: "New folder…",
+        divider: folders.length > 0,
+        onSelect: () => this.promptNewFolder(ids),
+      },
+    ];
   }
 
   /**

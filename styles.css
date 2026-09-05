@@ -2356,22 +2356,27 @@ body.is-mobile .pg-spacebar button:active {
 /* ---- Folders ------------------------------------------------------------
 
    A folder is a card on the wall like any other, so it takes the tile's
-   inset, radius, lift and pop. Inside it is a collage of its members' covers
-   with the name and count along the bottom, and four corner brackets that
-   drag it to one, two or every column. The brackets show on hover where
-   there is a hover, and after a long press where there is not. */
+   inset, radius, lift and pop. Inside it is a collage of its members' covers,
+   with the name and count as the same pills a tile shows on hover, and four
+   corner brackets that drag it to one, two or every column. The brackets
+   show on hover where there is a hover, and after a long press where there
+   is not. */
 
 .pg-folder {
   background: var(--background-secondary);
   cursor: pointer;
 }
 
+/* Clipped here as well as by the frame: the frame keeps a 3D transform for
+   the tilt, and Chromium lets descendants of a preserve-3d element escape
+   its overflow, which left the covers' corners square outside the card. */
 .pg-folder-collage {
   position: absolute;
   inset: 0;
   display: grid;
   gap: 3px;
-  padding: 0;
+  overflow: hidden;
+  border-radius: inherit;
   /* One column: a wide cover on top and two beneath it. */
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 3fr 2fr;
@@ -2424,60 +2429,66 @@ body.is-mobile .pg-spacebar button:active {
   height: 36px;
 }
 
+/* The tile's own hover band, always on: a folder's name is what it is for. */
 .pg-folder-head {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
+  padding: 10px;
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 26px 11px 10px;
-  background: linear-gradient(to top, rgba(12, 12, 16, 0.78), rgba(12, 12, 16, 0));
-  color: #fff;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
   pointer-events: none;
+}
+
+.pg-folder-name,
+.pg-folder-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(20, 20, 24, 0.62);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.pg-folder-name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.pg-folder-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pg-folder-icon {
   display: flex;
   flex: none;
-  opacity: 0.9;
 }
 
 .pg-folder-icon .svg-icon {
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
 }
 
-.pg-folder-name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-}
-
-.pg-folder-count {
-  flex: none;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-/* Corner brackets, drawn as two edges of a square so they read as the
-   card's own corners lifting. Hidden until asked for. */
+/* Corner brackets: two edges of a square, curved at the card's own radius so
+   they read as the card's corners lifting. Hidden until asked for. */
 .pg-folder-handle {
   position: absolute;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   opacity: 0;
   transition: opacity 140ms ease;
   touch-action: none;
@@ -2488,11 +2499,9 @@ body.is-mobile .pg-spacebar button:active {
 .pg-folder-handle::before {
   content: "";
   position: absolute;
-  inset: 5px;
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   border: 3px solid #fff;
-  border-radius: 3px;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
@@ -2501,10 +2510,11 @@ body.is-mobile .pg-spacebar button:active {
 .pg-folder-handle.is-bl { bottom: 0; left: 0; cursor: nesw-resize; }
 .pg-folder-handle.is-br { bottom: 0; right: 0; cursor: nwse-resize; }
 
-.pg-folder-handle.is-tl::before { border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; }
-.pg-folder-handle.is-tr::before { border-left: 0; border-bottom: 0; border-radius: 0 3px 0 0; }
-.pg-folder-handle.is-bl::before { border-right: 0; border-top: 0; border-radius: 0 0 0 3px; }
-.pg-folder-handle.is-br::before { border-left: 0; border-top: 0; border-radius: 0 0 3px 0; }
+/* Each bracket hugs its corner and curves with the frame's 10px radius. */
+.pg-folder-handle.is-tl::before { top: 4px; left: 4px; border-right: 0; border-bottom: 0; border-top-left-radius: 10px; }
+.pg-folder-handle.is-tr::before { top: 4px; right: 4px; border-left: 0; border-bottom: 0; border-top-right-radius: 10px; }
+.pg-folder-handle.is-bl::before { bottom: 4px; left: 4px; border-right: 0; border-top: 0; border-bottom-left-radius: 10px; }
+.pg-folder-handle.is-br::before { bottom: 4px; right: 4px; border-left: 0; border-top: 0; border-bottom-right-radius: 10px; }
 
 @media (hover: hover) {
   .pg-folder-tile:hover .pg-folder-handle {
