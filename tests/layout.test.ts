@@ -74,9 +74,18 @@ describe("computeLayout", () => {
     // Under the taller of the two columns, so it overlaps neither.
     expect(wide.y).toBe(300);
     expect(wide.h).toBe(100);
-    // Both columns now start below it.
+    // The short tile backfills the hole under column 2; anything that does
+    // not fit the hole starts below the wide item in either column.
     const c = positions.find((p) => p.id === "c")!;
-    expect(c.y).toBe(400);
+    expect(c.x).toBe(100);
+    expect(c.y).toBe(100);
+    const { positions: withTall } = computeLayout(
+      [...items, { id: "tall", width: 100, height: 300 }],
+      200,
+      2,
+      0
+    );
+    expect(withTall.find((p) => p.id === "tall")!.y).toBe(400);
   });
 
   it("picks the run of columns with the lowest ceiling for a spanning item", () => {
