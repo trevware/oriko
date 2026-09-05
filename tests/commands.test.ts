@@ -15,6 +15,9 @@ const actions = {
   remove: noop,
   switchGrid: noop,
   newGrid: noop,
+  moveToFolder: noop,
+  newFolder: noop,
+  openFolder: noop,
   editGrid: noop,
   deleteGrid: noop,
   manageGrids: noop,
@@ -35,6 +38,8 @@ function context(over: Partial<PaletteContext> = {}): PaletteContext {
     ],
     activeGrid: "Clippings",
     homeGrid: "Clippings",
+    folders: [],
+    canFile: true,
     facetDefs: DEFS,
     facets: { categories: [], status: [], kind: [], domain: [] },
     filter: emptyFilter(),
@@ -233,6 +238,55 @@ describe("buildCommands", () => {
     });
     find(ctx, "selection:move")?.stage?.items()[0].run?.();
     expect(moved).toEqual([["a.md"], "Demo"]);
+  });
+});
+
+describe("folder commands", () => {
+  const KITCHEN = { name: "Kitchen", icon: "folder", grid: "Clippings", width: 1 as const };
+
+  it("offers the active grid's folders as places to move a selection", () => {
+    const ctx = context({ selection: ["a.md"], folders: [KITCHEN] });
+    const stage = find(ctx, "selection:folder")?.stage?.items() ?? [];
+    expect(stage.map((c) => c.id)).toEqual(["selection:folder:Kitchen", "selection:folder:new"]);
+  });
+
+  it("still offers New folder when the grid has none yet", () => {
+    const ctx = context({ selection: ["a.md"] });
+    const stage = find(ctx, "selection:folder")?.stage?.items() ?? [];
+    expect(stage.map((c) => c.id)).toEqual(["selection:folder:new"]);
+  });
+
+  it("moves the selection into the chosen folder", () => {
+    let moved: [string[], string] | null = null;
+    const ctx = context({
+      selection: ["a.md"],
+      folders: [KITCHEN],
+      actions: { ...actions, moveToFolder: (paths, folder) => (moved = [paths, folder]) },
+    });
+    find(ctx, "selection:folder")?.stage?.items()[0].run?.();
+    expect(moved).toEqual([["a.md"], "Kitchen"]);
+  });
+
+  it("hands the selection to New folder so it lands inside on save", () => {
+    let seeded: string[] | null = null;
+    const ctx = context({
+      selection: ["a.md"],
+      actions: { ...actions, newFolder: (paths) => (seeded = paths) },
+    });
+    find(ctx, "selection:folder")?.stage?.items()[0].run?.();
+    expect(seeded).toEqual(["a.md"]);
+  });
+
+  it("offers New folder beside New grid and opens each folder", () => {
+    const list = ids(context({ folders: [KITCHEN] }));
+    expect(list).toContain("folder:new");
+    expect(list).toContain("folder:open:Kitchen");
+  });
+
+  it("offers nothing folder-shaped on a grid that cannot be filed into", () => {
+    const list = ids(context({ selection: ["a.md"], canFile: false }));
+    expect(list).not.toContain("selection:folder");
+    expect(list).not.toContain("folder:new");
   });
 });
 

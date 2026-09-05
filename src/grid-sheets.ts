@@ -3,6 +3,8 @@ import { isEmptyValue, isFilterEmpty, toggleFacet, valueLabel } from "./core/fil
 import type { FacetDef, FacetValue, FilterState } from "./core/filter";
 import type { Sheet, SheetRow, SheetScreen } from "./sheet";
 import { isSmartGrid, reorderTarget, validateGridName } from "./core/spaces";
+import { validateFolderName } from "./core/folders";
+import type { FolderSpace } from "./core/folders";
 import type { GridSpace } from "./core/spaces";
 
 /**
@@ -725,4 +727,127 @@ export function openNewSmartGrid(
   sheet.open(
     gridEditorScreen(sheet, grids, { name: "", icon: GRID_ICONS[0], rules }, undefined, after)
   );
+}
+
+// ---- Folders --------------------------------------------------------------
+
+/** The folders of one grid, and what the wall does about them. */
+export interface FoldersController {
+  /** The folders on the grid being shown, in stored order. */
+  folders(): FolderSpace[];
+  /** Clippings carrying this folder's name on this grid. */
+  memberCount(name: string): number;
+  create(folder: FolderSpace): Promise<void>;
+  rename(from: string, next: FolderSpace): Promise<void>;
+  remove(name: string): Promise<void>;
+}
+
+/**
+ * The folder editor: a name and an icon, on the grid editor's screen with
+ * nothing else. A folder has no rules and no position, so there is nothing
+ * more to ask.
+ */
+function folderEditorScreen(
+  sheet: Sheet,
+  folders: FoldersController,
+  folder: FolderSpace,
+  creating: boolean,
+  after: (saved: FolderSpace) => void
+): SheetScreen {
+  const others = folders
+    .folders()
+    .map((f) => f.name)
+    .filter((name) => creating || name !== folder.name);
+
+  return {
+    title: creating ? "New folder" : `Edit ${folder.name}`,
+    placeholder: "Folder name",
+    value: folder.name,
+    filters: false,
+    active: Math.max(0, GRID_ICONS.indexOf(folder.icon)),
+    hints: EDIT_HINTS,
+    layout: "swatches",
+    columns: SWATCH_COLUMNS,
+    cta: creating ? "Create folder" : "Save",
+    rows: () =>
+      GRID_ICONS.map((name) => ({
+        label: name.replace(/-/g, " "),
+        value: name,
+        icon: name,
+      })),
+    onSubmit: (name, active) => {
+      const reason = validateFolderName(name, others, creating ? undefined : folder.name);
+      if (reason) {
+        new Notice(`Oriko: ${reason}`);
+        return;
+      }
+
+      const next: FolderSpace = {
+        ...folder,
+        name: name.trim(),
+        icon: active?.value ?? folder.icon,
+      };
+
+      if (creating) {
+        sheet.close();
+        void folders.create(next).then(() => after(next));
+        return;
+      }
+
+      const renamed = next.name !== folder.name;
+      const members = renamed ? folders.memberCount(folder.name) : 0;
+      const apply = (): void => void folders.rename(folder.name, next).then(() => after(next));
+
+      if (renamed && members > 0) {
+        confirm(sheet, {
+          title: `Rename to ${next.name}?`,
+          note: `${members} ${plural(members, "clipping carries", "clippings carry")} this folder and will be updated.`,
+          cta: "Rename",
+          onConfirm: apply,
+        });
+        return;
+      }
+
+      sheet.close();
+      apply();
+    },
+  };
+}
+
+/** Opens the editor for a new folder on `grid`, or for an existing one. */
+export function openFolderEditor(
+  sheet: Sheet,
+  folders: FoldersController,
+  folder: FolderSpace,
+  creating: boolean,
+  after: (saved: FolderSpace) => void = () => undefined
+): void {
+  const screen = folderEditorScreen(sheet, folders, folder, creating, after);
+  if (sheet.isOpen) sheet.push(screen);
+  else sheet.open(screen);
+}
+
+/**
+ * Removing a folder deletes its definition and nothing else: the members
+ * keep a key that no longer resolves, which folders.ts reads as loose, so
+ * they reappear on the wall. Said here, because it is what makes this safe
+ * to confirm.
+ */
+export function openRemoveFolder(
+  sheet: Sheet,
+  folders: FoldersController,
+  folder: FolderSpace,
+  after: () => void = () => undefined
+): void {
+  const members = folders.memberCount(folder.name);
+  confirm(sheet, {
+    title: `Remove ${folder.name}?`,
+    note:
+      members === 0
+        ? "The folder is empty. Nothing else changes."
+        : `${members} ${plural(members, "clipping returns", "clippings return")} to the wall. No notes are deleted.`,
+    cta: "Remove",
+    destructive: true,
+    onConfirm: () => void folders.remove(folder.name).then(after),
+  });
 }

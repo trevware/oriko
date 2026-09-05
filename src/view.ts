@@ -19,11 +19,15 @@ import {
   openGridsManager,
   openNewSmartGrid,
   openNewGrid,
+  openFolderEditor,
+  openRemoveFolder,
 } from "./grid-sheets";
 import { DetailView } from "./detail";
 import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./core/drop";
 import type { MenuItem } from "./context-menu";
-import type { GridsController } from "./grid-sheets";
+import type { FoldersController, GridsController } from "./grid-sheets";
+import { FOLDER_WIDTHS, partitionWall } from "./core/folders";
+import type { FolderSpace, FolderTileModel, FolderWidth } from "./core/folders";
 import { GridRenderer } from "./grid";
 import { groupedMenu } from "./core/layout";
 import type OrikoPlugin from "./main";
@@ -121,6 +125,13 @@ export class OrikoView extends ItemView {
    */
   private filter: FilterState = emptyFilter();
   /**
+   * The folder open on the wall, or null for the grid whole. Session state
+   * beside the filter: never saved, dropped on a grid switch.
+   */
+  private openFolder: string | null = null;
+  /** The grid's folder tiles before filtering, beside `facets`. */
+  private folderTiles: FolderTileModel[] = [];
+  /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
    * archiving gives it a different, working cover.
@@ -174,6 +185,11 @@ export class OrikoView extends ItemView {
       // this capture is about to cause has been painted.
       this.pendingReveal = { path, until: performance.now() + REVEAL_WINDOW_MS };
       this.reportCaptureHome(path);
+      // Clipped while a folder was open: it goes into the folder, which is
+      // where you were looking. The note is the plugin's own and a minute
+      // old, so a second frontmatter write here is not a rewrite of anything
+      // clipped.
+      if (this.openFolder) void this.assign([path], this.activeGrid().name, this.openFolder);
     };
 
     this.grid = new GridRenderer(this.app, this.contentEl);
@@ -232,6 +248,7 @@ export class OrikoView extends ItemView {
       onCreate: (x, y) => this.openCreate(x, y),
       onSettings: (x, y) => this.openSettings(x, y),
       onFilter: (x, y) => this.openFilter(x, y),
+      onBack: () => this.leaveFolder(),
     });
     this.spaceBar.setActive(this.activeGrid());
     this.watchBottomInset();
@@ -278,6 +295,22 @@ export class OrikoView extends ItemView {
       // The detail view registers in the capture phase too and owns its keys
       // while it is up.
       if (this.detail?.isOpen) return;
+
+      // Escape backs out of a folder once nothing else is up to close: the
+      // palette, a sheet, a menu and the selection all take it first.
+      if (
+        event.key === "Escape" &&
+        this.openFolder &&
+        !this.palette?.isOpen &&
+        !this.sheet?.isOpen &&
+        !this.menu?.isOpen &&
+        (this.grid?.selectedIds().length ?? 0) === 0
+      ) {
+        event.preventDefault();
+        this.leaveFolder();
+        return;
+      }
+
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey) return;
 
       // Fallback only. ⌘K is claimed by Obsidian's own dispatcher, so the
@@ -311,6 +344,9 @@ export class OrikoView extends ItemView {
     };
     document.addEventListener("keydown", this.onGridKey, true);
     this.grid.onExportRequested = (ids) => void this.exportToDownloads(ids);
+    this.grid.onOpenFolder = (name) => this.enterFolder(name);
+    this.grid.onFolderContextRequested = (name, x, y) => this.openFolderMenu(name, x, y);
+    this.grid.onFolderResized = (name, width) => void this.resizeFolder(name, width);
 
     this.detail = new DetailView(this.app, this.contentEl, {
       onExport: (id) => void this.exportToDownloads([id]),
@@ -794,6 +830,27 @@ export class OrikoView extends ItemView {
       }
     }
 
+    if (this.canFile()) {
+      const folders = this.foldersHere();
+      file.push({
+        icon: "folder",
+        label: "Move to folder",
+        submenu: [
+          ...folders.map((folder) => ({
+            icon: folder.icon,
+            label: folder.name,
+            onSelect: () => void this.moveToFolder(ids, folder.name),
+          })),
+          {
+            icon: "folder-plus",
+            label: "New folder…",
+            divider: folders.length > 0,
+            onSelect: () => this.promptNewFolder(ids),
+          },
+        ],
+      });
+    }
+
     if (this.allGrids().length > 1) {
       file.push({
         icon: "corner-up-right",
@@ -1055,8 +1112,25 @@ export class OrikoView extends ItemView {
     // filter: counting the result would make options disappear the moment
     // you used one, leaving no way back. For a smart grid the whole grid is
     // what its rules admitted, so its counts are counts within the rule.
-    this.facets =
-      smart && space.rules ? smartMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
+    if (smart) {
+      this.facets = space.rules ? smartMembers(tiles, space.rules, this.allDefs(tiles)) : tiles;
+      this.folderTiles = [];
+    } else {
+      // A folder tile stands in for its members, so the wall is the loose
+      // tiles plus the folders; inside a folder it is the members alone.
+      const parts = partitionWall(tiles, this.plugin.settings.folders, this.folderGridKey());
+      const open = this.openFolder
+        ? parts.folders.find((f) => f.folder.name === this.openFolder)
+        : undefined;
+      if (this.openFolder && !open) {
+        // Removed on another device, or renamed: the grid whole is the only
+        // honest fallback, as home is for a grid that has gone.
+        this.openFolder = null;
+        this.spaceBar?.setFolder(null);
+      }
+      this.facets = open ? open.members : parts.loose;
+      this.folderTiles = open ? [] : parts.folders;
+    }
     this.applyFilter(options);
     this.flyToPending();
   }
@@ -1130,9 +1204,18 @@ export class OrikoView extends ItemView {
     const filter = this.activeFilter();
     this.spaceBar?.setFilterCount(activeCount(filter));
     const defs = this.defs();
-    const shown = isFilterEmpty(filter)
-      ? this.facets
-      : this.facets.filter((tile) => matchesFilter(tile, filter, defs));
+    const narrow = (tiles: TileModel[]): TileModel[] =>
+      isFilterEmpty(filter) ? tiles : tiles.filter((tile) => matchesFilter(tile, filter, defs));
+    const shown = narrow(this.facets);
+    // A folder stays on a narrowed wall only while something in it matches,
+    // and its collage shows the matches. An empty folder shows on a wall that
+    // is not narrowed: it was just made, and has to be there to be filled.
+    const folders = isFilterEmpty(filter)
+      ? this.folderTiles
+      : this.folderTiles
+          .map((f) => ({ ...f, members: narrow(f.members) }))
+          .filter((f) => f.members.length > 0);
+    this.grid?.setFolders(folders);
     this.grid?.setTiles(shown, options);
     // The same list, so a filter narrows both and neither can drift.
   }
@@ -1311,6 +1394,8 @@ export class OrikoView extends ItemView {
       grids: this.allGrids(),
       activeGrid: this.activeGrid().name,
       homeGrid: this.plugin.settings.homeGridName,
+      folders: this.foldersHere(),
+      canFile: this.canFile(),
       facetDefs: defs,
       facets: facetsOf(this.facets, defs),
       filter: this.activeFilter(),
@@ -1325,6 +1410,9 @@ export class OrikoView extends ItemView {
         remove: (ids) => this.confirmDelete(ids),
         switchGrid: (name) => this.activate(name),
         newGrid: () => this.promptNewGrid(),
+        moveToFolder: (ids, folder) => void this.moveToFolder(ids, folder),
+        newFolder: (seed) => this.promptNewFolder(seed),
+        openFolder: (name) => this.enterFolder(name),
         editGrid: () => this.editActiveGrid(),
         deleteGrid: () => this.deleteActiveGrid(),
         manageGrids: () => this.manageGrids(),
@@ -1400,6 +1488,8 @@ export class OrikoView extends ItemView {
     // replaced, so none of them carries over.
     this.grid?.clearSelection();
     this.filter = emptyFilter();
+    this.openFolder = null;
+    this.spaceBar?.setFolder(null);
     // replace, not add: departing tiles go straight back to the pool so the
     // arrivals can recycle them, and the camera is placed rather than tweened.
     // The arrivals still pop.
@@ -1667,7 +1757,14 @@ export class OrikoView extends ItemView {
     });
   }
 
-  private async assign(paths: string[], target: string): Promise<number> {
+  /**
+   * Files clippings onto a grid, and into a folder on it when one is named.
+   *
+   * The two keys are written in one call so they can never disagree after a
+   * move: a folder belongs to one grid, and moving to a grid without naming
+   * a folder takes the clipping out of whichever folder it was in.
+   */
+  private async assign(paths: string[], target: string, folder = ""): Promise<number> {
     const home = this.plugin.settings.homeGridName;
     let written = 0;
 
@@ -1677,9 +1774,12 @@ export class OrikoView extends ItemView {
       try {
         await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
           // Home is the absence of the key, so moving something back removes
-          // it rather than writing the home name in.
+          // it rather than writing the home name in. Loose is the absence of
+          // the folder key, on the same terms.
           if (target === home) delete fm.grid;
           else fm.grid = target;
+          if (folder) fm.folder = folder;
+          else delete fm.folder;
         });
         written++;
       } catch (error) {
@@ -1900,6 +2000,16 @@ export class OrikoView extends ItemView {
           label: "New smart grid",
           onSelect: () => this.promptNewSmartGrid(),
         },
+        {
+          icon: "folder-plus",
+          label: "New folder",
+          divider: true,
+          // Inert on a smart grid, so the row does not come and go by where
+          // you are; a folder needs a grid that can be filed into.
+          disabled: !this.canFile(),
+          detail: this.canFile() ? undefined : "Smart grid",
+          onSelect: () => this.promptNewFolder([]),
+        },
       ],
       x,
       y
@@ -1926,6 +2036,178 @@ export class OrikoView extends ItemView {
         ? `Oriko: 1 clipping moved to ${target}`
         : `Oriko: ${moved} clippings moved to ${target}`
     );
+  }
+
+  // ---- Folders -----------------------------------------------------------
+
+  /** The value a FolderSpace.grid carries for the grid on screen: "" for home. */
+  private folderGridKey(): string {
+    const active = this.activeGrid().name;
+    return active === this.plugin.settings.homeGridName ? "" : active;
+  }
+
+  /** Whether the grid on screen can be filed into, and so can hold folders. */
+  private canFile(): boolean {
+    return !isSmartGrid(this.activeGrid());
+  }
+
+  private foldersHere(): FolderSpace[] {
+    if (!this.canFile()) return [];
+    const key = this.folderGridKey();
+    return this.plugin.settings.folders.filter((folder) => folder.grid === key);
+  }
+
+  /** Paths of the clippings carrying this folder's name on the grid on screen. */
+  private folderMembers(name: string): string[] {
+    return filterByGrid(
+      this.plugin.index.records(),
+      this.activeGrid().name,
+      this.plugin.settings.homeGridName,
+      this.registered()
+    )
+      .filter((record) => record.folder.trim() === name)
+      .map((record) => record.path);
+  }
+
+  private enterFolder(name: string): void {
+    if (!this.foldersHere().some((folder) => folder.name === name)) return;
+    if (this.openFolder === name) return;
+    this.openFolder = name;
+    this.grid?.clearSelection();
+    this.refresh({ replace: true });
+    this.grid?.resetView(false);
+    this.spaceBar?.setFolder(name);
+  }
+
+  private leaveFolder(): void {
+    if (this.openFolder === null) return;
+    this.openFolder = null;
+    this.grid?.clearSelection();
+    this.refresh({ replace: true });
+    this.grid?.resetView(false);
+    this.spaceBar?.setFolder(null);
+  }
+
+  private async moveToFolder(ids: string[], name: string): Promise<void> {
+    const folder = this.foldersHere().find((f) => f.name === name);
+    if (!folder) return;
+    // Already there is not a move, and not a write.
+    const paths = ids.filter((id) => this.plugin.index.get(id)?.folder.trim() !== name);
+    const moved = paths.length > 0 ? await this.assign(paths, this.activeGrid().name, name) : 0;
+    this.grid?.clearSelection();
+    new Notice(
+      moved === 1
+        ? `Oriko: 1 clipping moved to ${name}`
+        : `Oriko: ${moved} clippings moved to ${name}`
+    );
+  }
+
+  /** Opens the editor for a new folder; `seed` is moved in once it is made. */
+  private promptNewFolder(seed: string[]): void {
+    if (!this.sheet || !this.canFile()) return;
+    openFolderEditor(
+      this.sheet,
+      this.foldersController(),
+      { name: "", icon: "folder", grid: this.folderGridKey(), width: 1 },
+      true,
+      (saved) => {
+        if (seed.length > 0) void this.moveToFolder(seed, saved.name);
+        this.refresh();
+      }
+    );
+  }
+
+  private editFolder(folder: FolderSpace): void {
+    if (!this.sheet) return;
+    openFolderEditor(this.sheet, this.foldersController(), folder, false, () => this.refresh());
+  }
+
+  private removeFolder(folder: FolderSpace): void {
+    if (!this.sheet) return;
+    openRemoveFolder(this.sheet, this.foldersController(), folder, () => this.refresh());
+  }
+
+  private async resizeFolder(name: string, width: FolderWidth): Promise<void> {
+    const entry = this.foldersHere().find((folder) => folder.name === name);
+    if (!entry || entry.width === width) return;
+    entry.width = width;
+    await this.plugin.saveSettings();
+    this.refresh();
+  }
+
+  private openFolderMenu(name: string, x: number, y: number): void {
+    const folder = this.foldersHere().find((f) => f.name === name);
+    if (!folder) return;
+    const labels: Record<string, string> = { 1: "Small", 2: "Wide", full: "Full width" };
+    const items: MenuItem[] = [
+      { icon: "folder-open", label: "Open", onSelect: () => this.enterFolder(name) },
+      {
+        icon: "pencil",
+        label: "Edit folder",
+        divider: true,
+        onSelect: () => this.editFolder(folder),
+      },
+      {
+        icon: "move-horizontal",
+        label: "Size",
+        detail: labels[String(folder.width)],
+        submenu: FOLDER_WIDTHS.map((width) => ({
+          icon: "",
+          label: labels[String(width)],
+          detailIcon: width === folder.width ? "check" : undefined,
+          onSelect: () => void this.resizeFolder(name, width),
+        })),
+      },
+      {
+        icon: "trash-2",
+        label: "Remove folder",
+        divider: true,
+        destructive: true,
+        onSelect: () => this.removeFolder(folder),
+      },
+    ];
+    this.menu?.open(items, x, y);
+  }
+
+  private foldersController(): FoldersController {
+    const settings = this.plugin.settings;
+    return {
+      folders: () => this.foldersHere(),
+      memberCount: (name) => this.folderMembers(name).length,
+      create: async (folder) => {
+        settings.folders.push(folder);
+        await this.plugin.saveSettings();
+      },
+      rename: async (from, next) => {
+        const key = this.folderGridKey();
+        const entry = settings.folders.find((f) => f.grid === key && f.name === from);
+        if (!entry) return;
+        const members = next.name !== from ? this.folderMembers(from) : [];
+        entry.name = next.name;
+        entry.icon = next.icon;
+        if (this.openFolder === from) {
+          this.openFolder = next.name;
+          this.spaceBar?.setFolder(next.name);
+        }
+        await this.plugin.saveSettings();
+        if (members.length > 0) await this.assign(members, this.activeGrid().name, next.name);
+        this.refresh();
+      },
+      remove: async (name) => {
+        const key = this.folderGridKey();
+        const index = settings.folders.findIndex((f) => f.grid === key && f.name === name);
+        if (index === -1) return;
+        settings.folders.splice(index, 1);
+        // Members keep a key that no longer resolves, which folders.ts reads
+        // as loose. Nothing is rewritten, so recreating the folder undoes this.
+        if (this.openFolder === name) {
+          this.openFolder = null;
+          this.spaceBar?.setFolder(null);
+        }
+        await this.plugin.saveSettings();
+        this.refresh({ replace: true });
+      },
+    };
   }
 
   private gridsController(): GridsController {

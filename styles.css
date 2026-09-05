@@ -1624,7 +1624,8 @@
   display: none;
 }
 
-.pg-spacebar button.pg-space-switch {
+.pg-spacebar button.pg-space-switch,
+.pg-spacebar button.pg-space-back {
   gap: 8px;
   height: 38px;
   padding: 0 12px;
@@ -2350,4 +2351,178 @@ body.is-mobile .pg-spacebar button:active {
    two-column setting layout would squeeze it, so it flows as a block. */
 .pg-props-setting {
   display: block;
+}
+
+/* ---- Folders ------------------------------------------------------------
+
+   A folder is a card on the wall like any other, so it takes the tile's
+   inset, radius, lift and pop. Inside it is a collage of its members' covers
+   with the name and count along the bottom, and four corner brackets that
+   drag it to one, two or every column. The brackets show on hover where
+   there is a hover, and after a long press where there is not. */
+
+.pg-folder {
+  background: var(--background-secondary);
+  cursor: pointer;
+}
+
+.pg-folder-collage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  gap: 3px;
+  padding: 0;
+  /* One column: a wide cover on top and two beneath it. */
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 3fr 2fr;
+}
+
+.pg-folder-tile[data-width="1"] .pg-folder-cover:first-child {
+  grid-column: 1 / -1;
+}
+
+.pg-folder-tile[data-width="2"] .pg-folder-collage {
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
+}
+
+.pg-folder-tile[data-width="full"] .pg-folder-collage {
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: 1fr 1fr;
+}
+
+.pg-folder-cover {
+  position: relative;
+  overflow: hidden;
+  background: var(--background-modifier-hover);
+}
+
+.pg-folder-cover img,
+.pg-folder-cover video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pg-folder-cover.is-broken img {
+  visibility: hidden;
+}
+
+/* An empty folder shows its own icon, large and quiet, where covers would be. */
+.pg-folder-empty {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+}
+
+.pg-folder-empty .svg-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.pg-folder-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 26px 11px 10px;
+  background: linear-gradient(to top, rgba(12, 12, 16, 0.78), rgba(12, 12, 16, 0));
+  color: #fff;
+  pointer-events: none;
+}
+
+.pg-folder-icon {
+  display: flex;
+  flex: none;
+  opacity: 0.9;
+}
+
+.pg-folder-icon .svg-icon {
+  width: 15px;
+  height: 15px;
+}
+
+.pg-folder-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.pg-folder-count {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* Corner brackets, drawn as two edges of a square so they read as the
+   card's own corners lifting. Hidden until asked for. */
+.pg-folder-handle {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transition: opacity 140ms ease;
+  touch-action: none;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pg-folder-handle::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 3px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.pg-folder-handle.is-tl { top: 0; left: 0; cursor: nwse-resize; }
+.pg-folder-handle.is-tr { top: 0; right: 0; cursor: nesw-resize; }
+.pg-folder-handle.is-bl { bottom: 0; left: 0; cursor: nesw-resize; }
+.pg-folder-handle.is-br { bottom: 0; right: 0; cursor: nwse-resize; }
+
+.pg-folder-handle.is-tl::before { border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; }
+.pg-folder-handle.is-tr::before { border-left: 0; border-bottom: 0; border-radius: 0 3px 0 0; }
+.pg-folder-handle.is-bl::before { border-right: 0; border-top: 0; border-radius: 0 0 0 3px; }
+.pg-folder-handle.is-br::before { border-left: 0; border-top: 0; border-radius: 0 0 3px 0; }
+
+@media (hover: hover) {
+  .pg-folder-tile:hover .pg-folder-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.pg-folder-tile.is-handles .pg-folder-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pg-folder-tile.is-handles .pg-frame {
+  outline-color: var(--interactive-accent);
+}
+
+/* The way back out of a folder, beside the switcher it sits under. */
+.pg-spacebar button.pg-space-back .pg-space-icon .svg-icon {
+  opacity: 0.7;
 }

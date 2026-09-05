@@ -1,4 +1,4 @@
-import { App, Platform } from "obsidian";
+import { App, Platform, setIcon } from "obsidian";
 import { resourceUrl } from "./convert";
 import {
   KEY_ZOOM_STEP,
@@ -22,6 +22,8 @@ import { tileBadges } from "./core/badges";
 import type { TileSlots } from "./core/badges";
 import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
 import type { DensityStage } from "./core/density";
+import { COVER_COUNT, heightRatioFor, spanFor, widthForDrag } from "./core/folders";
+import type { FolderTileModel, FolderWidth } from "./core/folders";
 import {
   columnsForWidth,
   computeLayout,
@@ -87,6 +89,11 @@ const LONG_PRESS_MS = 450;
 const TOUCH_SLOP = 10;
 /** Degrees a card tips at its edges. Small: it should read as give, not spin. */
 const MAX_TILT_DEG = 5.5;
+/**
+ * How long a finger rests on a folder before its resize handles show. A
+ * mouse gets them on hover; a finger has no hover, so it asks by holding.
+ */
+const HANDLE_PRESS_MS = 450;
 
 interface TileElement {
   root: HTMLElement;
@@ -109,6 +116,20 @@ export class GridRenderer {
   private canvas: HTMLElement;
   private tiles: TileModel[] = [];
   private byId = new Map<string, TileModel>();
+  /**
+   * Folder tiles, laid out ahead of the clippings and spanning columns. Kept
+   * apart from `tiles` so selection, keyboard travel and playback, which all
+   * walk that list, never see one: a folder is not a clipping and none of
+   * those should reach it.
+   */
+  private folders: FolderTileModel[] = [];
+  private folderById = new Map<string, FolderTileModel>();
+  private mountedFolders = new Map<string, HTMLElement>();
+  private knownFolders = new Set<string>();
+  /** The last layout's column geometry, which a corner drag snaps against. */
+  private columns = 1;
+  private columnWidth = 0;
+  private handlePress = 0;
   private layout: LayoutResult = { positions: [], totalHeight: 0 };
   private mounted = new Map<string, TileElement>();
   private pool: TileElement[] = [];
@@ -191,6 +212,10 @@ export class GridRenderer {
   onPropertiesRequested: (ids: string[]) => void = () => {};
   onContextRequested: (ids: string[], x: number, y: number) => void = () => {};
   onExportRequested: (ids: string[]) => void = () => {};
+  onOpenFolder: (name: string) => void = () => {};
+  onFolderContextRequested: (name: string, x: number, y: number) => void = () => {};
+  /** A corner drag ended on a different width. The caller persists it. */
+  onFolderResized: (name: string, width: FolderWidth) => void = () => {};
   onOpenDetail: (
     model: TileModel,
     origin: { rect: { x: number; y: number; w: number; h: number }; at: { x: number; y: number } }
@@ -512,6 +537,22 @@ export class GridRenderer {
     this.relayout();
   }
 
+  /**
+   * The folder tiles to show ahead of the clippings. Always followed by
+   * setTiles from the view, which is what lays both out; this only reconciles
+   * the mounted elements so a removed folder leaves at once.
+   */
+  setFolders(folders: FolderTileModel[]): void {
+    this.folders = folders;
+    this.folderById = new Map(folders.map((f) => [f.id, f]));
+    for (const [id, element] of [...this.mountedFolders]) {
+      if (!this.folderById.has(id)) {
+        this.mountedFolders.delete(id);
+        element.remove();
+      }
+    }
+  }
+
   /** Pops a newly arrived tile in, staggered so a batch lands as a wave. */
   private playEnter(element: TileElement, id: string, order: number): void {
     this.entering.delete(id);
@@ -581,13 +622,29 @@ export class GridRenderer {
     }
     this.contentWidth = size.width;
     const columns = columnsForWidth(size.width, this.targetColumnWidth, GAP);
+    this.columns = columns;
+    this.columnWidth = (size.width - GAP * (columns - 1)) / columns;
+
+    // Folders first: a folder is a place you go back to, and a place should
+    // not move. Its box is a fixed shape per width, so the collage always has
+    // the room its cover count was chosen for; full width is as tall as one
+    // column is wide.
+    const folderItems = this.folders.map((f) => {
+      const span = spanFor(f.folder.width, columns);
+      const w = this.columnWidth * span + GAP * (span - 1);
+      const h = f.folder.width === "full" ? this.columnWidth : w * heightRatioFor(f.folder.width);
+      return { id: f.id, width: w, height: h, span };
+    });
 
     this.positionById.clear();
     this.layout = computeLayout(
-      this.tiles.map((t) => {
-        const learned = t.provisional ? this.measured.get(t.id) : undefined;
-        return { id: t.id, width: learned?.w ?? t.width, height: learned?.h ?? t.height };
-      }),
+      [
+        ...folderItems,
+        ...this.tiles.map((t) => {
+          const learned = t.provisional ? this.measured.get(t.id) : undefined;
+          return { id: t.id, width: learned?.w ?? t.width, height: learned?.h ?? t.height };
+        }),
+      ],
       size.width,
       columns,
       GAP
@@ -810,7 +867,11 @@ export class GridRenderer {
 
       this.drawMarquee(rect);
       const additive = event.shiftKey || event.metaKey || event.ctrlKey;
-      const hits = idsInRect(this.layout.positions, rect);
+      // Folders are not clippings: a marquee over one selects nothing in it.
+      const hits = idsInRect(
+        this.layout.positions.filter((p) => !this.folderById.has(p.id)),
+        rect
+      );
       if (hits.length > 0) this.selectionAnchor = hits[hits.length - 1];
       this.applySelection(mergeSelection(this.selectionBase, hits, additive));
     });
@@ -1642,9 +1703,20 @@ export class GridRenderer {
         this.release(element);
       }
     }
+    for (const [id, element] of [...this.mountedFolders]) {
+      if (!wanted.has(id)) {
+        this.mountedFolders.delete(id);
+        element.remove();
+      }
+    }
 
     let order = 0;
     for (const position of visible) {
+      const folder = this.folderById.get(position.id);
+      if (folder) {
+        this.paintFolder(folder, position, order++);
+        continue;
+      }
       const model = this.byId.get(position.id);
       if (!model) continue;
       let element = this.mounted.get(position.id);
@@ -1661,6 +1733,166 @@ export class GridRenderer {
 
     this.paintSelection();
     this.onRendered();
+  }
+
+  /**
+   * A folder's card: a collage of its members' covers, its name and a count,
+   * and on hover (or after a long press) four corner handles that drag it to
+   * one, two or every column. Not pooled: there are a handful at most, and a
+   * pooled tile element is shaped around one media element.
+   */
+  private paintFolder(model: FolderTileModel, position: Position, order: number): void {
+    let root = this.mountedFolders.get(model.id);
+    if (!root) {
+      root = this.canvas.createDiv({ cls: "pg-tile pg-folder-tile" });
+      this.mountedFolders.set(model.id, root);
+      this.installFolder(root, model.id);
+      if (!this.knownFolders.has(model.id) || this.restaging) {
+        const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
+        root.style.setProperty("--pg-enter-delay", `${delay}ms`);
+        root.addClass("is-entering");
+        const el = root;
+        window.setTimeout(() => el.removeClass("is-entering"), delay + ENTER_MS + 60);
+      }
+      this.knownFolders.add(model.id);
+    }
+
+    root.toggleClass("is-gliding", !this.restaging && root.dataset.signature !== undefined);
+    root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+    root.style.width = `${position.w}px`;
+    root.style.height = `${position.h}px`;
+    root.dataset.width = String(model.folder.width);
+
+    const covers = model.members.slice(0, COVER_COUNT[model.folder.width]);
+    const signature = [
+      model.folder.name,
+      model.folder.icon,
+      model.folder.width,
+      model.members.length,
+      ...covers.map((m) => m.signature),
+    ].join("|");
+    if (root.dataset.signature === signature) return;
+    root.dataset.signature = signature;
+
+    root.empty();
+    const frame = root.createDiv({ cls: "pg-frame pg-folder" });
+    const collage = frame.createDiv({ cls: "pg-folder-collage" });
+    collage.dataset.count = String(covers.length);
+    if (covers.length === 0) {
+      setIcon(collage.createDiv({ cls: "pg-folder-empty" }), model.folder.icon);
+    }
+    for (const member of covers) {
+      // A video's poster is the still; a remote video has none and shows its
+      // own first frame instead. An image paints its full source, as tiles do.
+      const still = member.kind === "video" && !member.remote ? member.posterPath : "";
+      const src = still
+        ? this.sourceFor(still, false)
+        : member.kind === "image"
+          ? this.sourceFor(member.filePath, member.remote)
+          : "";
+      const slot = collage.createDiv({ cls: "pg-folder-cover" });
+      if (src) {
+        const image = slot.createEl("img");
+        image.decoding = "async";
+        image.alt = "";
+        image.src = src;
+        image.addEventListener("error", () => slot.addClass("is-broken"), { once: true });
+      } else {
+        const video = slot.createEl("video");
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.src = this.sourceFor(member.filePath, member.remote);
+      }
+    }
+
+    const head = frame.createDiv({ cls: "pg-folder-head" });
+    setIcon(head.createDiv({ cls: "pg-folder-icon" }), model.folder.icon);
+    head.createDiv({ cls: "pg-folder-name", text: model.folder.name });
+    head.createDiv({ cls: "pg-folder-count", text: String(model.members.length) });
+
+    for (const corner of ["tl", "tr", "bl", "br"]) {
+      const handle = frame.createDiv({ cls: `pg-folder-handle is-${corner}` });
+      this.installHandle(handle, model.id, corner.endsWith("l") ? -1 : 1);
+    }
+  }
+
+  /** Opening, the menu, and the long press that shows handles on touch. */
+  private installFolder(root: HTMLElement, id: string): void {
+    root.onclick = (event: MouseEvent) => {
+      if (this.panMoved || this.touchSelecting) return;
+      if (root.hasClass("is-handles")) return;
+      event.stopPropagation();
+      this.onOpenFolder(this.folderById.get(id)?.folder.name ?? "");
+    };
+    root.oncontextmenu = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const name = this.folderById.get(id)?.folder.name;
+      if (name) this.onFolderContextRequested(name, event.clientX, event.clientY);
+    };
+    root.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.pointerType !== "touch") return;
+      window.clearTimeout(this.handlePress);
+      const start = { x: event.clientX, y: event.clientY };
+      this.handlePress = window.setTimeout(() => {
+        root.toggleClass("is-handles", !root.hasClass("is-handles"));
+      }, HANDLE_PRESS_MS);
+      const cancel = (move: PointerEvent): void => {
+        if (Math.hypot(move.clientX - start.x, move.clientY - start.y) < TOUCH_SLOP) return;
+        window.clearTimeout(this.handlePress);
+        root.removeEventListener("pointermove", cancel);
+      };
+      root.addEventListener("pointermove", cancel);
+      root.addEventListener(
+        "pointerup",
+        () => {
+          window.clearTimeout(this.handlePress);
+          root.removeEventListener("pointermove", cancel);
+        },
+        { once: true }
+      );
+    });
+  }
+
+  /**
+   * One corner. Only horizontal travel counts, and a left-hand corner reads
+   * it mirrored, so dragging any corner away from the card grows it. The
+   * card follows the drag live, and the new width is reported on release.
+   */
+  private installHandle(handle: HTMLElement, id: string, direction: 1 | -1): void {
+    handle.addEventListener("pointerdown", (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const model = this.folderById.get(id);
+      if (!model) return;
+      const startX = event.clientX;
+      const startWidth = model.folder.width;
+      let width = startWidth;
+      handle.setPointerCapture(event.pointerId);
+
+      const move = (ev: PointerEvent): void => {
+        const travel = ((ev.clientX - startX) * direction) / this.camera.zoom;
+        const next = widthForDrag(startWidth, travel, this.columnWidth, GAP, this.columns);
+        if (next === width) return;
+        width = next;
+        model.folder = { ...model.folder, width };
+        this.relayout();
+        this.schedule();
+      };
+      const end = (): void => {
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", end);
+        handle.removeEventListener("pointercancel", end);
+        if (width !== startWidth) this.onFolderResized(model.folder.name, width);
+      };
+      handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", end);
+      handle.addEventListener("pointercancel", end);
+    });
+    // A press on a handle is neither a pan nor a tap on the card.
+    handle.onclick = (event: MouseEvent) => event.stopPropagation();
   }
 
   mountedMedia(): Array<HTMLVideoElement | HTMLImageElement> {
@@ -1683,6 +1915,7 @@ export class GridRenderer {
     if (this.frame) window.cancelAnimationFrame(this.frame);
     if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
     this.mounted.clear();
+    this.mountedFolders.clear();
     this.measured.clear();
     this.pool = [];
   }

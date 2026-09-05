@@ -1,5 +1,6 @@
 import { isEmptyValue, valueLabel } from "./filter";
 import type { FacetDef, FacetValue, FilterState } from "./filter";
+import type { FolderSpace } from "./folders";
 import { hotkeyPosition } from "./spaces";
 import type { GridSpace } from "./spaces";
 
@@ -71,6 +72,10 @@ export interface PaletteActions {
   remove(ids: string[]): void;
   switchGrid(name: string): void;
   newGrid(): void;
+  moveToFolder(ids: string[], folder: string): void;
+  /** Opens the folder editor; on save the seeded paths are moved in. */
+  newFolder(seed: string[]): void;
+  openFolder(name: string): void;
   editGrid(): void;
   deleteGrid(): void;
   manageGrids(): void;
@@ -89,6 +94,10 @@ export interface PaletteContext {
   grids: GridSpace[];
   activeGrid: string;
   homeGrid: string;
+  /** The folders on the active grid, in stored order. */
+  folders: FolderSpace[];
+  /** False on a smart grid, where nothing is filed and so nothing is foldered. */
+  canFile: boolean;
   /** The facets on offer, in menu order. */
   facetDefs: FacetDef[];
   facets: Record<string, FacetValue[]>;
@@ -172,6 +181,39 @@ function selectionCommands(context: PaletteContext): PaletteCommand[] {
     });
   }
 
+  if (context.canFile) {
+    const folderRows = (): PaletteCommand[] => [
+      ...context.folders.map((folder) => ({
+        id: `selection:folder:${folder.name}`,
+        label: folder.name,
+        icon: folder.icon,
+        section: "Actions" as const,
+        run: () => actions.moveToFolder(selection, folder.name),
+      })),
+      {
+        id: "selection:folder:new",
+        label: "New folder…",
+        icon: "folder-plus",
+        section: "Actions" as const,
+        divider: context.folders.length > 0,
+        run: () => actions.newFolder(selection),
+      },
+    ];
+    items.push({
+      id: "selection:folder",
+      label: "Move to folder",
+      icon: "folder",
+      section: "Actions",
+      detail: one ? undefined : count,
+      keywords: "file put pile collect group",
+      stage: {
+        title: "Move to folder",
+        placeholder: "Move to…",
+        items: folderRows,
+      },
+    });
+  }
+
   items.push({
     id: "selection:delete",
     label: "Delete",
@@ -212,6 +254,28 @@ function gridCommands(context: PaletteContext): PaletteCommand[] {
     keywords: "create add wall board",
     run: () => actions.newGrid(),
   });
+
+  if (context.canFile) {
+    for (const folder of context.folders) {
+      items.push({
+        id: `folder:open:${folder.name}`,
+        label: folder.name,
+        icon: folder.icon,
+        section: "Grids",
+        detail: "Folder",
+        keywords: "open folder pile go to",
+        run: () => actions.openFolder(folder.name),
+      });
+    }
+    items.push({
+      id: "folder:new",
+      label: "New folder",
+      icon: "folder-plus",
+      section: "Grids",
+      keywords: "create add pile collect group",
+      run: () => actions.newFolder([]),
+    });
+  }
 
   items.push({
     id: "grid:edit",

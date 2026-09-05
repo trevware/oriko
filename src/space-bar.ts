@@ -14,6 +14,8 @@ export interface SpaceBarHandlers {
   onSettings: (x: number, y: number) => void;
   /** Open the filter menu, anchored at a point. */
   onFilter: (x: number, y: number) => void;
+  /** Leave the open folder and show the grid whole again. */
+  onBack: () => void;
 }
 
 /**
@@ -35,6 +37,8 @@ export class SpaceBar {
   switcherAnchor: () => { x: number; y: number } = () => ({ x: 0, y: 0 });
   private icon: HTMLElement;
   private label: HTMLElement;
+  private back: HTMLElement;
+  private folderLabel: HTMLElement;
 
   constructor(container: HTMLElement, handlers: SpaceBarHandlers) {
     this.root = container.createDiv({ cls: "pg-spacebar" });
@@ -65,6 +69,20 @@ export class SpaceBar {
     };
 
     const right = this.root.createDiv({ cls: "pg-space-right" });
+
+    // The folder you are in, with the way out. Sits ahead of the switcher so
+    // the two read as a path: grid, then folder, and the chevron on the
+    // switcher is the folder's own way back up.
+    this.back = right.createEl("button", { cls: "pg-space-back" });
+    this.back.hide();
+    const backIcon = this.back.createDiv({ cls: "pg-space-icon" });
+    setIcon(backIcon, "chevron-left");
+    this.folderLabel = this.back.createDiv({ cls: "pg-space-label" });
+    attachTip(this.back, "Back to grid");
+    this.back.onclick = (event: MouseEvent) => {
+      event.stopPropagation();
+      handlers.onBack();
+    };
 
     this.switcher = right.createEl("button", { cls: "pg-space-switch" });
     attachTip(this.switcher, "Switch grid");
@@ -116,6 +134,13 @@ export class SpaceBar {
   setActive(grid: GridSpace): void {
     setIcon(this.icon, grid.icon);
     this.label.setText(grid.name);
+  }
+
+  /** The folder open on the wall, or null for the grid whole. */
+  setFolder(name: string | null): void {
+    this.folderLabel.setText(name ?? "");
+    this.back.toggle(name !== null);
+    this.root.toggleClass("is-in-folder", name !== null);
   }
 
   /**
