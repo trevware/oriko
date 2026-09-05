@@ -635,16 +635,18 @@ export class GridRenderer {
     this.columnWidth = (size.width - GAP * (columns - 1)) / columns;
 
     // Folders first: a folder is a place you go back to, and a place should
-    // not move. Its box is a fixed shape per width, so the collage always has
-    // the room its cover count was chosen for; full width is as tall as one
-    // column is wide.
+    // not move. Its height follows the tile-size setting's column width, not
+    // the measured one: the measured column stretches to fill the pane, so
+    // a folder that followed it was half again as tall in a narrow pane or
+    // on a phone as on a full screen. The card still spans the real columns.
+    const unit = this.targetColumnWidth;
     const folderItems = this.folders.map((f) => {
       const span = spanFor(f.folder.width, columns);
       const w = this.columnWidth * span + GAP * (span - 1);
       const h =
         f.folder.width === "full"
-          ? this.columnWidth * FULL_HEIGHT
-          : w * heightRatioFor(f.folder.width);
+          ? unit * FULL_HEIGHT
+          : (unit * span + GAP * (span - 1)) * heightRatioFor(f.folder.width);
       return { id: f.id, width: w, height: h, span };
     });
 
