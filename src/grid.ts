@@ -95,7 +95,7 @@ const MAX_TILT_DEG = 5.5;
  */
 const HANDLE_PRESS_MS = 450;
 /** How long the wall stays dimmed around a folder that has just been made. */
-const SPOTLIGHT_MS = 1400;
+const SPOTLIGHT_MS = 1600;
 
 interface TileElement {
   root: HTMLElement;

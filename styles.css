@@ -610,7 +610,11 @@
    only to continuing tiles, never to a pooled element reused for another
    clipping, which would otherwise fly across the canvas. */
 .pg-tile.is-gliding {
-  transition: transform 300ms cubic-bezier(0.22, 0.9, 0.28, 1);
+  /* Opacity rides along: the spotlight dims tiles that are gliding to make
+     room for the new folder, and a transform-only list here snapped them. */
+  transition:
+    transform 300ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    opacity 520ms ease-in-out;
 }
 
 /* Arrival: overshoot past full size, dip, settle. The keyframes carry the
@@ -2565,7 +2569,7 @@ body.is-mobile .pg-spacebar button:active {
    dimming is on the tile, so a card that keeps its transition eases back up
    as one with the rest of the wall. */
 .pg-tile {
-  transition: opacity 360ms ease;
+  transition: opacity 520ms ease-in-out;
 }
 
 .pg-viewport.is-spotlight .pg-tile:not(.is-spotlit) {
