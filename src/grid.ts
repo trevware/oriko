@@ -1777,9 +1777,15 @@ export class GridRenderer {
     if (root.dataset.signature === signature) return;
     root.dataset.signature = signature;
 
-    root.empty();
-    const frame = root.createDiv({ cls: "pg-frame pg-folder" });
-    const collage = frame.createDiv({ cls: "pg-folder-collage" });
+    // Only the picture and the pills are rebuilt. The handles are made once
+    // in installFolder and survive every repaint: a drag reflows the wall on
+    // each step, and rebuilding the handle mid-drag took the pointer capture
+    // with it, ending the drag at the first width it reached.
+    const frame = root.querySelector<HTMLElement>(".pg-frame") ?? root.createDiv();
+    frame.querySelectorAll(".pg-folder-collage, .pg-folder-head").forEach((el) => el.remove());
+    const handles = frame.querySelector(".pg-folder-handle");
+    const collage = createDiv({ cls: "pg-folder-collage" });
+    frame.insertBefore(collage, handles);
     collage.dataset.count = String(covers.length);
     if (covers.length === 0) {
       setIcon(collage.createDiv({ cls: "pg-folder-empty" }), model.folder.icon);
@@ -1811,20 +1817,26 @@ export class GridRenderer {
     }
 
     // The same pills a tile shows on hover, kept on: the name is the point.
-    const head = frame.createDiv({ cls: "pg-folder-head" });
+    const head = createDiv({ cls: "pg-folder-head" });
     const name = head.createDiv({ cls: "pg-folder-name" });
     setIcon(name.createDiv({ cls: "pg-folder-icon" }), model.folder.icon);
     name.createSpan({ text: model.folder.name });
     head.createDiv({ cls: "pg-folder-count", text: String(model.members.length) });
-
-    for (const corner of ["tl", "tr", "bl", "br"]) {
-      const handle = frame.createDiv({ cls: `pg-folder-handle is-${corner}` });
-      this.installHandle(handle, model.id, corner.endsWith("l") ? -1 : 1);
-    }
+    frame.insertBefore(head, handles);
   }
 
-  /** Opening, the menu, and the long press that shows handles on touch. */
+  /**
+   * Opening, the menu, the long press that shows handles on touch, and the
+   * handles themselves, which are made here once so a repaint cannot lose
+   * one mid-drag.
+   */
   private installFolder(root: HTMLElement, id: string): void {
+    const frame = root.createDiv({ cls: "pg-frame pg-folder" });
+    for (const corner of ["tl", "tr", "bl", "br"]) {
+      const handle = frame.createDiv({ cls: `pg-folder-handle is-${corner}` });
+      this.installHandle(handle, root, id, corner.endsWith("l") ? -1 : 1);
+    }
+
     root.onclick = (event: MouseEvent) => {
       if (this.panMoved || this.touchSelecting) return;
       if (root.hasClass("is-handles")) return;
@@ -1866,7 +1878,12 @@ export class GridRenderer {
    * it mirrored, so dragging any corner away from the card grows it. The
    * card follows the drag live, and the new width is reported on release.
    */
-  private installHandle(handle: HTMLElement, id: string, direction: 1 | -1): void {
+  private installHandle(
+    handle: HTMLElement,
+    root: HTMLElement,
+    id: string,
+    direction: 1 | -1
+  ): void {
     handle.addEventListener("pointerdown", (event: PointerEvent) => {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -1877,13 +1894,20 @@ export class GridRenderer {
       const startWidth = model.folder.width;
       let width = startWidth;
       handle.setPointerCapture(event.pointerId);
+      // Held for the whole drag: the pointer leaves the card as it grows and
+      // shrinks, and the brackets should not blink out while it is held.
+      root.addClass("is-resizing");
 
       const move = (ev: PointerEvent): void => {
         const travel = ((ev.clientX - startX) * direction) / this.camera.zoom;
+        // Always from where the drag started, so going out to full and back
+        // in lands on the width the same travel would have reached directly.
         const next = widthForDrag(startWidth, travel, this.columnWidth, GAP, this.columns);
         if (next === width) return;
         width = next;
-        model.folder = { ...model.folder, width };
+        // The live model, which a repaint may have replaced since the press.
+        const live = this.folderById.get(id) ?? model;
+        live.folder = { ...live.folder, width };
         this.relayout({ hold: true });
         this.schedule();
       };
@@ -1891,6 +1915,7 @@ export class GridRenderer {
         handle.removeEventListener("pointermove", move);
         handle.removeEventListener("pointerup", end);
         handle.removeEventListener("pointercancel", end);
+        root.removeClass("is-resizing");
         if (width !== startWidth) this.onFolderResized(model.folder.name, width);
       };
       handle.addEventListener("pointermove", move);

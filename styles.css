@@ -2532,13 +2532,20 @@ body.is-mobile .pg-spacebar button:active {
   }
 }
 
-.pg-folder-tile.is-handles .pg-folder-handle {
+.pg-folder-tile.is-handles .pg-folder-handle,
+.pg-folder-tile.is-resizing .pg-folder-handle {
   opacity: 1;
   pointer-events: auto;
 }
 
-.pg-folder-tile.is-handles .pg-frame {
+.pg-folder-tile.is-handles .pg-frame,
+.pg-folder-tile.is-resizing .pg-frame {
   outline-color: var(--interactive-accent);
+}
+
+/* While a corner is held the card should not tilt under it. */
+.pg-folder-tile.is-resizing .pg-frame {
+  transform: perspective(760px) scale(1);
 }
 
 /* The way back out of a folder, beside the switcher it sits under. */
