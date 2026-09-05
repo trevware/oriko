@@ -602,7 +602,7 @@ export class GridRenderer {
    * height change (the keyboard, a status bar) leaves every position as it
    * was, and popping the wall for that would be noise.
    */
-  relayout(options: { restage?: boolean } = {}): void {
+  relayout(options: { restage?: boolean; hold?: boolean } = {}): void {
     // A pane behind another tab measures 0 by 0. Laying it out then would
     // fall back to viewportSize's nominal size and arrange the wall for a
     // pane that does not exist, moving the camera to suit; switching back
@@ -657,7 +657,10 @@ export class GridRenderer {
     if (!this.placed && this.tiles.length > 0) {
       this.placed = true;
       this.camera = initialCamera(size, this.contentSize());
-    } else if (anchor) {
+    } else if (anchor && !options.hold) {
+      // `hold` keeps the camera where it is. A corner drag reflows the wall
+      // under the pointer several times a second, and following the anchor
+      // tile through each reflow moved the wall while the hand was still.
       // Adding a clipping inserts at the top and pushes everything down;
       // shift the camera by the same amount so the view does not jump.
       const moved = this.layout.positions.find((p) => p.id === anchor.id);
@@ -1880,7 +1883,7 @@ export class GridRenderer {
         if (next === width) return;
         width = next;
         model.folder = { ...model.folder, width };
-        this.relayout();
+        this.relayout({ hold: true });
         this.schedule();
       };
       const end = (): void => {

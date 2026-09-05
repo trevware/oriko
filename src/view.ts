@@ -2128,6 +2128,10 @@ export class OrikoView extends ItemView {
       (saved) => {
         if (seed.length > 0) void this.moveToFolder(seed, saved.name);
         this.refresh();
+        // Folders lead the wall, so a new one is at the top; go there, or
+        // it was made somewhere you cannot see. After the repaint, which is
+        // the frame after this one.
+        window.requestAnimationFrame(() => this.grid?.resetView());
       }
     );
   }
@@ -2147,6 +2151,8 @@ export class OrikoView extends ItemView {
     if (!entry || entry.width === width) return;
     entry.width = width;
     await this.plugin.saveSettings();
+    // The drag already laid the wall out at this width, so the repaint moves
+    // nothing and the camera stays where the hand left it.
     this.refresh();
   }
 

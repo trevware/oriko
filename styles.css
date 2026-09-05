@@ -2514,11 +2514,11 @@ body.is-mobile .pg-spacebar button:active {
 .pg-folder-handle.is-bl { bottom: 0; left: 0; cursor: nesw-resize; }
 .pg-folder-handle.is-br { bottom: 0; right: 0; cursor: nwse-resize; }
 
-/* Each bracket hugs its corner and curves with the frame's 10px radius. */
-.pg-folder-handle.is-tl::before { top: 4px; left: 4px; border-right: 0; border-bottom: 0; border-top-left-radius: 10px; }
-.pg-folder-handle.is-tr::before { top: 4px; right: 4px; border-left: 0; border-bottom: 0; border-top-right-radius: 10px; }
-.pg-folder-handle.is-bl::before { bottom: 4px; left: 4px; border-right: 0; border-top: 0; border-bottom-left-radius: 10px; }
-.pg-folder-handle.is-br::before { bottom: 4px; right: 4px; border-left: 0; border-top: 0; border-bottom-right-radius: 10px; }
+/* Each bracket sits on the card's edge and curves with its 10px radius. */
+.pg-folder-handle.is-tl::before { top: 0; left: 0; border-right: 0; border-bottom: 0; border-top-left-radius: 10px; }
+.pg-folder-handle.is-tr::before { top: 0; right: 0; border-left: 0; border-bottom: 0; border-top-right-radius: 10px; }
+.pg-folder-handle.is-bl::before { bottom: 0; left: 0; border-right: 0; border-top: 0; border-bottom-left-radius: 10px; }
+.pg-folder-handle.is-br::before { bottom: 0; right: 0; border-left: 0; border-top: 0; border-bottom-right-radius: 10px; }
 
 @media (hover: hover) {
   .pg-folder-tile:hover .pg-folder-handle {
