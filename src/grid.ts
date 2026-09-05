@@ -94,6 +94,8 @@ const MAX_TILT_DEG = 5.5;
  * mouse gets them on hover; a finger has no hover, so it asks by holding.
  */
 const HANDLE_PRESS_MS = 450;
+/** How long the wall stays dimmed around a folder that has just been made. */
+const SPOTLIGHT_MS = 1400;
 
 interface TileElement {
   root: HTMLElement;
@@ -130,6 +132,9 @@ export class GridRenderer {
   private columns = 1;
   private columnWidth = 0;
   private handlePress = 0;
+  /** A folder just made: it pops in alone while the rest of the wall dims. */
+  private spotlightId: string | null = null;
+  private spotlightTimer = 0;
   private layout: LayoutResult = { positions: [], totalHeight: 0 };
   private mounted = new Map<string, TileElement>();
   private pool: TileElement[] = [];
@@ -553,6 +558,24 @@ export class GridRenderer {
         element.remove();
       }
     }
+  }
+
+  /**
+   * Brings a folder in on its own: the rest of the wall dims for a moment
+   * while the card pops, so a folder made from a selection is seen landing
+   * rather than found later at the top. Applied at paint time too, since the
+   * card is usually not mounted yet when this is asked for.
+   */
+  spotlight(id: string): void {
+    window.clearTimeout(this.spotlightTimer);
+    this.spotlightId = id;
+    this.viewport.addClass("is-spotlight");
+    this.mountedFolders.get(id)?.addClass("is-spotlit");
+    this.spotlightTimer = window.setTimeout(() => {
+      this.spotlightId = null;
+      this.viewport.removeClass("is-spotlight");
+      for (const element of this.mountedFolders.values()) element.removeClass("is-spotlit");
+    }, SPOTLIGHT_MS);
   }
 
   /** Pops a newly arrived tile in, staggered so a batch lands as a wave. */
@@ -1757,8 +1780,11 @@ export class GridRenderer {
       root = this.canvas.createDiv({ cls: "pg-tile pg-folder-tile" });
       this.mountedFolders.set(model.id, root);
       this.installFolder(root, model.id);
-      if (!this.knownFolders.has(model.id) || this.restaging) {
-        const delay = Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
+      const spotlit = model.id === this.spotlightId;
+      if (spotlit) root.addClass("is-spotlit");
+      if (!this.knownFolders.has(model.id) || this.restaging || spotlit) {
+        // The spotlit card leads: no stagger, it is the one thing arriving.
+        const delay = spotlit ? 0 : Math.min(order, ENTER_STAGGER_CAP) * ENTER_STAGGER_MS;
         root.style.setProperty("--pg-enter-delay", `${delay}ms`);
         root.addClass("is-entering");
         const el = root;
@@ -1982,6 +2008,7 @@ export class GridRenderer {
     if (this.onBlur) window.removeEventListener("blur", this.onBlur);
     if (this.frame) window.cancelAnimationFrame(this.frame);
     if (this.relayoutFrame) window.cancelAnimationFrame(this.relayoutFrame);
+    window.clearTimeout(this.spotlightTimer);
     this.mounted.clear();
     this.mountedFolders.clear();
     this.measured.clear();

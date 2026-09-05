@@ -2561,6 +2561,27 @@ body.is-mobile .pg-spacebar button:active {
   transform: perspective(760px) scale(1);
 }
 
+/* A folder just made pops in alone while everything else steps back. The
+   dimming is on the tile, so a card that keeps its transition eases back up
+   as one with the rest of the wall. */
+.pg-tile {
+  transition: opacity 360ms ease;
+}
+
+.pg-viewport.is-spotlight .pg-tile:not(.is-spotlit) {
+  opacity: 0.18;
+}
+
+.pg-tile.is-spotlit {
+  z-index: 6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-viewport.is-spotlight .pg-tile:not(.is-spotlit) {
+    opacity: 1;
+  }
+}
+
 /* The way back out of a folder, beside the switcher it sits under. */
 .pg-spacebar button.pg-space-back .pg-space-icon .svg-icon {
   opacity: 0.7;

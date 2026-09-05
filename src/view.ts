@@ -26,7 +26,7 @@ import { DetailView } from "./detail";
 import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./core/drop";
 import type { MenuItem } from "./context-menu";
 import type { FoldersController, GridsController } from "./grid-sheets";
-import { FOLDER_WIDTHS, partitionWall } from "./core/folders";
+import { FOLDER_WIDTHS, folderTileId, partitionWall } from "./core/folders";
 import type { FolderSpace, FolderTileModel, FolderWidth } from "./core/folders";
 import { GridRenderer } from "./grid";
 import { groupedMenu } from "./core/layout";
@@ -2129,8 +2129,9 @@ export class OrikoView extends ItemView {
         if (seed.length > 0) void this.moveToFolder(seed, saved.name);
         this.refresh();
         // Folders lead the wall, so a new one is at the top; go there, or
-        // it was made somewhere you cannot see. After the repaint, which is
-        // the frame after this one.
+        // it was made somewhere you cannot see, and light it as it lands.
+        // After the repaint, which is the frame after this one.
+        this.grid?.spotlight(folderTileId(saved));
         window.requestAnimationFrame(() => this.grid?.resetView());
       }
     );
