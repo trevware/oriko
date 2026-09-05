@@ -41,6 +41,63 @@ export interface FolderTileModel {
  */
 export const COVER_COUNT: Record<FolderWidth, number> = { 1: 3, 2: 6, full: 10 };
 
+/** The collage's cell grid at each width, two rows deep throughout. */
+export const COLLAGE_GRID: Record<FolderWidth, { columns: number; rows: number }> = {
+  1: { columns: 2, rows: 2 },
+  2: { columns: 4, rows: 2 },
+  full: { columns: 6, rows: 2 },
+};
+
+export interface CoverSpan {
+  columns: number;
+  rows: number;
+}
+
+/**
+ * How the covers tile the collage, one span per cover, filling every cell.
+ *
+ * A fixed grid with covers dropped in left the card mostly bare whenever a
+ * folder held fewer than its full count, and the same shape whatever was in
+ * it. Each count gets its own arrangement instead: a lone cover takes the
+ * card, two split it, and larger counts mix a big cover with small ones,
+ * the way the wall itself mixes sizes. Every plan's cells add up to the grid,
+ * so dense auto-placement packs it without a hole.
+ */
+const PLANS: Record<FolderWidth, string[][]> = {
+  1: [[], ["2x2"], ["2x1", "2x1"], ["2x1", "1x1", "1x1"]],
+  2: [
+    [],
+    ["4x2"],
+    ["2x2", "2x2"],
+    ["2x2", "2x1", "2x1"],
+    ["2x2", "1x1", "1x1", "2x1"],
+    ["2x2", "1x1", "1x1", "1x1", "1x1"],
+    ["2x1", "1x1", "1x1", "1x1", "1x1", "2x1"],
+  ],
+  full: [
+    [],
+    ["6x2"],
+    ["3x2", "3x2"],
+    ["2x2", "2x2", "2x2"],
+    ["2x2", "2x2", "2x1", "2x1"],
+    ["2x2", "2x2", "2x1", "1x1", "1x1"],
+    ["2x2", "2x2", "1x1", "1x1", "1x1", "1x1"],
+    ["2x2", "2x1", "2x1", "1x1", "1x1", "1x1", "1x1"],
+    ["2x2", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1", "2x1"],
+    ["2x2", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1"],
+    ["2x1", "2x1", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1", "1x1"],
+  ],
+};
+
+export function collagePlan(count: number, width: FolderWidth): CoverSpan[] {
+  const n = Math.max(0, Math.min(count, COVER_COUNT[width]));
+  const plan = PLANS[width][n] ?? [];
+  return plan.map((cell) => {
+    const [columns, rows] = cell.split("x").map(Number);
+    return { columns, rows };
+  });
+}
+
 const HEIGHT_RATIO: Record<FolderWidth, number> = { 1: 1.15, 2: 0.55, full: 0 };
 
 /**

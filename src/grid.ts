@@ -22,7 +22,7 @@ import { tileBadges } from "./core/badges";
 import type { TileSlots } from "./core/badges";
 import { DEFAULT_STAGE, columnWidthFor } from "./core/density";
 import type { DensityStage } from "./core/density";
-import { COVER_COUNT, heightRatioFor, spanFor, widthForDrag } from "./core/folders";
+import { COVER_COUNT, collagePlan, heightRatioFor, spanFor, widthForDrag } from "./core/folders";
 import type { FolderTileModel, FolderWidth } from "./core/folders";
 import {
   columnsForWidth,
@@ -1792,11 +1792,14 @@ export class GridRenderer {
     if (covers.length === 0) {
       setIcon(collage.createDiv({ cls: "pg-folder-empty" }), model.folder.icon);
     }
-    for (const member of covers) {
+    const plan = collagePlan(covers.length, model.folder.width);
+    covers.forEach((member, index) => {
       // Each cover is built the way its tile's media is, still and all, so
       // the playback controller can drive it the same way: a video sits on
       // its poster until played, and a GIF on its still frame.
       const slot = collage.createDiv({ cls: "pg-folder-cover" });
+      const span = plan[index];
+      if (span) slot.dataset.span = `${span.columns}x${span.rows}`;
       const still = this.sourceFor(member.posterPath, false);
       const original = this.sourceFor(member.filePath, member.remote);
       if (member.kind === "video") {
@@ -1822,7 +1825,7 @@ export class GridRenderer {
         }
         image.addEventListener("error", () => slot.addClass("is-broken"), { once: true });
       }
-    }
+    });
 
     // The same pills a tile shows on hover, kept on: the name is the point.
     const head = createDiv({ cls: "pg-folder-head" });

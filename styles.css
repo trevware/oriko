@@ -2380,24 +2380,29 @@ body.is-mobile .pg-spacebar button:active {
   padding: 14px;
   overflow: hidden;
   border-radius: inherit;
-  /* One column: a wide cover on top and two beneath it. */
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 3fr 2fr;
-}
-
-.pg-folder-tile[data-width="1"] .pg-folder-cover:first-child {
-  grid-column: 1 / -1;
+  /* Two rows at every width; the columns grow with the card. Each cover
+     carries a span from collagePlan, and dense flow packs them so the card
+     is full whatever the count. */
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr 1fr;
+  grid-auto-flow: dense;
 }
 
 .pg-folder-tile[data-width="2"] .pg-folder-collage {
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
 }
 
 .pg-folder-tile[data-width="full"] .pg-folder-collage {
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: 1fr 1fr;
+  grid-template-columns: repeat(6, 1fr);
 }
+
+.pg-folder-cover[data-span="1x1"] { grid-column: span 1; grid-row: span 1; }
+.pg-folder-cover[data-span="2x1"] { grid-column: span 2; grid-row: span 1; }
+.pg-folder-cover[data-span="3x1"] { grid-column: span 3; grid-row: span 1; }
+.pg-folder-cover[data-span="2x2"] { grid-column: span 2; grid-row: span 2; }
+.pg-folder-cover[data-span="3x2"] { grid-column: span 3; grid-row: span 2; }
+.pg-folder-cover[data-span="4x2"] { grid-column: span 4; grid-row: span 2; }
+.pg-folder-cover[data-span="6x2"] { grid-column: span 6; grid-row: span 2; }
 
 .pg-folder-cover {
   position: relative;
@@ -2538,9 +2543,17 @@ body.is-mobile .pg-spacebar button:active {
   pointer-events: auto;
 }
 
+/* Held, the card reads as selected: the same accent ring, and the brackets
+   take the accent too. */
 .pg-folder-tile.is-handles .pg-frame,
 .pg-folder-tile.is-resizing .pg-frame {
-  outline-color: var(--interactive-accent);
+  outline-color: var(--pg-accent);
+  box-shadow: var(--pg-tile-lift-selected);
+}
+
+.pg-folder-tile.is-handles .pg-folder-handle::before,
+.pg-folder-tile.is-resizing .pg-folder-handle::before {
+  border-color: var(--pg-accent);
 }
 
 /* While a corner is held the card should not tilt under it. */

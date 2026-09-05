@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  COLLAGE_GRID,
   COVER_COUNT,
+  collagePlan,
   fileableFolder,
   folderTileId,
   heightRatioFor,
@@ -183,5 +185,34 @@ describe("widthForDrag", () => {
 
   it("treats two as full on a two-column wall", () => {
     expect(drag(1, 60, 2)).toBe("full");
+  });
+});
+
+describe("collagePlan", () => {
+  const cells = (width: 1 | 2 | "full") => COLLAGE_GRID[width].columns * COLLAGE_GRID[width].rows;
+
+  it("gives one span per cover", () => {
+    expect(collagePlan(4, "full")).toHaveLength(4);
+  });
+
+  it("fills the grid exactly, whatever the count", () => {
+    for (const width of [1, 2, "full"] as const) {
+      for (let n = 1; n <= COVER_COUNT[width]; n++) {
+        const area = collagePlan(n, width).reduce((sum, s) => sum + s.columns * s.rows, 0);
+        expect(area, `${n} covers at width ${width}`).toBe(cells(width));
+      }
+    }
+  });
+
+  it("lets one cover take the whole card", () => {
+    expect(collagePlan(1, 2)).toEqual([{ columns: COLLAGE_GRID[2].columns, rows: 2 }]);
+  });
+
+  it("is empty for no covers", () => {
+    expect(collagePlan(0, 1)).toEqual([]);
+  });
+
+  it("caps at the cover count for the width", () => {
+    expect(collagePlan(50, 1)).toHaveLength(COVER_COUNT[1]);
   });
 });
