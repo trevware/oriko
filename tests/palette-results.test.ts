@@ -27,6 +27,7 @@ function clipping(title: string, grid = "", extra = ""): ClippingRecord {
     created: "2026-08-17",
     cover: "",
     grid,
+    folder: "",
     media: [],
     haystack: `${title} ${extra}`.toLowerCase(),
     properties: {},

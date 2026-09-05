@@ -12,6 +12,7 @@ import { DEFAULT_SETTINGS } from "../src/core/settings";
 
 const fallback = {
   grids: [{ name: "Manga", icon: "archive" }],
+  folders: [],
   homeGridName: "Clippings",
   homeGridIcon: "archive",
   filterProperties: ["categories", "status"],
@@ -24,6 +25,7 @@ describe("sharedOf and withShared", () => {
     expect(shared.grids).toEqual(fallback.grids);
     expect(Object.keys(shared).sort()).toEqual([
       "filterProperties",
+      "folders",
       "grids",
       "homeGridIcon",
       "homeGridName",
@@ -50,7 +52,7 @@ describe("parseShared", () => {
       homeGridIcon: "layout-grid",
       filterProperties: ["categories"],
     };
-    expect(parseShared(raw, fallback)).toEqual(raw);
+    expect(parseShared(raw, fallback)).toEqual({ ...raw, folders: [] });
   });
 
   it("keeps smart grid rules", () => {
@@ -97,6 +99,46 @@ describe("parseShared", () => {
     expect(parseShared({ homeGridName: "" }, fallback).homeGridName).toBe(fallback.homeGridName);
   });
 
+});
+
+describe("parseShared folders", () => {
+  it("reads folders, keeping only well-formed ones", () => {
+    const parsed = parseShared(
+      {
+        folders: [
+          { name: "Kitchen", icon: "folder", grid: "", width: 2 },
+          { name: "Bad", icon: "folder", grid: "", width: 7 },
+          { name: "", icon: "folder", grid: "", width: 1 },
+          null,
+        ],
+      },
+      fallback
+    );
+    expect(parsed.folders).toEqual([{ name: "Kitchen", icon: "folder", grid: "", width: 2 }]);
+  });
+
+  it("reads an older file without folders as having none", () => {
+    expect(parseShared({ grids: [] }, fallback).folders).toEqual([]);
+  });
+
+  it("round-trips folders through serialise and extract", () => {
+    const shared = {
+      ...defaultShared(),
+      folders: [{ name: "Film", icon: "clapperboard", grid: "Design", width: "full" as const }],
+    };
+    expect(parseShared(extractShared(serializeShared(shared)), fallback).folders).toEqual(
+      shared.folders
+    );
+  });
+
+  it("counts a vault with folders as configured", () => {
+    expect(
+      isDefaultShared({
+        ...defaultShared(),
+        folders: [{ name: "Film", icon: "folder", grid: "", width: 1 }],
+      })
+    ).toBe(false);
+  });
 });
 
 describe("isDefaultShared", () => {

@@ -13,6 +13,7 @@ function record(properties: Record<string, string[]>): ClippingRecord {
     created: "",
     cover: "",
     grid: "",
+    folder: "",
     media: [],
     haystack: "",
     properties,

@@ -1,4 +1,5 @@
 import type { DensityStage } from "./density";
+import type { FolderSpace } from "./folders";
 import type { GridSpace, SharedClipTarget } from "./spaces";
 
 export interface OrikoSettings {
@@ -38,6 +39,8 @@ export interface OrikoSettings {
    * exists and is always first.
    */
   grids: GridSpace[];
+  /** The folders on every grid, shared with the grids. See folders.ts. */
+  folders: FolderSpace[];
   /** Display name of the implicit grid. A clipping with no key belongs to it. */
   homeGridName: string;
   homeGridIcon: string;
@@ -76,6 +79,7 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   tileDate: "created",
   tileProperty: "categories",
   grids: [],
+  folders: [],
   homeGridName: "Clippings",
   homeGridIcon: "layout-grid",
   activeGrid: "Clippings",

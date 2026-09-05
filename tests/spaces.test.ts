@@ -33,6 +33,7 @@ function record(path: string, grid = ""): ClippingRecord {
     created: "",
     cover: "",
     grid,
+    folder: "",
     media: [],
     haystack: "",
     properties: {},

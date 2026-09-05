@@ -221,6 +221,20 @@ describe("scanClipping grid key", () => {
   });
 });
 
+describe("scanClipping folder key", () => {
+  it("reads the folder a clipping is filed in", () => {
+    expect(scanClipping("Clippings/a.md", { folder: "Kitchen" }, "").folder).toBe("Kitchen");
+  });
+
+  it("is empty when the note carries no key", () => {
+    expect(scanClipping("Clippings/a.md", { title: "A" }, "").folder).toBe("");
+  });
+
+  it("ignores a non-string value", () => {
+    expect(scanClipping("Clippings/a.md", { folder: ["a"] }, "").folder).toBe("");
+  });
+});
+
 describe("scanClipping properties", () => {
   it("captures scalars, lists, numbers and booleans as string arrays", () => {
     const record = scanClipping(

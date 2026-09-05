@@ -1,5 +1,7 @@
 import { DEFAULT_SETTINGS } from "./settings";
 import type { OrikoSettings } from "./settings";
+import { isFolderWidth } from "./folders";
+import type { FolderSpace } from "./folders";
 import type { GridSpace } from "./spaces";
 
 /**
@@ -19,6 +21,8 @@ import type { GridSpace } from "./spaces";
  */
 export interface SharedConfig {
   grids: GridSpace[];
+  /** Absent in a file written before folders, which reads as none. */
+  folders: FolderSpace[];
   homeGridName: string;
   homeGridIcon: string;
   filterProperties: string[];
@@ -52,6 +56,7 @@ export function sharedOf(settings: OrikoSettings): SharedConfig {
   // grids yet write real user data into a module-level constant.
   return {
     grids: [...settings.grids],
+    folders: [...settings.folders],
     homeGridName: settings.homeGridName,
     homeGridIcon: settings.homeGridIcon,
     filterProperties: [...settings.filterProperties],
@@ -75,6 +80,7 @@ export function isDefaultShared(shared: SharedConfig): boolean {
   const base = sharedOf(DEFAULT_SETTINGS);
   return (
     shared.grids.length === 0 &&
+    shared.folders.length === 0 &&
     shared.homeGridName === base.homeGridName &&
     shared.homeGridIcon === base.homeGridIcon &&
     shared.filterProperties.length === base.filterProperties.length &&
@@ -100,6 +106,17 @@ function isGrid(value: unknown): value is GridSpace {
   return grid.rules === undefined || (typeof grid.rules === "object" && grid.rules !== null);
 }
 
+function isFolder(value: unknown): value is FolderSpace {
+  if (typeof value !== "object" || value === null) return false;
+  const folder = value as Partial<FolderSpace>;
+  if (typeof folder.name !== "string" || folder.name === "") return false;
+  if (typeof folder.icon !== "string") return false;
+  if (typeof folder.grid !== "string") return false;
+  // A width the wall cannot lay out is a folder it cannot show, and showing
+  // it at some guessed size would then be written back as the truth.
+  return isFolderWidth(folder.width);
+}
+
 function strings(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
   return value.every((v): v is string => typeof v === "string") ? [...value] : null;
@@ -118,10 +135,14 @@ export function parseShared(raw: unknown, fallback: SharedConfig): SharedConfig 
   const from = raw as Record<string, unknown>;
 
   const grids = Array.isArray(from.grids) ? from.grids.filter(isGrid) : null;
+  // Missing is the pre-folders file, and that means no folders rather than
+  // whatever this device last saw: the file is the truth for the vault.
+  const folders = Array.isArray(from.folders) ? from.folders.filter(isFolder) : [];
   const properties = strings(from.filterProperties);
 
   return {
     grids: grids ?? fallback.grids,
+    folders,
     homeGridName:
       typeof from.homeGridName === "string" && from.homeGridName !== ""
         ? from.homeGridName
@@ -147,7 +168,7 @@ export function serializeShared(shared: SharedConfig): string {
   return [
     "# Oriko",
     "",
-    "The grids in this vault, shared by every device that opens it. Written by the Oriko plugin; change them in the app rather than here.",
+    "The grids and folders in this vault, shared by every device that opens it. Written by the Oriko plugin; change them in the app rather than here.",
     "",
     `${FENCE}json`,
     JSON.stringify(shared, null, 2),

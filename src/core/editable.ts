@@ -27,7 +27,7 @@ const CLIPPER_KEYS = new Set([
  * one key is how they drift; `cover` and `media` are pointers at files, not
  * values to pick from a list.
  */
-const PLUGIN_KEYS = new Set(["type", "grid", "cover", "media"]);
+const PLUGIN_KEYS = new Set(["type", "grid", "folder", "cover", "media"]);
 
 /** The status vocabulary, in reading order rather than alphabetical: it is a
     progression, and a picker should show it as one. */

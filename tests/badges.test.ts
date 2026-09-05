@@ -15,6 +15,7 @@ function record(over: Partial<ClippingRecord> = {}): ClippingRecord {
     created: "2026-09-01",
     cover: "",
     grid: "",
+    folder: "",
     media: [],
     haystack: "",
     properties: {

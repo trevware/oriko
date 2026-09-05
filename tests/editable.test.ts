@@ -16,7 +16,7 @@ describe("isEditable", () => {
   });
 
   it("refuses the keys the plugin owns itself", () => {
-    for (const key of ["type", "grid", "cover", "media"]) {
+    for (const key of ["type", "grid", "folder", "cover", "media"]) {
       expect(isEditable(key)).toBe(false);
     }
   });

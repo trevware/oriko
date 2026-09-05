@@ -26,6 +26,12 @@ export interface ClippingRecord {
    * business knowing about. See spaces.ts.
    */
   grid: string;
+  /**
+   * Which folder on that grid it is filed in. Raw for the same reason as
+   * grid: whether the folder exists is the registry's business. See
+   * folders.ts.
+   */
+  folder: string;
   media: MediaRef[];
   haystack: string;
   /**
@@ -243,6 +249,7 @@ export function scanClipping(
 
   const cover = str(frontmatter.cover);
   const grid = str(frontmatter.grid);
+  const folder = str(frontmatter.folder);
 
   const properties = toProperties(frontmatter);
   // The two facets that ship enabled take the fields computed above rather
@@ -263,6 +270,7 @@ export function scanClipping(
     created,
     cover,
     grid,
+    folder,
     media,
     haystack,
     properties,

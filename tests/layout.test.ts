@@ -60,6 +60,59 @@ describe("computeLayout", () => {
     expect(next.y).toBe(100);
   });
 
+  it("lays a spanning item across adjacent columns and levels them", () => {
+    const items: LayoutItem[] = [
+      { id: "a", width: 100, height: 300 },
+      { id: "b", width: 100, height: 100 },
+      { id: "wide", width: 200, height: 100, span: 2 },
+      { id: "c", width: 100, height: 100 },
+    ];
+    const { positions } = computeLayout(items, 200, 2, 0);
+    const wide = positions.find((p) => p.id === "wide")!;
+    expect(wide.x).toBe(0);
+    expect(wide.w).toBe(200);
+    // Under the taller of the two columns, so it overlaps neither.
+    expect(wide.y).toBe(300);
+    expect(wide.h).toBe(100);
+    // Both columns now start below it.
+    const c = positions.find((p) => p.id === "c")!;
+    expect(c.y).toBe(400);
+  });
+
+  it("picks the run of columns with the lowest ceiling for a spanning item", () => {
+    const items: LayoutItem[] = [
+      { id: "a", width: 100, height: 300 },
+      { id: "b", width: 100, height: 100 },
+      { id: "c", width: 100, height: 100 },
+      { id: "wide", width: 200, height: 100, span: 2 },
+    ];
+    const { positions } = computeLayout(items, 300, 3, 0);
+    const wide = positions.find((p) => p.id === "wide")!;
+    expect(wide.x).toBe(100);
+    expect(wide.y).toBe(100);
+  });
+
+  it("clamps a span wider than the wall", () => {
+    const { positions } = computeLayout(
+      [{ id: "wide", width: 300, height: 100, span: 5 }],
+      200,
+      2,
+      0
+    );
+    expect(positions[0].w).toBe(200);
+  });
+
+  it("sizes a spanning item's width to include the gaps it covers", () => {
+    const { positions } = computeLayout(
+      [{ id: "wide", width: 200, height: 100, span: 2 }],
+      1016,
+      2,
+      16
+    );
+    expect(positions[0].w).toBe(1016);
+    expect(positions[0].h).toBe(508);
+  });
+
   it("reports total height as the tallest column", () => {
     const items: LayoutItem[] = [
       { id: "a", width: 100, height: 300 },

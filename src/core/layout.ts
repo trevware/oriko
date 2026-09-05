@@ -2,6 +2,11 @@ export interface LayoutItem {
   id: string;
   width: number;
   height: number;
+  /**
+   * Columns to cover. Absent is one, which is every clipping. A folder tile
+   * sets this; wider than the wall clamps to the wall.
+   */
+  span?: number;
 }
 
 export interface Position {
@@ -45,20 +50,32 @@ export function computeLayout(
   const positions: Position[] = [];
 
   for (const item of items) {
+    const span = Math.max(1, Math.min(columnCount, Math.floor(item.span ?? 1)));
+    // The run of `span` adjacent columns whose highest bottom edge is lowest.
+    // For a single column that is the shortest column, as it always was.
+    // Epsilon keeps ties resolving to the leftmost run, which is what makes
+    // the layout deterministic for identical inputs.
     let target = 0;
-    for (let c = 1; c < columnCount; c++) {
-      // Epsilon keeps ties resolving to the leftmost column, which is what
-      // makes the layout deterministic for identical inputs.
-      if (heights[c] < heights[target] - 0.01) target = c;
+    let targetTop = Infinity;
+    for (let c = 0; c + span <= columnCount; c++) {
+      let top = 0;
+      for (let k = c; k < c + span; k++) top = Math.max(top, heights[k]);
+      if (top < targetTop - 0.01) {
+        target = c;
+        targetTop = top;
+      }
     }
 
+    const w = columnWidth * span + gap * (span - 1);
     const ratio = item.width > 0 && item.height > 0 ? item.height / item.width : 1;
-    const h = Math.round(columnWidth * ratio);
+    const h = Math.round(w * ratio);
     const x = Math.round(target * (columnWidth + gap));
-    const y = Math.round(heights[target]);
+    const y = Math.round(targetTop);
 
-    positions.push({ id: item.id, x, y, w: Math.floor(columnWidth), h });
-    heights[target] = y + h + gap;
+    positions.push({ id: item.id, x, y, w: Math.floor(w), h });
+    // Every column under a spanning item starts below it, so nothing later
+    // can tuck in beside it.
+    for (let k = target; k < target + span; k++) heights[k] = y + h + gap;
   }
 
   const totalHeight = Math.max(0, Math.max(...heights) - gap);

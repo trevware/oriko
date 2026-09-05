@@ -46,6 +46,7 @@ function tile(
       created: "",
       cover: "",
       grid: "",
+      folder: "",
       media: [],
       haystack: "",
       properties: {
