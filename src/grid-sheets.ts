@@ -297,7 +297,7 @@ function rulesScreen(
       if (isFilterEmpty(current)) {
         // Without a rule it would hold the whole wall, which is home under a
         // second name. Refused here rather than hidden, so the reason is said.
-        new Notice("Oriko: a smart grid needs at least one rule");
+        new Notice("Oriko: a smart view needs at least one rule");
         return;
       }
 
@@ -338,8 +338,8 @@ function gridEditorScreen(
   const smart = grid.rules !== undefined;
 
   return {
-    title: creating ? (smart ? "New smart grid" : "New grid") : `Edit ${grid.name}`,
-    placeholder: "Grid name",
+    title: creating ? (smart ? "New smart view" : "New grid") : `Edit ${grid.name}`,
+    placeholder: smart ? "View name" : "Grid name",
     value: grid.name,
     filters: false,
     active: Math.max(0, GRID_ICONS.indexOf(grid.icon)),
@@ -447,7 +447,7 @@ function confirmDelete(
       : members === 0
         ? "The grid is empty, so nothing moves."
         : `${members} ${plural(members, "clipping", "clippings")} will return to ${home}. No notes are deleted and nothing is rewritten.`,
-    cta: "Delete grid",
+    cta: smart ? "Delete view" : "Delete grid",
     destructive: true,
     onConfirm: () => void grids.remove(index).then(after),
   });
@@ -547,7 +547,7 @@ export function openGridsManager(
       }
 
       const smart = isSmartGrid(grid);
-      const heading = smart && firstSmart ? "Smart grids" : undefined;
+      const heading = smart && firstSmart ? "Smart views" : undefined;
       if (smart) firstSmart = false;
 
       rows.push({

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Smart grids are now called smart views.** Nothing else about them changes. The name was misleading: you can't move a clipping into one, it shows whatever matches its rules, and "view" says that where "grid" suggested a place things go.
+
 ### Added
 - **You can now gather clippings into folders on a grid.** Select a few tiles, right-click and choose Move to folder → New folder…, give it a name and an icon, and they collapse into one card on the wall: a collage of what's inside, with the name and a count along the bottom. Click the card to see the folder as a wall of its own (Escape or the back button beside the grid switcher takes you out again), and anything you clip while you're in there lands in the folder. The same options are in the palette under Move to folder, and New folder sits beside New grid.
 - **Folder cards can be resized.** Hover a folder and drag any corner to stretch it across one, two or three columns; on a phone, hold your finger on the card first to bring the corners up. A wider card shows more of what's inside. Right-click the card for Size if you'd rather pick from a list, and for Edit folder and Remove folder. Removing a folder puts its clippings back on the wall and deletes nothing.

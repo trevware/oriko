@@ -1875,7 +1875,7 @@ export class OrikoView extends ItemView {
       ...manual.map((placed, index) =>
         row(placed, captioned && index === 0 ? "Grids" : undefined)
       ),
-      ...smart.map((placed, index) => row(placed, index === 0 ? "Smart grids" : undefined)),
+      ...smart.map((placed, index) => row(placed, index === 0 ? "Smart views" : undefined)),
     ];
     this.menu?.open(items, x, y);
   }
@@ -2056,7 +2056,7 @@ export class OrikoView extends ItemView {
         },
         {
           icon: "wand-2",
-          label: "New smart grid",
+          label: "New smart view",
           onSelect: () => this.promptNewSmartGrid(),
         },
         {
@@ -2066,7 +2066,7 @@ export class OrikoView extends ItemView {
           // Inert on a smart grid, so the row does not come and go by where
           // you are; a folder needs a grid that can be filed into.
           disabled: !this.canFile(),
-          detail: this.canFile() ? undefined : "Smart grid",
+          detail: this.canFile() ? undefined : "Smart view",
           onSelect: () => this.promptNewFolder([]),
         },
       ],

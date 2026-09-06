@@ -56,7 +56,7 @@ Beyond the palette, ⌘Z undoes the last move, edit, or folder and grid change a
 
 ## Grids
 
-Grids are boards. A clipping belongs to a grid through a single `grid` property in its frontmatter, home shows everything, and smart grids collect clippings by rule. The set of grids is shared across your devices through one small note in the clippings folder, so a board made on your desktop is on your phone after a sync.
+Grids are boards. A clipping belongs to a grid through a single `grid` property in its frontmatter, home shows everything, and smart views collect clippings by rule (nothing is filed into a view: it shows whatever matches). The set of grids is shared across your devices through one small note in the clippings folder, so a board made on your desktop is on your phone after a sync.
 
 ## Folders
 
