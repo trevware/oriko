@@ -76,6 +76,8 @@ export interface PaletteActions {
   /** Opens the folder editor; on save the seeded paths are moved in. */
   newFolder(seed: string[]): void;
   openFolder(name: string): void;
+  undo(): void;
+  redo(): void;
   editGrid(): void;
   deleteGrid(): void;
   manageGrids(): void;
@@ -98,6 +100,9 @@ export interface PaletteContext {
   folders: FolderSpace[];
   /** False on a smart grid, where nothing is filed and so nothing is foldered. */
   canFile: boolean;
+  /** What ⌘Z and ⌘⇧Z would take back or do again, or null for nothing. */
+  undoLabel: string | null;
+  redoLabel: string | null;
   /** The facets on offer, in menu order. */
   facetDefs: FacetDef[];
   facets: Record<string, FacetValue[]>;
@@ -110,6 +115,36 @@ export interface PaletteContext {
 /** Grid hotkeys are ⌘1..⌘9 by position, so only the first nine have one. */
 function gridHotkey(position: number): string | undefined {
   return hotkeyPosition(String(position + 1)) === position ? `⌘${position + 1}` : undefined;
+}
+
+function historyCommands(context: PaletteContext): PaletteCommand[] {
+  const { actions } = context;
+  const items: PaletteCommand[] = [];
+  // Only offered when there is something to do: a palette row that would do
+  // nothing is a row that should not have survived the query.
+  if (context.undoLabel) {
+    items.push({
+      id: "history:undo",
+      label: `Undo ${context.undoLabel}`,
+      icon: "undo-2",
+      section: "Actions",
+      detail: "\u2318Z",
+      keywords: "revert back take back",
+      run: () => actions.undo(),
+    });
+  }
+  if (context.redoLabel) {
+    items.push({
+      id: "history:redo",
+      label: `Redo ${context.redoLabel}`,
+      icon: "redo-2",
+      section: "Actions",
+      detail: "\u2318\u21e7Z",
+      keywords: "again repeat",
+      run: () => actions.redo(),
+    });
+  }
+  return items;
 }
 
 function selectionCommands(context: PaletteContext): PaletteCommand[] {
@@ -461,6 +496,7 @@ function captureCommands(context: PaletteContext): PaletteCommand[] {
 /** In section order, which is the order the palette shows them in. */
 export function buildCommands(context: PaletteContext): PaletteCommand[] {
   return [
+    ...historyCommands(context),
     ...selectionCommands(context),
     ...gridCommands(context),
     ...filterCommands(context),

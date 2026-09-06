@@ -27,6 +27,7 @@ import { classifyDrop, describeSkipped, titleForDropped, wantsDrop } from "./cor
 import type { MenuItem } from "./context-menu";
 import type { FoldersController, GridsController } from "./grid-sheets";
 import { FOLDER_WIDTHS, folderTileId, partitionWall } from "./core/folders";
+import { History } from "./core/history";
 import type { FolderSpace, FolderTileModel, FolderWidth } from "./core/folders";
 import { GridRenderer } from "./grid";
 import { groupedMenu } from "./core/layout";
@@ -131,6 +132,11 @@ export class OrikoView extends ItemView {
   private openFolder: string | null = null;
   /** The grid's folder tiles before filtering, beside `facets`. */
   private folderTiles: FolderTileModel[] = [];
+  /**
+   * Undo and redo for this wall's actions. Session state: an action from
+   * an earlier session has nothing captured to restore.
+   */
+  private history = new History();
   /**
    * Covers that failed to load, keyed by note path and remembered by
    * signature. Recording the signature is what lets a clipping return once
@@ -313,6 +319,22 @@ export class OrikoView extends ItemView {
       ) {
         event.preventDefault();
         this.leaveFolder();
+        return;
+      }
+
+      // Undo and redo, while the wall has the keyboard: a sheet, a menu or
+      // a text field takes the chord for its own.
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "z" &&
+        !this.palette?.isOpen &&
+        !this.sheet?.isOpen &&
+        !(event.target as HTMLElement | null)?.closest("input, textarea, [contenteditable='true']")
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        void (event.shiftKey ? this.redo() : this.undo());
         return;
       }
 
@@ -1411,6 +1433,8 @@ export class OrikoView extends ItemView {
       homeGrid: this.plugin.settings.homeGridName,
       folders: this.foldersHere(),
       canFile: this.canFile(),
+      undoLabel: this.history.undoLabel,
+      redoLabel: this.history.redoLabel,
       facetDefs: defs,
       facets: facetsOf(this.facets, defs),
       filter: this.activeFilter(),
@@ -1428,6 +1452,8 @@ export class OrikoView extends ItemView {
         moveToFolder: (ids, folder) => void this.moveToFolder(ids, folder),
         newFolder: (seed) => this.promptNewFolder(seed),
         openFolder: (name) => this.enterFolder(name),
+        undo: () => void this.undo(),
+        redo: () => void this.redo(),
         editGrid: () => this.editActiveGrid(),
         deleteGrid: () => this.deleteActiveGrid(),
         manageGrids: () => this.manageGrids(),
@@ -1534,6 +1560,32 @@ export class OrikoView extends ItemView {
    * the properties parsing maintains and every other tool there keeps it
    * current.
    */
+  /**
+   * One property across a selection, from what they held to what they hold
+   * now, recorded so ⌘Z puts the old values back. Recorded before the writes
+   * and the writes are not waited on, as the menus that call this expect.
+   */
+  private writeProperty(
+    paths: string[],
+    key: string,
+    before: string[][],
+    next: string[][],
+    record = true
+  ): void {
+    paths.forEach((path, index) => {
+      this.edited.set(this.editKey(path, key), next[index]);
+      void this.setProperty(path, key, next[index]);
+    });
+    if (!record) return;
+    const was = before.map((values) => [...values]);
+    const now = next.map((values) => [...values]);
+    this.history.push({
+      label: `Edit ${key}`,
+      undo: async () => this.writeProperty(paths, key, now, was, false),
+      redo: async () => this.writeProperty(paths, key, was, now, false),
+    });
+  }
+
   private async setProperty(path: string, key: string, values: string[]): Promise<void> {
     if (!isEditable(key)) {
       new Notice(`Oriko: ${key} belongs to the clipper and is not editable`);
@@ -1599,12 +1651,7 @@ export class OrikoView extends ItemView {
     // Recorded before the writes, and the writes are not waited on. The menu
     // rebuilds from the record on the same tick as the click; the notes
     // catch up on their own, one processFrontMatter each.
-    const write = (next: string[][]): void => {
-      paths.forEach((path, index) => {
-        this.edited.set(this.editKey(path, key), next[index]);
-        void this.setProperty(path, key, next[index]);
-      });
-    };
+    const write = (next: string[][]): void => this.writeProperty(paths, key, holdings, next);
 
     const rows: MenuItem[] = values.map((entry) => {
       const holding = holdingAcross(holdings, entry.value);
@@ -1728,10 +1775,7 @@ export class OrikoView extends ItemView {
       // Chosen from a list of what to add, so it is an add for every clipping
       // in the selection, including any that already hold it.
       const next = holdings.map((held) => (single ? [value] : withValue(held, value)));
-      paths.forEach((path, index) => {
-        this.edited.set(this.editKey(path, key), next[index]);
-        void this.setProperty(path, key, next[index]);
-      });
+      this.writeProperty(paths, key, holdings, next);
     };
 
     const mark = (value: string): string | undefined => {
@@ -2044,6 +2088,7 @@ export class OrikoView extends ItemView {
   }
 
   private async moveTo(ids: string[], target: string): Promise<void> {
+    const before = this.placementOf(ids);
     const moved = await this.assign(ids, target);
     this.grid?.clearSelection();
     new Notice(
@@ -2051,6 +2096,29 @@ export class OrikoView extends ItemView {
         ? `Oriko: 1 clipping moved to ${target}`
         : `Oriko: ${moved} clippings moved to ${target}`
     );
+    this.history.push({
+      label: `Move to ${target}`,
+      undo: () => this.restorePlacement(before),
+      redo: async () => void (await this.assign(ids, target)),
+    });
+  }
+
+  /** Where each clipping sits now, raw, so a move can be taken back. */
+  private placementOf(ids: string[]): Array<{ path: string; grid: string; folder: string }> {
+    return ids.map((path) => {
+      const record = this.plugin.index.get(path);
+      return { path, grid: record?.grid ?? "", folder: record?.folder ?? "" };
+    });
+  }
+
+  /** Puts clippings back where placementOf found them, one write each. */
+  private async restorePlacement(
+    placement: Array<{ path: string; grid: string; folder: string }>
+  ): Promise<void> {
+    const home = this.plugin.settings.homeGridName;
+    for (const { path, grid, folder } of placement) {
+      await this.assign([path], grid.trim() || home, folder.trim());
+    }
   }
 
   // ---- Folders -----------------------------------------------------------
@@ -2108,13 +2176,21 @@ export class OrikoView extends ItemView {
     if (!folder) return;
     // Already there is not a move, and not a write.
     const paths = ids.filter((id) => this.plugin.index.get(id)?.folder.trim() !== name);
-    const moved = paths.length > 0 ? await this.assign(paths, this.activeGrid().name, name) : 0;
+    const before = this.placementOf(paths);
+    const grid = this.activeGrid().name;
+    const moved = paths.length > 0 ? await this.assign(paths, grid, name) : 0;
     this.grid?.clearSelection();
     new Notice(
       moved === 1
         ? `Oriko: 1 clipping moved to ${name}`
         : `Oriko: ${moved} clippings moved to ${name}`
     );
+    if (paths.length === 0) return;
+    this.history.push({
+      label: `Move to ${name}`,
+      undo: () => this.restorePlacement(before),
+      redo: async () => void (await this.assign(paths, grid, name)),
+    });
   }
 
   /** Opens the editor for a new folder; `seed` is moved in once it is made. */
@@ -2147,14 +2223,40 @@ export class OrikoView extends ItemView {
     openRemoveFolder(this.sheet, this.foldersController(), folder, () => this.refresh());
   }
 
-  private async resizeFolder(name: string, width: FolderWidth): Promise<void> {
-    const entry = this.foldersHere().find((folder) => folder.name === name);
+  private async resizeFolder(name: string, width: FolderWidth, record = true): Promise<void> {
+    const key = this.folderGridKey();
+    const entry = this.plugin.settings.folders.find((f) => f.grid === key && f.name === name);
     if (!entry || entry.width === width) return;
+    const was = entry.width;
     entry.width = width;
     await this.plugin.saveSettings();
     // The drag already laid the wall out at this width, so the repaint moves
     // nothing and the camera stays where the hand left it.
     this.refresh();
+    if (!record) return;
+    this.history.push({
+      label: `Resize ${name}`,
+      undo: () => this.resizeFolder(name, was, false),
+      redo: () => this.resizeFolder(name, width, false),
+    });
+  }
+
+  private async undo(): Promise<void> {
+    try {
+      const label = await this.history.undo();
+      if (label) new Notice(`Oriko: undid ${label}`);
+    } catch (error) {
+      new Notice(`Oriko: could not undo (${String(error)})`);
+    }
+  }
+
+  private async redo(): Promise<void> {
+    try {
+      const label = await this.history.redo();
+      if (label) new Notice(`Oriko: redid ${label}`);
+    } catch (error) {
+      new Notice(`Oriko: could not redo (${String(error)})`);
+    }
   }
 
   private openFolderMenu(name: string, x: number, y: number): void {
@@ -2192,46 +2294,81 @@ export class OrikoView extends ItemView {
   }
 
   private foldersController(): FoldersController {
-    const settings = this.plugin.settings;
     return {
       folders: () => this.foldersHere(),
       memberCount: (name) => this.folderMembers(name).length,
-      create: async (folder) => {
-        settings.folders.push(folder);
-        await this.plugin.saveSettings();
-      },
-      rename: async (from, next) => {
-        const key = this.folderGridKey();
-        const entry = settings.folders.find((f) => f.grid === key && f.name === from);
-        if (!entry) return;
-        const members = next.name !== from ? this.folderMembers(from) : [];
-        entry.name = next.name;
-        entry.icon = next.icon;
-        if (this.openFolder === from) {
-          this.openFolder = next.name;
-          this.spaceBar?.setFolder(next.name);
-        }
-        await this.plugin.saveSettings();
-        if (members.length > 0) await this.assign(members, this.activeGrid().name, next.name);
-        this.refresh();
-      },
-      remove: async (name) => {
-        const key = this.folderGridKey();
-        const index = settings.folders.findIndex((f) => f.grid === key && f.name === name);
-        if (index === -1) return;
-        settings.folders.splice(index, 1);
-        // Members keep a key that no longer resolves, which folders.ts reads
-        // as loose. Nothing is rewritten, so recreating the folder undoes this.
-        if (this.openFolder === name) {
-          this.openFolder = null;
-          this.spaceBar?.setFolder(null);
-        }
-        await this.plugin.saveSettings();
-        // A plain refresh, so the members glide back out onto the wall and
-        // the camera holds on whatever it was anchored to.
-        this.refresh();
-      },
+      create: (folder) => this.createFolderDef(folder),
+      rename: (from, next) => this.renameFolderDef(from, next),
+      remove: (name) => this.removeFolderDef(name),
     };
+  }
+
+  /**
+   * The three definition changes, each recording its own reverse. Members
+   * are never rewritten by create or remove: a folder's members keep their
+   * key, which reads as loose while the folder is gone and as the folder
+   * again the moment it is back. Only a rename touches notes.
+   */
+  private async createFolderDef(folder: FolderSpace, record = true): Promise<void> {
+    this.plugin.settings.folders.push(folder);
+    await this.plugin.saveSettings();
+    if (!record) return;
+    this.history.push({
+      label: `New folder ${folder.name}`,
+      undo: () => this.removeFolderDef(folder.name, false, folder.grid),
+      redo: () => this.createFolderDef(folder, false),
+    });
+  }
+
+  private async renameFolderDef(from: string, next: FolderSpace, record = true): Promise<void> {
+    const key = next.grid;
+    const entry = this.plugin.settings.folders.find((f) => f.grid === key && f.name === from);
+    if (!entry) return;
+    const was: FolderSpace = { ...entry };
+    const members = next.name !== from ? this.folderMembers(from) : [];
+    entry.name = next.name;
+    entry.icon = next.icon;
+    if (this.openFolder === from) {
+      this.openFolder = next.name;
+      this.spaceBar?.setFolder(next.name);
+    }
+    await this.plugin.saveSettings();
+    if (members.length > 0) await this.assign(members, this.activeGrid().name, next.name);
+    this.refresh();
+    if (!record) return;
+    this.history.push({
+      label: next.name !== from ? `Rename ${from}` : `Edit ${from}`,
+      undo: () => this.renameFolderDef(next.name, was, false),
+      redo: () => this.renameFolderDef(from, next, false),
+    });
+  }
+
+  private async removeFolderDef(name: string, record = true, grid?: string): Promise<void> {
+    const key = grid ?? this.folderGridKey();
+    const settings = this.plugin.settings;
+    const index = settings.folders.findIndex((f) => f.grid === key && f.name === name);
+    if (index === -1) return;
+    const [removed] = settings.folders.splice(index, 1);
+    // Members keep a key that no longer resolves, which folders.ts reads
+    // as loose. Nothing is rewritten, so recreating the folder undoes this.
+    if (this.openFolder === name) {
+      this.openFolder = null;
+      this.spaceBar?.setFolder(null);
+    }
+    await this.plugin.saveSettings();
+    // A plain refresh, so the members glide back out onto the wall and
+    // the camera holds on whatever it was anchored to.
+    this.refresh();
+    if (!record || !removed) return;
+    this.history.push({
+      label: `Remove ${name}`,
+      undo: async () => {
+        settings.folders.splice(Math.min(index, settings.folders.length), 0, removed);
+        await this.plugin.saveSettings();
+        this.refresh();
+      },
+      redo: () => this.removeFolderDef(name, false, key),
+    });
   }
 
   private gridsController(): GridsController {
@@ -2259,61 +2396,103 @@ export class OrikoView extends ItemView {
         };
       },
 
-      create: async (space) => {
-        settings.grids.push(space);
-        await this.plugin.saveSettings();
-        // Land in what you just made rather than leaving it to be found.
-        this.activate(space.name);
-      },
-
-      rename: async (from, next) => {
-        const members = membersOf(this.plugin.index.records(), from).map((r) => r.path);
-
-        if (from === settings.homeGridName) {
-          settings.homeGridName = next.name;
-          settings.homeGridIcon = next.icon;
-        } else {
-          const entry = settings.grids.find((grid) => grid.name === from);
-          if (!entry) return;
-          entry.name = next.name;
-          entry.icon = next.icon;
-        }
-        if (settings.activeGrid === from) settings.activeGrid = next.name;
-        await this.plugin.saveSettings();
-
-        // Renaming home rewrites only the notes that spell it out; the rest
-        // belong to it by absence and need no touching. assign() then drops
-        // their key entirely, since the target is home.
-        if (next.name !== from && members.length > 0) {
-          await this.assign(members, next.name);
-        }
-
-        this.spaceBar?.setActive(this.activeGrid());
-        this.refresh();
-      },
-
-      reorder: async (index, delta) => {
-        const target = index + delta;
-        if (target < 0 || target >= settings.grids.length) return;
-        const [moved] = settings.grids.splice(index, 1);
-        settings.grids.splice(target, 0, moved);
-        await this.plugin.saveSettings();
-      },
-
-      remove: async (index) => {
-        const [removed] = settings.grids.splice(index, 1);
-        if (!removed) return;
-        // Members keep a key that no longer resolves, which spaces.ts reads as
-        // home. Nothing is rewritten, so recreating the grid undoes this.
-        if (settings.activeGrid === removed.name) {
-          settings.activeGrid = settings.homeGridName;
-          // Home arrives whole, as it would through activate().
-          this.filter = emptyFilter();
-        }
-        await this.plugin.saveSettings();
-        this.spaceBar?.setActive(this.activeGrid());
-        this.refresh();
-      },
+      create: (space) => this.createGridDef(space),
+      rename: (from, next) => this.renameGridDef(from, next),
+      reorder: (index, delta) => this.reorderGridDef(index, delta),
+      remove: (index) => this.removeGridDef(index),
     };
+  }
+
+  /** The grid definition changes, each recording its own reverse. */
+  private async createGridDef(space: GridSpace, record = true): Promise<void> {
+    const settings = this.plugin.settings;
+    settings.grids.push(space);
+    await this.plugin.saveSettings();
+    // Land in what you just made rather than leaving it to be found.
+    this.activate(space.name);
+    if (!record) return;
+    this.history.push({
+      label: `New grid ${space.name}`,
+      undo: () => this.removeGridDef(settings.grids.indexOf(space), false),
+      redo: () => this.createGridDef(space, false),
+    });
+  }
+
+  private async renameGridDef(from: string, next: GridSpace, record = true): Promise<void> {
+    const settings = this.plugin.settings;
+    const members = membersOf(this.plugin.index.records(), from).map((r) => r.path);
+    let was: GridSpace;
+
+    if (from === settings.homeGridName) {
+      was = { name: settings.homeGridName, icon: settings.homeGridIcon };
+      settings.homeGridName = next.name;
+      settings.homeGridIcon = next.icon;
+    } else {
+      const entry = settings.grids.find((grid) => grid.name === from);
+      if (!entry) return;
+      was = { ...entry };
+      entry.name = next.name;
+      entry.icon = next.icon;
+      if (next.rules !== undefined) entry.rules = next.rules;
+    }
+    if (settings.activeGrid === from) settings.activeGrid = next.name;
+    await this.plugin.saveSettings();
+
+    // Renaming home rewrites only the notes that spell it out; the rest
+    // belong to it by absence and need no touching. assign() then drops
+    // their key entirely, since the target is home.
+    if (next.name !== from && members.length > 0) {
+      await this.assign(members, next.name);
+    }
+
+    this.spaceBar?.setActive(this.activeGrid());
+    this.refresh();
+    if (!record) return;
+    this.history.push({
+      label: next.name !== from ? `Rename ${from}` : `Edit ${from}`,
+      undo: () => this.renameGridDef(next.name, was, false),
+      redo: () => this.renameGridDef(from, next, false),
+    });
+  }
+
+  private async reorderGridDef(index: number, delta: number, record = true): Promise<void> {
+    const settings = this.plugin.settings;
+    const target = index + delta;
+    if (target < 0 || target >= settings.grids.length) return;
+    const [moved] = settings.grids.splice(index, 1);
+    settings.grids.splice(target, 0, moved);
+    await this.plugin.saveSettings();
+    if (!record) return;
+    this.history.push({
+      label: `Move ${moved.name}`,
+      undo: () => this.reorderGridDef(target, -delta, false),
+      redo: () => this.reorderGridDef(index, delta, false),
+    });
+  }
+
+  private async removeGridDef(index: number, record = true): Promise<void> {
+    const settings = this.plugin.settings;
+    const [removed] = settings.grids.splice(index, 1);
+    if (!removed) return;
+    // Members keep a key that no longer resolves, which spaces.ts reads as
+    // home. Nothing is rewritten, so recreating the grid undoes this.
+    if (settings.activeGrid === removed.name) {
+      settings.activeGrid = settings.homeGridName;
+      // Home arrives whole, as it would through activate().
+      this.filter = emptyFilter();
+    }
+    await this.plugin.saveSettings();
+    this.spaceBar?.setActive(this.activeGrid());
+    this.refresh();
+    if (!record) return;
+    this.history.push({
+      label: `Delete ${removed.name}`,
+      undo: async () => {
+        settings.grids.splice(Math.min(index, settings.grids.length), 0, removed);
+        await this.plugin.saveSettings();
+        this.refresh();
+      },
+      redo: () => this.removeGridDef(settings.grids.indexOf(removed), false),
+    });
   }
 }

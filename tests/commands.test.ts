@@ -18,6 +18,8 @@ const actions = {
   moveToFolder: noop,
   newFolder: noop,
   openFolder: noop,
+  undo: noop,
+  redo: noop,
   editGrid: noop,
   deleteGrid: noop,
   manageGrids: noop,
@@ -40,6 +42,8 @@ function context(over: Partial<PaletteContext> = {}): PaletteContext {
     homeGrid: "Clippings",
     folders: [],
     canFile: true,
+    undoLabel: null,
+    redoLabel: null,
     facetDefs: DEFS,
     facets: { categories: [], status: [], kind: [], domain: [] },
     filter: emptyFilter(),
@@ -287,6 +291,38 @@ describe("folder commands", () => {
     const list = ids(context({ selection: ["a.md"], canFile: false }));
     expect(list).not.toContain("selection:folder");
     expect(list).not.toContain("folder:new");
+  });
+});
+
+describe("history commands", () => {
+  it("offers nothing while there is nothing to undo or redo", () => {
+    const list = ids(context());
+    expect(list).not.toContain("history:undo");
+    expect(list).not.toContain("history:redo");
+  });
+
+  it("names the action it would undo", () => {
+    const ctx = context({ undoLabel: "Move to Kitchen" });
+    expect(find(ctx, "history:undo")?.label).toBe("Undo Move to Kitchen");
+    expect(find(ctx, "history:undo")?.detail).toBe("⌘Z");
+  });
+
+  it("names the action it would redo", () => {
+    const ctx = context({ redoLabel: "Edit status" });
+    expect(find(ctx, "history:redo")?.label).toBe("Redo Edit status");
+    expect(find(ctx, "history:redo")?.detail).toBe("⌘⇧Z");
+  });
+
+  it("runs undo and redo", () => {
+    const ran: string[] = [];
+    const ctx = context({
+      undoLabel: "A",
+      redoLabel: "B",
+      actions: { ...actions, undo: () => ran.push("undo"), redo: () => ran.push("redo") },
+    });
+    find(ctx, "history:undo")?.run?.();
+    find(ctx, "history:redo")?.run?.();
+    expect(ran).toEqual(["undo", "redo"]);
   });
 });
 
