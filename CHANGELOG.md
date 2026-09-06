@@ -5,16 +5,22 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.55] - 2026-09-05
+
+### Added
+- **You can now gather clippings into folders on a grid.** Select a few tiles, right-click and choose Move to folder → New folder…, give it a name and an icon, and they collapse into one card on the wall: a collage of what's inside, with the name and a count along the bottom. Click the card to see the folder as a wall of its own (Escape or the back button top left takes you out again), and anything you clip while you're in there lands in the folder. The same options are in the palette under Move to folder, in the selection bar, and New folder sits beside New grid. A new folder pops in at the top of the wall while everything else dims for a moment, so you see where it went.
+- **Folder cards can be resized.** Hover a folder and drag any corner to stretch it across one, two or three columns; on a phone, hold your finger on the card first to bring the corners up. A wider card shows more of what's inside, arranged to fill the card whatever the count, and its videos and GIFs play on hover (or on their own, with autoplay on). Right-click the card for Size if you'd rather pick from a list, and for Edit folder and Remove folder. Removing a folder puts its clippings back on the wall and deletes nothing.
+- **You can now undo.** ⌘Z takes back the last thing you did on the wall and ⌘⇧Z does it again: moving clippings between grids or folders, editing a property, making, renaming, resizing or removing a folder, and making, renaming, reordering or deleting a grid. The palette lists the same as "Undo …" and "Redo …" with the action's name. Deleting a clipping isn't covered yet, since it goes to Obsidian's trash; restore it from there.
+- **The icon picker has ten times the icons.** New folder, New grid and their editors now offer 120 icons in captioned groups (Marks, Containers, Media, Places, Nature, Play and so on), scrolling inside the sheet. The arrow keys still step through them a row at a time.
 
 ### Changed
 - **Smart grids are now called smart views.** Nothing else about them changes. The name was misleading: you can't move a clipping into one, it shows whatever matches its rules, and "view" says that where "grid" suggested a place things go.
+- **Making a grid or view no longer switches you to it.** You stay on the wall you were working on, the switcher gains the new entry, and a notice says it was made.
+- **The selection bar gained Move to grid and Move to folder**, so a selection can be filed without opening the right-click menu.
 
-### Added
-- **You can now gather clippings into folders on a grid.** Select a few tiles, right-click and choose Move to folder → New folder…, give it a name and an icon, and they collapse into one card on the wall: a collage of what's inside, with the name and a count along the bottom. Click the card to see the folder as a wall of its own (Escape or the back button beside the grid switcher takes you out again), and anything you clip while you're in there lands in the folder. The same options are in the palette under Move to folder, and New folder sits beside New grid.
-- **Folder cards can be resized.** Hover a folder and drag any corner to stretch it across one, two or three columns; on a phone, hold your finger on the card first to bring the corners up. A wider card shows more of what's inside. Right-click the card for Size if you'd rather pick from a list, and for Edit folder and Remove folder. Removing a folder puts its clippings back on the wall and deletes nothing.
-
-- **You can now undo.** ⌘Z takes back the last thing you did on the wall and ⌘⇧Z does it again: moving clippings between grids or folders, editing a property, making, renaming, resizing or removing a folder, and making, renaming, reordering or deleting a grid. The palette lists the same as "Undo …" and "Redo …" with the action's name. Deleting a clipping isn't covered yet, since it goes to Obsidian's trash; restore it from there.
+### Fixed
+- **Typing a folder or grid name no longer scrolls the icon list away from where you'd left it.** Each letter used to jump the list back to the chosen icon.
+- **The wall no longer nudges when you delete the folder or clipping you were looking at.** It now keeps its place by the nearest tile that survives.
 
 Keep in mind that a folder belongs to one grid, and its clippings belong to that grid too: moving a clipping to another grid takes it out of the folder. Folders travel between your devices the same way grids do, through the shared note in your clippings folder, so a folder made on the desktop is on your phone after a sync, at the same size.
 
