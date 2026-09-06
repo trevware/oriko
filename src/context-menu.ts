@@ -1,3 +1,4 @@
+import { scrollRowIntoList } from "./scroll";
 import { Platform, setIcon } from "obsidian";
 import { bottomInset } from "./core/insets";
 import { cursorAfterNarrowing, placeMenu, stepCursor } from "./core/layout";
@@ -390,7 +391,7 @@ export class ContextMenu {
       record.root.toggleClass("is-active", index === this.subActive)
     );
     if (this.subActive >= 0) {
-      this.subRows[this.subActive]?.root.scrollIntoView({ block: "nearest" });
+      scrollRowIntoList(this.subRowsEl, this.subRows[this.subActive]?.root);
     }
   }
 

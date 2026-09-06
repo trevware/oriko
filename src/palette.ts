@@ -1,3 +1,4 @@
+import { scrollRowIntoList } from "./scroll";
 import { setIcon } from "obsidian";
 import type { PaletteCommand, PaletteStage } from "./core/commands";
 import { resumeIndex, searchPalette } from "./core/palette-results";
@@ -446,15 +447,7 @@ export class Palette {
    * panel handle with it, and it stayed there after the palette closed.
    */
   private scrollRowIntoView(row: HTMLElement | undefined): void {
-    const list = this.listEl;
-    if (!list || !row) return;
-
-    const top = row.offsetTop;
-    const bottom = top + row.offsetHeight;
-    if (top < list.scrollTop) list.scrollTop = top;
-    else if (bottom > list.scrollTop + list.clientHeight) {
-      list.scrollTop = bottom - list.clientHeight;
-    }
+    scrollRowIntoList(this.listEl, row);
   }
 }
 

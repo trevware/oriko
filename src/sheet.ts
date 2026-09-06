@@ -1,3 +1,4 @@
+import { scrollRowIntoList } from "./scroll";
 import { setIcon } from "obsidian";
 import { dragSteps, flipOffsets, moveInGrid } from "./core/layout";
 import { hint, paintLabel } from "./palette";
@@ -442,7 +443,8 @@ export class Sheet {
       el.toggleClass("is-active", on);
       el.setAttribute("aria-checked", String(on));
     });
-    this.rowEls[this.active]?.scrollIntoView({ block: "nearest" });
+    // The list alone: scrollIntoView would take the wall's viewport with it.
+    scrollRowIntoList(this.listEl, this.rowEls[this.active]);
   }
 
   /**
