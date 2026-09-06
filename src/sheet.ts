@@ -211,7 +211,9 @@ export class Sheet {
       // rows are fixed and the index is a value the user picked, so typing a
       // name must not quietly reach over and reset the icon.
       if (this.screen?.filters) this.active = 0;
-      this.render();
+      // A form keeps its list where it was: typing a name is not a request
+      // to go and look at the icon. A narrowing list starts over at the top.
+      this.render({ keepScroll: !this.screen?.filters });
     };
 
     this.listEl = this.panel.createDiv({ cls: "pg-palette-list" });
@@ -295,11 +297,14 @@ export class Sheet {
     return out;
   }
 
-  private render(): void {
+  private render(options: { keepScroll?: boolean } = {}): void {
     const list = this.listEl;
     const screen = this.screen;
     if (!list || !screen || !this.input) return;
 
+    // Emptying the list drops its scroll position, so it is read first and
+    // put back when the rows are not the reason for the render.
+    const scrollTop = list.scrollTop;
     list.empty();
     this.rows = [];
     this.rowEls = [];
@@ -353,7 +358,12 @@ export class Sheet {
     }
 
     if (this.active >= this.rows.length) this.active = Math.max(0, this.rows.length - 1);
-    this.paintActive();
+    if (options.keepScroll) {
+      this.paintActive(false);
+      list.scrollTop = scrollTop;
+    } else {
+      this.paintActive();
+    }
 
   }
 
@@ -437,14 +447,14 @@ export class Sheet {
     return el;
   }
 
-  private paintActive(): void {
+  private paintActive(scroll = true): void {
     this.rowEls.forEach((el, index) => {
       const on = index === this.active;
       el.toggleClass("is-active", on);
       el.setAttribute("aria-checked", String(on));
     });
     // The list alone: scrollIntoView would take the wall's viewport with it.
-    scrollRowIntoList(this.listEl, this.rowEls[this.active]);
+    if (scroll) scrollRowIntoList(this.listEl, this.rowEls[this.active]);
   }
 
   /**
