@@ -1553,7 +1553,8 @@
 }
 
 .pg-spacebar button,
-.pg-detail button.pg-detail-back {
+.pg-detail button.pg-detail-back,
+.oriko-view button.pg-folder-back {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -1575,7 +1576,8 @@
 }
 
 .pg-spacebar button:hover,
-.pg-detail button.pg-detail-back:hover {
+.pg-detail button.pg-detail-back:hover,
+.oriko-view button.pg-folder-back:hover {
   background-color: var(--pg-surface);
   box-shadow:
     var(--pg-surface-ring),
@@ -1584,7 +1586,8 @@
 }
 
 .pg-spacebar button:active,
-.pg-detail button.pg-detail-back:active {
+.pg-detail button.pg-detail-back:active,
+.oriko-view button.pg-folder-back:active {
   transform: scale(0.96);
 }
 
@@ -1628,8 +1631,7 @@
   display: none;
 }
 
-.pg-spacebar button.pg-space-switch,
-.pg-spacebar button.pg-space-back {
+.pg-spacebar button.pg-space-switch {
   gap: 8px;
   height: 38px;
   padding: 0 12px;
@@ -2586,7 +2588,32 @@ body.is-mobile .pg-spacebar button:active {
   }
 }
 
-/* The way back out of a folder, beside the switcher it sits under. */
-.pg-spacebar button.pg-space-back .pg-space-icon .svg-icon {
-  opacity: 0.7;
+/* The way back out of a folder: the detail view's back button, in its
+   corner, shown while a folder is open. Its selectors join the detail
+   view's below so it takes every rule that one takes, tip included. */
+.oriko-view button.pg-folder-back {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 28;
+  width: 48px;
+  height: 38px;
+  border-radius: 19px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 90ms ease,
+    background-color 120ms ease,
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    box-shadow 180ms ease;
+}
+
+.oriko-view button.pg-folder-back.is-open {
+  opacity: 1;
+  pointer-events: auto;
+  transition:
+    opacity 220ms ease 120ms,
+    background-color 120ms ease,
+    transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
+    box-shadow 180ms ease;
 }

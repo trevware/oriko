@@ -38,7 +38,8 @@ export class SpaceBar {
   private icon: HTMLElement;
   private label: HTMLElement;
   private back: HTMLElement;
-  private folderLabel: HTMLElement;
+  private grid: GridSpace | null = null;
+  private folder: string | null = null;
 
   constructor(container: HTMLElement, handlers: SpaceBarHandlers) {
     this.root = container.createDiv({ cls: "pg-spacebar" });
@@ -68,21 +69,18 @@ export class SpaceBar {
       handlers.onSettings(rect.left, rect.top - LAUNCH_GAP);
     };
 
-    const right = this.root.createDiv({ cls: "pg-space-right" });
-
-    // The folder you are in, with the way out. Sits ahead of the switcher so
-    // the two read as a path: grid, then folder, and the chevron on the
-    // switcher is the folder's own way back up.
-    this.back = right.createEl("button", { cls: "pg-space-back" });
-    this.back.hide();
-    const backIcon = this.back.createDiv({ cls: "pg-space-icon" });
-    setIcon(backIcon, "chevron-left");
-    this.folderLabel = this.back.createDiv({ cls: "pg-space-label" });
-    attachTip(this.back, "Back to grid");
+    // The way out of a folder: the detail view's back button, in the same
+    // corner, so leaving a folder feels like leaving a clipping. On the
+    // container rather than in the bar, since the bar sits at the bottom.
+    this.back = container.createEl("button", { cls: "pg-detail-back pg-folder-back" });
+    setIcon(this.back, "arrow-left");
+    attachTip(this.back, "Back", "\u238b");
     this.back.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       handlers.onBack();
     };
+
+    const right = this.root.createDiv({ cls: "pg-space-right" });
 
     this.switcher = right.createEl("button", { cls: "pg-space-switch" });
     attachTip(this.switcher, "Switch grid");
@@ -132,15 +130,23 @@ export class SpaceBar {
   }
 
   setActive(grid: GridSpace): void {
-    setIcon(this.icon, grid.icon);
-    this.label.setText(grid.name);
+    this.grid = grid;
+    this.paintLabel();
   }
 
   /** The folder open on the wall, or null for the grid whole. */
   setFolder(name: string | null): void {
-    this.folderLabel.setText(name ?? "");
-    this.back.toggle(name !== null);
+    this.folder = name;
+    this.back.toggleClass("is-open", name !== null);
     this.root.toggleClass("is-in-folder", name !== null);
+    this.paintLabel();
+  }
+
+  /** The switcher reads as a path while a folder is open: grid, then folder. */
+  private paintLabel(): void {
+    if (!this.grid) return;
+    setIcon(this.icon, this.grid.icon);
+    this.label.setText(this.folder ? `${this.grid.name} \u203a ${this.folder}` : this.grid.name);
   }
 
   /**
@@ -158,6 +164,7 @@ export class SpaceBar {
   }
 
   destroy(): void {
+    this.back.remove();
     this.root.remove();
   }
 }
