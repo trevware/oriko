@@ -19,43 +19,79 @@ import type { GridSpace } from "./core/spaces";
  * Nothing may be removed, though: a grid already carrying an icon that left
  * the list would find no match, and be silently resaved as the first one.
  */
-export const GRID_ICONS = [
-  // Marks
-  "layout-grid",
-  "star",
-  "heart",
-  "bookmark",
-  "pin",
-  "tag",
-  // Containers
-  "folder",
-  "archive",
-  "package-open",
-  "layers",
-  "library",
-  "sticky-note",
-  // Media
-  "image",
-  "camera",
-  "film",
-  "music",
-  "palette",
-  "paintbrush",
-  // Making
-  "code",
-  "terminal",
-  "monitor",
-  "flask-conical",
-  "wrench",
-  "scissors",
-  // Ideas
-  "lightbulb",
-  "sparkles",
-  "zap",
-  "flame",
-  "compass",
-  "book-open",
+/**
+ * The icons on offer, in captioned groups of twelve: two rows of six each,
+ * so the keyboard's row arithmetic stays true across a caption. Order is
+ * presentation only, since a grid stores the icon's name, but nothing may
+ * be removed: a grid carrying an icon that left the list would find no
+ * match and be silently resaved as the first one.
+ */
+export const ICON_GROUPS: ReadonlyArray<{ title: string; icons: readonly string[] }> = [
+  {
+    title: "Marks",
+    icons: ["layout-grid", "star", "heart", "bookmark", "pin", "tag",
+      "flag", "check-circle", "circle", "square", "triangle", "hexagon"],
+  },
+  {
+    title: "Containers",
+    icons: ["folder", "archive", "package-open", "layers", "library", "sticky-note",
+      "box", "briefcase", "inbox", "clipboard", "database", "hard-drive"],
+  },
+  {
+    title: "Media",
+    icons: ["image", "camera", "film", "music", "palette", "paintbrush",
+      "video", "mic", "headphones", "tv", "radio", "disc"],
+  },
+  {
+    title: "Making",
+    icons: ["code", "terminal", "monitor", "flask-conical", "wrench", "scissors",
+      "hammer", "pen-tool", "ruler", "cpu", "git-branch", "bug"],
+  },
+  {
+    title: "Ideas",
+    icons: ["lightbulb", "sparkles", "zap", "flame", "compass", "book-open",
+      "brain", "rocket", "target", "trophy", "award", "key"],
+  },
+  {
+    title: "Places",
+    icons: ["home", "map", "map-pin", "globe", "building", "landmark",
+      "mountain", "tent", "plane", "car", "train", "ship"],
+  },
+  {
+    title: "Life",
+    icons: ["user", "users", "coffee", "utensils", "shirt", "watch",
+      "gift", "cake", "dumbbell", "bike", "bed", "baby"],
+  },
+  {
+    title: "Nature",
+    icons: ["sun", "moon", "cloud", "umbrella", "leaf", "flower",
+      "tree-pine", "bird", "cat", "dog", "fish", "snowflake"],
+  },
+  {
+    title: "Work",
+    icons: ["shopping-cart", "shopping-bag", "credit-card", "wallet", "banknote", "receipt",
+      "calendar", "clock", "mail", "phone", "calculator", "percent"],
+  },
+  {
+    title: "Play",
+    icons: ["gamepad-2", "dice-5", "puzzle", "ghost", "smile", "party-popper",
+      "medal", "swords", "drum", "guitar", "piano", "joystick"],
+  },
 ];
+
+export const GRID_ICONS: readonly string[] = ICON_GROUPS.flatMap((group) => [...group.icons]);
+
+/** The swatch rows for the icon picker, each group captioned on its first. */
+function iconRows(): SheetRow[] {
+  return ICON_GROUPS.flatMap((group) =>
+    group.icons.map((name, index) => ({
+      label: name.replace(/-/g, " "),
+      value: name,
+      icon: name,
+      heading: index === 0 ? group.title : undefined,
+    }))
+  );
+}
 
 /** Everything the grid UI needs from the view that owns the settings. */
 /**
@@ -349,12 +385,7 @@ function gridEditorScreen(
     layout: "swatches",
     columns: SWATCH_COLUMNS,
     cta: smart ? "Next: rules" : creating ? "Create grid" : "Save",
-    rows: () =>
-      GRID_ICONS.map((name) => ({
-        label: name.replace(/-/g, " "),
-        value: name,
-        icon: name,
-      })),
+    rows: iconRows,
     onSubmit: (name, active) => {
       const reason = validateGridName(name, others, home, creating ? undefined : grid.name);
       if (reason) {
@@ -769,12 +800,7 @@ function folderEditorScreen(
     layout: "swatches",
     columns: SWATCH_COLUMNS,
     cta: creating ? "Create folder" : "Save",
-    rows: () =>
-      GRID_ICONS.map((name) => ({
-        label: name.replace(/-/g, " "),
-        value: name,
-        icon: name,
-      })),
+    rows: iconRows,
     onSubmit: (name, active) => {
       const reason = validateFolderName(name, others, creating ? undefined : folder.name);
       if (reason) {

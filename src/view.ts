@@ -2408,8 +2408,13 @@ export class OrikoView extends ItemView {
     const settings = this.plugin.settings;
     settings.grids.push(space);
     await this.plugin.saveSettings();
-    // Land in what you just made rather than leaving it to be found.
-    this.activate(space.name);
+    // Stay where you are. Switching to the new grid put you on an empty wall
+    // (or, for a view, a wall you did not ask to see) with the wall you were
+    // working on gone from under you; the switcher has it when you want it.
+    this.refresh();
+    new Notice(
+      isSmartGrid(space) ? `Oriko: created the ${space.name} view` : `Oriko: created ${space.name}`
+    );
     if (!record) return;
     this.history.push({
       label: `New grid ${space.name}`,

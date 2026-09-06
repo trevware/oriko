@@ -338,7 +338,8 @@ export class Sheet {
     for (const { row, at } of found) {
       // Before the row and outside rowEls, so the caption cannot be navigated
       // to and the cursor arithmetic never sees it.
-      if (row.heading && !swatches) {
+      // In a swatch grid the caption spans the row above its group.
+      if (row.heading) {
         host.createDiv({ cls: "pg-palette-section", text: row.heading });
       }
       if (row.divider && !swatches && this.rows.length > 0) {

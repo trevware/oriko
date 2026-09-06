@@ -2014,6 +2014,17 @@
   justify-items: center;
 }
 
+/* A group caption inside the swatch grid takes the whole row. */
+.pg-swatch-grid .pg-palette-section {
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  padding: 10px 0 0;
+}
+
+.pg-swatch-grid .pg-palette-section:first-child {
+  padding-top: 0;
+}
+
 .pg-swatch-option {
   display: flex;
   align-items: center;
