@@ -308,6 +308,33 @@ export class GridRenderer {
     }
   }
 
+  /**
+   * Takes one property write onto a tile that is already on screen.
+   *
+   * Two things stop the wall's own repaint from showing it. The repaint is
+   * held while a menu or a selection is up, which is exactly when the
+   * property menu writes; and when it does arrive it skips the card anyway,
+   * because a card keeps its DOM for as long as its cover is unchanged and a
+   * frontmatter edit changes no cover. So the value goes onto the model and
+   * the pills are redrawn here. The next rebuild reads the note and agrees.
+   */
+  setRecordProperty(id: string, key: string, values: string[]): void {
+    const model = this.byId.get(id);
+    if (!model) return;
+
+    // Copied rather than written through: the record object belongs to the
+    // index, which has its own reading of the note on the way.
+    const properties = { ...model.record.properties };
+    if (values.length === 0) delete properties[key];
+    else properties[key] = [...values];
+    model.record = { ...model.record, properties };
+
+    const meta = this.mounted.get(id)?.root.querySelector<HTMLElement>(".pg-meta");
+    if (!meta) return;
+    meta.empty();
+    this.paintBadges(meta, model);
+  }
+
   private paintBadges(meta: HTMLElement, model: TileModel): void {
     const badges = tileBadges(model.record, this.tileSlots, Date.now());
     if (badges.length === 0) return;

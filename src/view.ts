@@ -1684,15 +1684,21 @@ export class OrikoView extends ItemView {
         else fm[key] = values;
         fm.updated = todayISO();
       });
+      // The tile's pills say what the note says, so they are redrawn the
+      // moment the note says something else. Here rather than in the caller,
+      // so a key the gate above refused, or a write that threw, never paints
+      // a value the note does not have. The tile id is the note's path.
+      this.grid?.setRecordProperty(path, key, values);
     } catch (error) {
       new Notice(`Oriko: could not update ${key} (${String(error)})`);
       // The menu is showing a value the note does not have. Drop it so the
       // next rebuild tells the truth.
       this.edited.delete(this.editKey(path, key));
     }
-    // Nothing is refreshed from here. The vault's own modify event reaches
+    // The wall is not rebuilt from here. The vault's own modify event reaches
     // the index and the wall by the path every other edit uses, and forcing
-    // it rebuilt the whole grid on every tick.
+    // it rebuilt the whole grid on every tick. Redrawing the one tile's pills
+    // above is not that: no filter re-runs and nothing moves.
   }
 
   /**
