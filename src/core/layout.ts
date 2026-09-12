@@ -56,6 +56,18 @@ export function computeLayout(
    * tile may reach and still leave the gap before the item above the hole.
    */
   const holes: Array<{ column: number; top: number; bottom: number }> = [];
+  /**
+   * How far apart two columns have to be before one counts as the shorter.
+   *
+   * The same 9:16 reel comes back from a host archived as 360x640 one time
+   * and 361x640 the next, a couple of pixels once scaled to a column.
+   * Compared exactly, that rounding noise reads as a genuinely shorter
+   * column, and the wall answers by putting the next tile there instead of
+   * carrying on across the row: the last row ends up holed, with tiles to
+   * the right of the gaps. Under a percent of a column is not a height
+   * anyone can see, so those pack from the left.
+   */
+  const tie = Math.max(1, columnWidth * 0.01);
 
   for (const item of items) {
     const span = Math.max(1, Math.min(columnCount, Math.floor(item.span ?? 1)));
@@ -79,14 +91,14 @@ export function computeLayout(
     }
     // The run of `span` adjacent columns whose highest bottom edge is lowest.
     // For a single column that is the shortest column, as it always was.
-    // Epsilon keeps ties resolving to the leftmost run, which is what makes
-    // the layout deterministic for identical inputs.
+    // Ties resolve to the leftmost run, which is what makes the layout
+    // deterministic for identical inputs and what keeps a row filling across.
     let target = 0;
     let targetTop = Infinity;
     for (let c = 0; c + span <= columnCount; c++) {
       let top = 0;
       for (let k = c; k < c + span; k++) top = Math.max(top, heights[k]);
-      if (top < targetTop - 0.01) {
+      if (top < targetTop - tie) {
         target = c;
         targetTop = top;
       }

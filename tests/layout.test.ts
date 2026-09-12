@@ -60,6 +60,25 @@ describe("computeLayout", () => {
     expect(next.y).toBe(100);
   });
 
+  it("packs the last row from the left when covers differ only by rounding", () => {
+    // A wall of 9:16 reels, archived as 360x640 and 361x640. The same shape
+    // to the eye, two pixels apart once scaled to a column, which used to
+    // read as a genuinely shorter column and scatter the last row into
+    // holes with tiles to the right of them.
+    const items: LayoutItem[] = Array.from({ length: 12 }, (_, i) => ({
+      id: `i${i}`,
+      width: i % 2 === 0 ? 360 : 361,
+      height: 640,
+    }));
+    const { positions } = computeLayout(items, 1825, 7, 19);
+    const column = (x: number): number => Math.round(x / ((1825 - 19 * 6) / 7 + 19));
+    const lastRow = positions
+      .filter((p) => p.y > 50)
+      .map((p) => column(p.x))
+      .sort((a, b) => a - b);
+    expect(lastRow).toEqual([0, 1, 2, 3, 4]);
+  });
+
   it("lays a spanning item across adjacent columns and levels them", () => {
     const items: LayoutItem[] = [
       { id: "a", width: 100, height: 300 },

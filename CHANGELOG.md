@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **A property you change now shows on the tile straight away.** The pills you see when you hover a tile kept the old values until the tile was scrolled off and back.
+- **A wall's last row no longer has gaps in the middle of it.** Two clippings that look exactly the same size can be a pixel apart in the original, and that was enough to leave a hole with tiles carrying on to the right of it. Easiest to spot with tile size on Small.
 
 ## [0.1.59] - 2026-09-11
 
