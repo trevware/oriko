@@ -5,6 +5,11 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.65] - 2026-09-27
+
+### Fixed
+- **Clipping a post that shares an X Article now saves its videos.** Those posts came in with nothing but a link, because the videos live in the article itself. You now get every video and picture from the article, in the order you'd read them, with the article's title on the clipping.
+
 ## [0.1.64] - 2026-09-19
 
 ### Fixed
