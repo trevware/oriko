@@ -62,11 +62,15 @@ const RENDERABLE_VIDEO = new Set(["mp4", "m4v", "webm", "ogv", "ogg", "mov"]);
 const OPAQUE_VIDEO = new Set(["avi", "mkv", "wmv", "flv", "mpg", "mpeg", "m2ts", "mts", "3gp"]);
 
 /**
- * Deliberately excluded. SVG is script-capable markup, and rendering
- * arbitrary clipped SVG inside the vault is not a risk worth taking for a
- * format that is rare in clippings.
+ * Painted only through a still drawn from it. SVG is script-capable markup,
+ * so the file itself is never put on the wall; loaded into an <img>, as the
+ * still is drawn, it runs no script and fetches nothing. Some sites' only
+ * og:image is an SVG, and without this their clippings had no tile at all.
  */
-const EXCLUDED = new Set(["svg", "svgz"]);
+const DRAWN_IMAGE = new Set(["svg"]);
+
+/** Deliberately excluded. An <img> will not inflate gzipped SVG. */
+const EXCLUDED = new Set(["svgz"]);
 
 export type MediaKind = "image" | "video";
 
@@ -92,7 +96,7 @@ export function kindForExtension(ext: string): MediaKind | null {
   const e = ext.toLowerCase();
   if (EXCLUDED.has(e)) return null;
   if (RENDERABLE_VIDEO.has(e) || OPAQUE_VIDEO.has(e)) return "video";
-  if (RENDERABLE_IMAGE.has(e) || OPAQUE_IMAGE.has(e)) return "image";
+  if (RENDERABLE_IMAGE.has(e) || OPAQUE_IMAGE.has(e) || DRAWN_IMAGE.has(e)) return "image";
   return null;
 }
 
@@ -106,6 +110,11 @@ export function isRenderable(ext: string): boolean {
 export function needsPreview(ext: string): boolean {
   const e = ext.toLowerCase();
   return OPAQUE_IMAGE.has(e) || OPAQUE_VIDEO.has(e);
+}
+
+/** True when the page can draw a still of the file, but must never paint it. */
+export function needsDrawnPreview(ext: string): boolean {
+  return DRAWN_IMAGE.has(ext.toLowerCase());
 }
 
 export function isSupported(ext: string): boolean {

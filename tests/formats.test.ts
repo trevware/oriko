@@ -8,6 +8,7 @@ import {
   isSupported,
   kindForExtension,
   mimeForPath,
+  needsDrawnPreview,
   needsPreview,
 } from "../src/core/formats";
 
@@ -30,10 +31,17 @@ describe("the requested format matrix", () => {
     expect(kindForExtension("webp")).toBe("image");
   });
 
-  it("excludes svg", () => {
-    expect(isExcluded("svg")).toBe(true);
-    expect(kindForExtension("svg")).toBeNull();
-    expect(isSupported("svg")).toBe(false);
+  it("accepts svg as an image that only ever paints as a drawn preview", () => {
+    expect(kindForExtension("svg")).toBe("image");
+    expect(isRenderable("svg")).toBe(false);
+    expect(needsPreview("svg")).toBe(false);
+    expect(needsDrawnPreview("svg")).toBe(true);
+  });
+
+  it("still excludes compressed svg, which an image cannot load", () => {
+    expect(isExcluded("svgz")).toBe(true);
+    expect(isSupported("svgz")).toBe(false);
+    expect(needsDrawnPreview("svgz")).toBe(false);
   });
 
   it("covers the common raw vendor extensions", () => {
@@ -71,7 +79,7 @@ describe("renderable versus opaque", () => {
   });
 
   it("never asks for a preview of an unsupported format", () => {
-    expect(needsPreview("svg")).toBe(false);
+    expect(needsPreview("svgz")).toBe(false);
     expect(needsPreview("pdf")).toBe(false);
   });
 

@@ -1,3 +1,5 @@
+import { extensionOf, needsDrawnPreview, needsPreview } from "./formats";
+
 function replaceExtension(path: string, suffix: string): string {
   const slash = path.lastIndexOf("/");
   const dot = path.lastIndexOf(".");
@@ -14,6 +16,26 @@ export function posterPath(originalPath: string): string {
 
 export function previewPath(originalPath: string): string {
   return replaceExtension(originalPath, ".preview.png");
+}
+
+/**
+ * The derived file an archived original wants, and how it is made: "convert"
+ * hands the file to sips or ffmpeg, "draw" renders it in the page. A format
+ * Chromium cannot decode is unusable until it has a preview, so that takes
+ * priority over the ordinary still. Tiles paint plain images as originals, so
+ * a still is only worth drawing for the things that need one: an SVG, which
+ * is never painted itself, posting a video, and freezing a GIF.
+ */
+export function derivedTarget(
+  file: string,
+  kind: "image" | "video"
+): { path: string; via: "convert" | "draw" } | null {
+  const ext = extensionOf(file);
+  if (needsPreview(ext)) return { path: previewPath(file), via: "convert" };
+  if (needsDrawnPreview(ext)) return { path: thumbPath(file), via: "draw" };
+  if (kind === "video") return { path: posterPath(file), via: "draw" };
+  if (ext === "gif") return { path: thumbPath(file), via: "draw" };
+  return null;
 }
 
 export function scaledSize(

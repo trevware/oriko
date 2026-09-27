@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { posterPath, previewPath, scaledSize, thumbPath } from "../src/core/derive";
+import { derivedTarget, posterPath, previewPath, scaledSize, thumbPath } from "../src/core/derive";
 
 describe("thumbPath", () => {
   it("appends a thumb suffix before the extension", () => {
@@ -62,5 +62,27 @@ describe("previewPath", () => {
     expect(previewPath("Attachments/Clippings/abc")).toBe(
       "Attachments/Clippings/abc.preview.png"
     );
+  });
+});
+
+describe("derivedTarget", () => {
+  const dir = "Attachments/Clippings/abc123abc123-";
+
+  it("converts formats the page cannot decode into a png preview", () => {
+    expect(derivedTarget(`${dir}a.heic`, "image")).toEqual({ path: `${dir}a.preview.png`, via: "convert" });
+    expect(derivedTarget(`${dir}a.avi`, "video")).toEqual({ path: `${dir}a.preview.png`, via: "convert" });
+  });
+
+  it("draws an svg into a still, so the markup itself is never painted", () => {
+    expect(derivedTarget(`${dir}og.svg`, "image")).toEqual({ path: `${dir}og.thumb.webp`, via: "draw" });
+  });
+
+  it("gives a video a poster and a gif a still to freeze on", () => {
+    expect(derivedTarget(`${dir}a.mp4`, "video")).toEqual({ path: `${dir}a.poster.webp`, via: "draw" });
+    expect(derivedTarget(`${dir}a.gif`, "image")).toEqual({ path: `${dir}a.thumb.webp`, via: "draw" });
+  });
+
+  it("leaves a plain image alone", () => {
+    expect(derivedTarget(`${dir}a.jpg`, "image")).toBeNull();
   });
 });

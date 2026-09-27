@@ -11,8 +11,8 @@ import {
   extractVideoFrame,
   ytdlpPath,
 } from "./convert";
-import { posterPath, previewPath, renderPoster, renderThumbnail, thumbPath } from "./core/derive";
-import { extensionOf, mimeForPath, needsPreview } from "./core/formats";
+import { derivedTarget, previewPath, renderPoster, renderThumbnail } from "./core/derive";
+import { mimeForPath } from "./core/formats";
 import { ClippingIndex } from "./index-store";
 import { hashUrl } from "./core/hash";
 import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./core/normalize";
@@ -146,19 +146,10 @@ export class ArchiveService {
       if (keys && !keys.has(entry.key)) continue;
       if (!entry.file || entry.thumb) continue;
 
-      // A format Chromium cannot decode is unusable until it has a preview,
-      // so that takes priority over the ordinary still. Tiles paint plain
-      // images as originals, so a still is only worth generating for the two
-      // things that need one: posting a video and freezing a GIF.
-      const wantsPreview = needsPreview(extensionOf(entry.file));
-      const target = wantsPreview
-        ? previewPath(entry.file)
-        : entry.kind === "video"
-          ? posterPath(entry.file)
-          : /\.gif$/i.test(entry.file)
-            ? thumbPath(entry.file)
-            : null;
-      if (!target) continue;
+      const plan = derivedTarget(entry.file, entry.kind);
+      if (!plan) continue;
+      const target = plan.path;
+      const wantsPreview = plan.via === "convert";
 
       // The cache is per-device but derived files sync, so another device
       // may already have rendered this. Adopting the file skips the render
