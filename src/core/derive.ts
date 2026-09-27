@@ -18,9 +18,14 @@ export function previewPath(originalPath: string): string {
   return replaceExtension(originalPath, ".preview.png");
 }
 
+export function drawnPath(originalPath: string): string {
+  return replaceExtension(originalPath, ".drawn.webp");
+}
+
 /**
  * The derived file an archived original wants, and how it is made: "convert"
- * hands the file to sips or ffmpeg, "draw" renders it in the page. A format
+ * hands the file to sips or ffmpeg, "draw" renders a thumbnail-width still in
+ * the page, "vector" draws a full-size one. A format
  * Chromium cannot decode is unusable until it has a preview, so that takes
  * priority over the ordinary still. Tiles paint plain images as originals, so
  * a still is only worth drawing for the things that need one: an SVG, which
@@ -29,13 +34,27 @@ export function previewPath(originalPath: string): string {
 export function derivedTarget(
   file: string,
   kind: "image" | "video"
-): { path: string; via: "convert" | "draw" } | null {
+): { path: string; via: "convert" | "draw" | "vector" } | null {
   const ext = extensionOf(file);
   if (needsPreview(ext)) return { path: previewPath(file), via: "convert" };
-  if (needsDrawnPreview(ext)) return { path: thumbPath(file), via: "draw" };
+  if (needsDrawnPreview(ext)) return { path: drawnPath(file), via: "vector" };
   if (kind === "video") return { path: posterPath(file), via: "draw" };
   if (ext === "gif") return { path: thumbPath(file), via: "draw" };
   return null;
+}
+
+/**
+ * How wide an SVG's still is drawn. It stands in for the original, which
+ * tiles and the detail view paint at full size, so it is drawn big enough
+ * to stay sharp on a Retina screen; the thumbnail width is sized for a
+ * paused GIF and blurs. Vectors cost nothing to draw large.
+ */
+export const VECTOR_WIDTH = 1600;
+
+/** The size to draw a vector at, or null when it declares no size at all. */
+export function vectorSize(width: number, height: number): { width: number; height: number } | null {
+  if (width <= 0 || height <= 0) return null;
+  return { width: VECTOR_WIDTH, height: Math.round((height / width) * VECTOR_WIDTH) };
 }
 
 export function scaledSize(
@@ -73,11 +92,8 @@ async function encode(canvas: HTMLCanvasElement): Promise<ArrayBuffer | null> {
 
 function draw(
   source: CanvasImageSource,
-  naturalWidth: number,
-  naturalHeight: number,
-  targetWidth: number
+  size: { width: number; height: number }
 ): HTMLCanvasElement | null {
-  const size = scaledSize(naturalWidth, naturalHeight, targetWidth);
   const canvas = createEl("canvas");
   canvas.width = size.width;
   canvas.height = size.height;
@@ -96,6 +112,31 @@ export async function renderThumbnail(
   sourceUrl: string,
   targetWidth: number
 ): Promise<Rendered | null> {
+  const image = await loadImage(sourceUrl);
+  if (!image) return null;
+
+  const canvas = draw(image, scaledSize(image.naturalWidth, image.naturalHeight, targetWidth));
+  if (!canvas) return null;
+  const data = await encode(canvas);
+  if (!data) return null;
+  return { data, width: image.naturalWidth, height: image.naturalHeight };
+}
+
+/** Draws an SVG at VECTOR_WIDTH, upscaling freely since it is a vector. */
+export async function renderVector(sourceUrl: string): Promise<Rendered | null> {
+  const image = await loadImage(sourceUrl);
+  if (!image) return null;
+  const size = vectorSize(image.naturalWidth, image.naturalHeight);
+  if (!size) return null;
+
+  const canvas = draw(image, size);
+  if (!canvas) return null;
+  const data = await encode(canvas);
+  if (!data) return null;
+  return { data, ...size };
+}
+
+async function loadImage(sourceUrl: string): Promise<HTMLImageElement | null> {
   const image = new Image();
   const loaded = new Promise<boolean>((resolve) => {
     image.onload = () => resolve(true);
@@ -103,13 +144,7 @@ export async function renderThumbnail(
   });
   image.src = sourceUrl;
   if (!(await loaded)) return null;
-  if (image.naturalWidth === 0) return null;
-
-  const canvas = draw(image, image.naturalWidth, image.naturalHeight, targetWidth);
-  if (!canvas) return null;
-  const data = await encode(canvas);
-  if (!data) return null;
-  return { data, width: image.naturalWidth, height: image.naturalHeight };
+  return image.naturalWidth === 0 ? null : image;
 }
 
 /**
@@ -153,7 +188,7 @@ export async function renderPoster(
   });
   if (!seeked) return null;
 
-  const canvas = draw(video, video.videoWidth, video.videoHeight, targetWidth);
+  const canvas = draw(video, scaledSize(video.videoWidth, video.videoHeight, targetWidth));
   if (!canvas) return null;
   const data = await encode(canvas);
   if (!data) return null;

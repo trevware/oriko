@@ -11,7 +11,7 @@ import {
   extractVideoFrame,
   ytdlpPath,
 } from "./convert";
-import { derivedTarget, previewPath, renderPoster, renderThumbnail } from "./core/derive";
+import { derivedTarget, previewPath, renderPoster, renderThumbnail, renderVector } from "./core/derive";
 import { mimeForPath } from "./core/formats";
 import { ClippingIndex } from "./index-store";
 import { hashUrl } from "./core/hash";
@@ -144,10 +144,13 @@ export class ArchiveService {
 
     for (const entry of this.cache.entries()) {
       if (keys && !keys.has(entry.key)) continue;
-      if (!entry.file || entry.thumb) continue;
+      if (!entry.file) continue;
 
       const plan = derivedTarget(entry.file, entry.kind);
       if (!plan) continue;
+      // An SVG still drawn at thumbnail width, before they were drawn full
+      // size under their own name, is redrawn once. Any other thumb is final.
+      if (entry.thumb && !(plan.via === "vector" && entry.thumb !== plan.path)) continue;
       const target = plan.path;
       const wantsPreview = plan.via === "convert";
 
@@ -179,9 +182,11 @@ export class ArchiveService {
 
       try {
         const rendered =
-          entry.kind === "video"
-            ? await renderPoster(source.url, width)
-            : await renderThumbnail(source.url, width);
+          plan.via === "vector"
+            ? await renderVector(source.url)
+            : entry.kind === "video"
+              ? await renderPoster(source.url, width)
+              : await renderThumbnail(source.url, width);
         if (!rendered) {
           // Recorded so a video this device cannot decode is not repaid its
           // full timeout on every pass. The explicit archive-everything

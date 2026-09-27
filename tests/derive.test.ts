@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivedTarget, posterPath, previewPath, scaledSize, thumbPath } from "../src/core/derive";
+import { derivedTarget, posterPath, previewPath, scaledSize, thumbPath, vectorSize, VECTOR_WIDTH } from "../src/core/derive";
 
 describe("thumbPath", () => {
   it("appends a thumb suffix before the extension", () => {
@@ -73,8 +73,8 @@ describe("derivedTarget", () => {
     expect(derivedTarget(`${dir}a.avi`, "video")).toEqual({ path: `${dir}a.preview.png`, via: "convert" });
   });
 
-  it("draws an svg into a still, so the markup itself is never painted", () => {
-    expect(derivedTarget(`${dir}og.svg`, "image")).toEqual({ path: `${dir}og.thumb.webp`, via: "draw" });
+  it("draws an svg into a full-size still, so the markup itself is never painted", () => {
+    expect(derivedTarget(`${dir}og.svg`, "image")).toEqual({ path: `${dir}og.drawn.webp`, via: "vector" });
   });
 
   it("gives a video a poster and a gif a still to freeze on", () => {
@@ -84,5 +84,16 @@ describe("derivedTarget", () => {
 
   it("leaves a plain image alone", () => {
     expect(derivedTarget(`${dir}a.jpg`, "image")).toBeNull();
+  });
+});
+
+describe("vectorSize", () => {
+  it("draws at the full vector width whatever the declared size", () => {
+    expect(vectorSize(1200, 630)).toEqual({ width: VECTOR_WIDTH, height: Math.round((630 / 1200) * VECTOR_WIDTH) });
+    expect(vectorSize(24, 24)).toEqual({ width: VECTOR_WIDTH, height: VECTOR_WIDTH });
+  });
+
+  it("gives up on an svg that declares no size at all", () => {
+    expect(vectorSize(0, 0)).toBeNull();
   });
 });
