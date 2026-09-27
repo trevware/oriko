@@ -255,6 +255,81 @@ function asText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+/**
+ * Above this, X's variants are 4K masters: roughly 3 MB a second, which
+ * outgrows the default download limit on anything longer than a few seconds.
+ */
+const MAX_ARTICLE_BITRATE = 12_000_000;
+
+/** The best mp4 of an article video that stays under the 4K tier. */
+function pickArticleVideo(variants: unknown): string {
+  if (!Array.isArray(variants)) return "";
+  const mp4s = variants
+    .map(asRecord)
+    .filter((v): v is Record<string, unknown> => !!v && asText(v.content_type) === "video/mp4" && !!asText(v.url))
+    .map((v) => ({ url: asText(v.url), rate: typeof v.bit_rate === "number" ? v.bit_rate : 0 }))
+    .sort((a, b) => b.rate - a.rate);
+  const fits = mp4s.find((v) => v.rate <= MAX_ARTICLE_BITRATE);
+  return (fits ?? mp4s[mp4s.length - 1])?.url ?? "";
+}
+
+/**
+ * The media of an X Article, in the order it is read. media_entities is
+ * unordered, so the order comes from the article's atomic blocks, each of
+ * which points through the entity map at a media id. Anything the blocks
+ * never mention follows, then the cover image last: it is the article's
+ * banner, and a video makes the better tile.
+ */
+function parseArticleMedia(article: Record<string, unknown>): ResolvedMedia[] {
+  const byId = new Map<string, ResolvedMedia>();
+  for (const raw of Array.isArray(article.media_entities) ? article.media_entities : []) {
+    const entity = asRecord(raw);
+    const info = asRecord(entity?.media_info);
+    if (!entity || !info) continue;
+    const id = asText(entity.media_id);
+    const url =
+      asText(info.__typename) === "ApiVideo" ? pickArticleVideo(info.variants) : asText(info.original_img_url);
+    if (id && url) byId.set(id, { url, kind: asText(info.__typename) === "ApiVideo" ? "video" : "image" });
+  }
+
+  const content = asRecord(article.content);
+  const entityMedia = new Map<string, string[]>();
+  for (const raw of Array.isArray(content?.entityMap) ? content.entityMap : []) {
+    const entry = asRecord(raw);
+    const data = asRecord(asRecord(entry?.value)?.data);
+    const items = Array.isArray(data?.mediaItems) ? data.mediaItems : [];
+    const ids = items.map((i) => asText(asRecord(i)?.mediaId)).filter(Boolean);
+    if (entry && ids.length) entityMedia.set(String(entry.key), ids);
+  }
+
+  const ordered: ResolvedMedia[] = [];
+  const take = (id: string): void => {
+    const item = byId.get(id);
+    if (!item) return;
+    ordered.push(item);
+    byId.delete(id);
+  };
+  for (const raw of Array.isArray(content?.blocks) ? content.blocks : []) {
+    const block = asRecord(raw);
+    if (!block || asText(block.type) !== "atomic") continue;
+    for (const range of Array.isArray(block.entityRanges) ? block.entityRanges : []) {
+      const key = asRecord(range)?.key;
+      for (const id of entityMedia.get(String(key)) ?? []) take(id);
+    }
+  }
+  ordered.push(...byId.values());
+
+  const cover = asText(asRecord(asRecord(article.cover_media)?.media_info)?.original_img_url);
+  if (cover) ordered.push({ url: cover, kind: "image" });
+  return ordered;
+}
+
 /** Turns an fxtwitter payload into a resolved link. Pure. */
 export function parseFxTweet(payload: unknown, sourceUrl: string): ResolvedLink | null {
   if (!payload || typeof payload !== "object") return null;
@@ -280,13 +355,25 @@ export function parseFxTweet(payload: unknown, sourceUrl: string): ResolvedLink 
     }
   }
 
-  const text = asText(t.text);
+  // An X Article's post carries no media of its own: its text is only the
+  // article link, and every video and image hangs off the article instead.
+  const article = asRecord(t.article);
+  if (article) {
+    for (const item of parseArticleMedia(article)) {
+      if (seen.has(item.url)) continue;
+      seen.add(item.url);
+      media.push(item);
+    }
+  }
+
+  const articleTitle = article ? asText(article.title) : "";
+  const text = articleTitle || asText(t.text);
   const name = asText(author.name);
 
   return {
     url: asText(t.url) || sourceUrl,
     title: text ? `${name || "Post"}: ${text.split("\n")[0]}`.slice(0, 120) : name || "Post",
-    description: text,
+    description: (article && asText(article.preview_text)) || asText(t.text),
     author: name,
     published: asText(t.created_at),
     media,

@@ -155,6 +155,87 @@ describe("parseFxTweet", () => {
     const noUrl = { tweet: { ...payload.tweet, url: undefined } };
     expect(parseFxTweet(noUrl, "https://fallback")!.url).toBe("https://fallback");
   });
+
+  describe("X Articles", () => {
+    const mp4 = (id: string, rate: number) => ({
+      content_type: "video/mp4",
+      bit_rate: rate,
+      url: `https://video.twimg.com/amplify_video/${id}/vid/${rate}.mp4?tag=29`,
+    });
+    const hls = (id: string) => ({
+      content_type: "application/x-mpegURL",
+      url: `https://video.twimg.com/amplify_video/${id}/pl/x.m3u8`,
+    });
+    const video = (id: string, rates: number[]) => ({
+      media_id: id,
+      media_info: { __typename: "ApiVideo", variants: [hls(id), ...rates.map((r) => mp4(id, r))] },
+    });
+    const image = (id: string) => ({
+      media_id: id,
+      media_info: { __typename: "ApiImage", original_img_url: `https://pbs.twimg.com/media/${id}.jpg` },
+    });
+    const atomic = (key: number) => ({ type: "atomic", text: " ", entityRanges: [{ key, offset: 0, length: 1 }] });
+    const entity = (key: string, mediaId: string) => ({
+      key,
+      value: { type: "MEDIA", data: { mediaItems: [{ mediaId }] } },
+    });
+
+    // Shaped after a real post: its text is only the article link, the
+    // media lives on the article, and media_entities is not in reading order.
+    const article = {
+      tweet: {
+        url: "https://x.com/leo/status/1",
+        text: "https://x.com/i/article/9",
+        author: { name: "Leo" },
+        article: {
+          title: "Make your product videos look expensive",
+          preview_text: "You've probably seen those videos from Apple.",
+          cover_media: { media_info: { original_img_url: "https://pbs.twimg.com/media/cover.jpg" } },
+          media_entities: [video("B", [256000, 10368000, 25128000]), image("C"), video("A", [832000, 2176000])],
+          content: {
+            blocks: [{ type: "unstyled", text: "Hi", entityRanges: [] }, atomic(0), atomic(1), atomic(2)],
+            entityMap: [entity("1", "B"), entity("0", "A"), entity("2", "C")],
+          },
+        },
+      },
+    };
+
+    it("pulls the videos and images out of the article, in reading order", () => {
+      const out = parseFxTweet(article, "")!;
+      expect(out.media.map((m) => [m.kind, m.url])).toEqual([
+        ["video", "https://video.twimg.com/amplify_video/A/vid/2176000.mp4?tag=29"],
+        ["video", "https://video.twimg.com/amplify_video/B/vid/10368000.mp4?tag=29"],
+        ["image", "https://pbs.twimg.com/media/C.jpg"],
+        ["image", "https://pbs.twimg.com/media/cover.jpg"],
+      ]);
+    });
+
+    it("skips 4K variants that would outgrow the download limit", () => {
+      const urls = parseFxTweet(article, "")!.media.map((m) => m.url);
+      expect(urls.some((u) => u.includes("25128000"))).toBe(false);
+    });
+
+    it("falls back to the smallest mp4 when every variant is 4K", () => {
+      const only4k = {
+        tweet: {
+          ...article.tweet,
+          article: { media_entities: [video("D", [30000000, 25128000])] },
+        },
+      };
+      expect(parseFxTweet(only4k, "")!.media[0].url).toContain("/25128000.mp4");
+    });
+
+    it("keeps media the reading order does not mention", () => {
+      const noBlocks = { tweet: { ...article.tweet, article: { ...article.tweet.article, content: {} } } };
+      expect(parseFxTweet(noBlocks, "")!.media).toHaveLength(4);
+    });
+
+    it("titles the clipping after the article, not its link", () => {
+      const out = parseFxTweet(article, "")!;
+      expect(out.title).toBe("Leo: Make your product videos look expensive");
+      expect(out.description).toBe("You've probably seen those videos from Apple.");
+    });
+  });
 });
 
 describe("parsePageMeta", () => {
