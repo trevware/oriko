@@ -267,7 +267,7 @@ export class GridRenderer {
 
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "pg-viewport" });
-    this.viewport.dataset.density = DEFAULT_STAGE;
+    this.stampDensity(DEFAULT_STAGE);
 
     /*
      * On touch the wall is scrolled by the browser rather than by us.
@@ -411,7 +411,7 @@ export class GridRenderer {
    */
   setDensity(stage: DensityStage): void {
     const width = columnWidthFor(stage);
-    this.viewport.dataset.density = stage;
+    this.stampDensity(stage);
     if (width === this.targetColumnWidth) return;
     this.targetColumnWidth = width;
     // Folders count as something to lay out. A grid can hold nothing but
@@ -422,6 +422,19 @@ export class GridRenderer {
     // A folder's height is measured off this width too, so it is not only
     // the columns that were stale.
     if (this.tiles.length > 0 || this.folders.length > 0) this.relayout();
+  }
+
+  /**
+   * Names the stage for the stylesheet as two classes, one for the tightest
+   * stage and one for the two roomiest, rather than as the stage itself. A
+   * selector on an attribute restyles everything it could match whenever
+   * the attribute changes at all, so a stage attribute restyled every card's
+   * pills and bands on every step; a class that stays put costs nothing.
+   */
+  private stampDensity(stage: DensityStage): void {
+    this.viewport.dataset.density = stage;
+    this.viewport.toggleClass("is-tiny", stage === "xs");
+    this.viewport.toggleClass("is-roomy", stage === "l" || stage === "xl");
   }
 
   private viewportSize(): { width: number; height: number } {

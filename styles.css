@@ -470,7 +470,7 @@
 
 /* At the tightest stage a column is narrower than a pill row needs, and
    the stage exists to show more of the picture. The card stays a picture. */
-.pg-viewport[data-density="xs"] .pg-meta {
+.pg-viewport.is-tiny .pg-meta {
   display: none;
 }
 
@@ -775,11 +775,11 @@
 }
 
 /* At the tightest stage a card is too narrow for words; the icon says enough. */
-.pg-viewport[data-density="xs"] .pg-building-text {
+.pg-viewport.is-tiny .pg-building-text {
   display: none;
 }
 
-.pg-viewport[data-density="xs"] .pg-building-pill {
+.pg-viewport.is-tiny .pg-building-pill {
   left: 6px;
   bottom: 6px;
   padding: 4px;
@@ -2910,7 +2910,7 @@ body.is-mobile .pg-spacebar button:active {
 
 /* At the tightest stage the card is its art, like any tile. The layout
    reserves no room for the band there either; see steamBandHeight. */
-.pg-viewport[data-density="xs"] .pg-steam-band {
+.pg-viewport.is-tiny .pg-steam-band {
   display: none;
 }
 
@@ -3008,23 +3008,19 @@ body.is-mobile .pg-spacebar button:active {
 }
 
 /* The band's text grows a little with the band. */
-.pg-viewport[data-density="l"] .pg-steam-name,
-.pg-viewport[data-density="xl"] .pg-steam-name {
+.pg-viewport.is-roomy .pg-steam-name {
   font-size: 14px;
 }
 
-.pg-viewport[data-density="l"] .pg-steam-price,
-.pg-viewport[data-density="xl"] .pg-steam-price {
+.pg-viewport.is-roomy .pg-steam-price {
   font-size: 13px;
 }
 
-.pg-viewport[data-density="l"] .pg-steam-tags,
-.pg-viewport[data-density="xl"] .pg-steam-tags {
+.pg-viewport.is-roomy .pg-steam-tags {
   --pg-steam-tag-line: 14px;
 }
 
-.pg-viewport[data-density="l"] .pg-steam-tag,
-.pg-viewport[data-density="xl"] .pg-steam-tag {
+.pg-viewport.is-roomy .pg-steam-tag {
   font-size: 11px;
 }
 
@@ -3314,11 +3310,11 @@ body.is-mobile .pg-spacebar button:active {
 }
 
 /* At the tightest stage a card is its art, like any tile. */
-.pg-viewport[data-density="xs"] .pg-card-band {
+.pg-viewport.is-tiny .pg-card-band {
   display: none;
 }
 
-.pg-viewport[data-density="xs"] .pg-tile:hover .pg-frame.is-hover-band {
+.pg-viewport.is-tiny .pg-tile:hover .pg-frame.is-hover-band {
   bottom: 4px;
 }
 
