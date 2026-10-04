@@ -46,8 +46,21 @@ function todayStamp(): string {
 }
 
 export class CaptureService {
-  /** Set by the grid view so capture can drive its progress bar. */
+  /**
+   * Set by the grid view, which puts a card on the wall for the clip the
+   * moment it starts. `source` is the link being clipped, or "" for a picture
+   * pasted or dropped, so a store page's card can take a store card's shape
+   * from the start.
+   */
+  onBegin: ((source: string) => void) | null = null;
+  /** What the clip is doing now, shown on its card. Null when it ended without a note. */
   onProgress: ((state: ProgressState | null) => void) | null = null;
+  /**
+   * The note's path, told just before the note is written, so the card can
+   * become that clipping's card when it arrives on the wall instead of the
+   * wall briefly showing both.
+   */
+  onCreating: ((path: string) => void) | null = null;
   /**
    * Carries the note's path as well as its label: the grid flies to what you
    * just clipped, and a title is not enough to find a tile by.
@@ -91,6 +104,7 @@ export class CaptureService {
       return;
     }
 
+    this.onBegin?.("");
     this.report(0.3, `Saving ${kind}…`);
 
     const folder = normalizePath(this.settings().attachmentFolder);
@@ -140,6 +154,7 @@ export class CaptureService {
     }
 
     try {
+      this.onCreating?.(notePath);
       const file = await this.app.vault.create(
         notePath,
         buildPastedImageNote(title, attachment, today(), this.targetGrid())
@@ -189,6 +204,7 @@ export class CaptureService {
       return;
     }
 
+    this.onBegin?.(url);
     this.report(0.1, "Reading link…");
     const link = await this.resolve(url);
 
@@ -435,6 +451,7 @@ export class CaptureService {
 
     try {
       const grid = this.targetGrid(explicitGrid);
+      this.onCreating?.(path);
       return await this.app.vault.create(path, content ? content(grid) : buildNote(link, today(), grid));
     } catch (error) {
       new Notice(`Oriko: could not create the note (${String(error)})`);

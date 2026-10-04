@@ -42,7 +42,7 @@ import { Palette } from "./palette";
 import { resourceUrl } from "./convert";
 import { PlaybackController } from "./core/playback";
 import { isHttpUrl } from "./core/resolve";
-import { ProgressBar } from "./core/progress";
+import type { ProgressState } from "./core/progress";
 import type { PropertyVocabulary } from "./core/filter";
 import {
   activeCount,
@@ -79,9 +79,10 @@ import {
   orderedGrids,
 } from "./core/spaces";
 import type { GridSpace, PlacedGrid } from "./core/spaces";
-import { buildTiles, previewOf } from "./core/tile";
+import { BUILDING_PREFIX, buildTiles, buildingTile, previewOf } from "./core/tile";
 import type { TileModel } from "./core/tile";
 import type { ClippingRecord } from "./core/scan";
+import { steamAppId } from "./core/steam";
 import type { SteamLook } from "./core/steam";
 
 export const VIEW_TYPE_GRID = "oriko";
@@ -110,6 +111,12 @@ const PALETTE_CLIPPINGS = 8;
  * next, minutes later.
  */
 const REVEAL_WINDOW_MS = 20000;
+/**
+ * How long a finished clip's card waits for its clipping to reach the wall
+ * before letting go. The arrival is a frame or two away; this only bounds
+ * the case where it lands somewhere this wall does not show.
+ */
+const BUILD_GRACE_MS = 1500;
 /** How long the pane has to hold still before the wall is laid out for it. */
 const RESIZE_SETTLE_MS = 120;
 
@@ -117,7 +124,14 @@ export class OrikoView extends ItemView {
   private grid: GridRenderer | null = null;
   private observer: ResizeObserver | null = null;
   private playback: PlaybackController | null = null;
-  private progress: ProgressBar | null = null;
+  /**
+   * Cards for clips in progress, newest last. Each stands at the front of
+   * the wall until its note exists and the wall shows it, then hands itself
+   * to that clipping (see applyFilter). A finished one whose clipping this
+   * wall does not show is let go.
+   */
+  private builds: Array<{ id: string; tile: TileModel; path: string; finishedAt: number }> = [];
+  private buildSeq = 0;
   private actionBar: ActionBar | null = null;
   private menu: ContextMenu | null = null;
   private detail: DetailView | null = null;
@@ -155,7 +169,7 @@ export class OrikoView extends ItemView {
    */
   private unloadable = new Map<string, string>();
   /** A store page clipping's Steam look, for the tiles drawn as store cards. */
-  private steamLook = (record: ClippingRecord): SteamLook | null =>
+  private steamLook = (record: ClippingRecord): SteamLook | "pending" | null =>
     this.plugin.steam.lookFor(record);
   /**
    * Covers waiting on a file the vault has not registered yet, kept apart
@@ -203,10 +217,23 @@ export class OrikoView extends ItemView {
     this.contentEl.empty();
     this.contentEl.addClass("oriko-view");
 
-    this.progress = new ProgressBar(this.contentEl);
-    this.plugin.capture.onProgress = (state) => this.progress?.set(state);
-    this.plugin.capture.onFinished = (label, path) => {
-      this.progress?.finish(`Clipped ${label}`);
+    const capture = this.plugin.capture;
+    capture.onBegin = (source) => this.beginBuild(source);
+    capture.onProgress = (state) => this.progressBuild(state);
+    capture.onCreating = (path) => {
+      const build = this.activeBuild();
+      if (build) build.path = path;
+    };
+    capture.onFinished = (_label, path) => {
+      const build = this.builds.find((b) => b.path === path);
+      if (build) {
+        build.finishedAt = performance.now();
+        // A fallback, for a clipping that lands somewhere this wall does not
+        // show: the paint its arrival schedules normally hands the card over.
+        window.setTimeout(() => {
+          if (this.builds.includes(build)) this.applyFilter({});
+        }, BUILD_GRACE_MS + 100);
+      }
       // Armed, not flown: the tile does not exist until the index change
       // this capture is about to cause has been painted.
       this.pendingReveal = { path, until: performance.now() + REVEAL_WINDOW_MS };
@@ -803,10 +830,11 @@ export class OrikoView extends ItemView {
     this.observer = null;
     this.playback?.destroy();
     this.playback = null;
+    this.plugin.capture.onBegin = null;
     this.plugin.capture.onProgress = null;
+    this.plugin.capture.onCreating = null;
     this.plugin.capture.onFinished = null;
-    this.progress?.destroy();
-    this.progress = null;
+    this.builds = [];
     this.actionBar?.destroy();
     this.actionBar = null;
     this.menu?.close();
@@ -1341,6 +1369,70 @@ export class OrikoView extends ItemView {
    * the cover may still be resolving, and the next repaint is the one that
    * will have it.
    */
+  /** The clip in progress now: the newest card whose note is not yet written. */
+  private activeBuild(): (typeof this.builds)[number] | undefined {
+    const build = this.builds[this.builds.length - 1];
+    return build && !build.finishedAt ? build : undefined;
+  }
+
+  /**
+   * Puts a card on the wall for a clip the moment it starts. A store page
+   * gets a store card's shape from the start, so nothing jumps when it lands.
+   */
+  private beginBuild(source: string): void {
+    const id = `${BUILDING_PREFIX}${++this.buildSeq}`;
+    const tile = buildingTile(id, {
+      label: "Starting…",
+      fraction: 0,
+      shape: steamAppId(source) ? "steam" : "plain",
+    });
+    this.builds.push({ id, tile, path: "", finishedAt: 0 });
+    this.applyFilter({});
+    this.grid?.reveal(id, { fit: false, select: false });
+  }
+
+  /** Shows what the clip is doing on its card; null means it ended with no note. */
+  private progressBuild(state: ProgressState | null): void {
+    const build = this.activeBuild();
+    if (!build) return;
+    if (!state) {
+      // Nothing was made, so there is nothing to become: the card goes.
+      if (!build.path) {
+        this.builds = this.builds.filter((b) => b !== build);
+        this.applyFilter({});
+      }
+      return;
+    }
+    if (build.tile.building) {
+      build.tile.building = { ...build.tile.building, label: state.label, fraction: state.fraction };
+    }
+    // The grid holds this very model, so a render repaints the card in place.
+    this.grid?.render();
+  }
+
+  /**
+   * The wall's tiles with the cards for clips in progress in front of them,
+   * newest first. A card whose clipping is now among the tiles hands itself
+   * over to it instead; one that finished a while ago and whose clipping is
+   * nowhere on this wall (a smart grid it does not match, a filter) goes.
+   */
+  private withBuilds(tiles: TileModel[]): TileModel[] {
+    if (this.builds.length === 0) return tiles;
+    const present = new Set(tiles.map((t) => t.id));
+    const now = performance.now();
+    const waiting: TileModel[] = [];
+    this.builds = this.builds.filter((build) => {
+      if (build.path && present.has(build.path)) {
+        this.grid?.handoff(build.id, build.path);
+        return false;
+      }
+      if (build.finishedAt && now - build.finishedAt > BUILD_GRACE_MS) return false;
+      waiting.unshift(build.tile);
+      return true;
+    });
+    return [...waiting, ...tiles];
+  }
+
   /**
    * Says where a clipping went when it could not go where you were looking.
    *
@@ -1404,7 +1496,7 @@ export class OrikoView extends ItemView {
     const defs = this.defs();
     const narrow = (tiles: TileModel[]): TileModel[] =>
       isFilterEmpty(filter) ? tiles : tiles.filter((tile) => matchesFilter(tile, filter, defs));
-    const shown = narrow(this.facets);
+    const shown = this.withBuilds(narrow(this.facets));
     // A folder stays on a narrowed wall only while something in it matches,
     // and its collage shows the matches. An empty folder shows on a wall that
     // is not narrowed: it was just made, and has to be there to be filled.

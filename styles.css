@@ -507,22 +507,55 @@
   -webkit-user-drag: none;
 }
 
-.pg-progress {
+/* A card for a clip still being made: one quiet state until the clipping's
+   real look is ready. A shimmer says it is alive, the label says what it is
+   doing, and a hairline along the bottom says how far it has got. */
+.pg-frame.pg-building {
+  flex-direction: column;
+  background: var(--background-secondary);
+}
+
+.pg-frame.pg-building::before {
+  content: "";
   position: absolute;
-  inset: 0 0 auto 0;
-  z-index: 20;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(127, 127, 127, 0.09) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: pg-building-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes pg-building-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.pg-building-label {
+  position: relative;
+  padding: 0 16px;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.pg-building-bar {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
   height: 2px;
+  border-radius: 1px;
+  overflow: hidden;
   background: var(--pg-rule);
-  opacity: 0;
-  transition: opacity 180ms ease;
-  pointer-events: none;
 }
 
-.pg-progress.is-visible {
-  opacity: 1;
-}
-
-.pg-progress-fill {
+.pg-building-fill {
   height: 100%;
   width: 0;
   background: var(--pg-accent);
@@ -530,27 +563,28 @@
 }
 
 /* Work of unknown length: a travelling sliver rather than a fake percentage. */
-.pg-progress.is-indeterminate .pg-progress-fill {
+.pg-building.is-indeterminate .pg-building-fill {
   width: 30%;
   transition: none;
-  animation: pg-progress-slide 1.1s ease-in-out infinite;
+  animation: pg-building-slide 1.1s ease-in-out infinite;
 }
 
-@keyframes pg-progress-slide {
+@keyframes pg-building-slide {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(400%); }
 }
 
-.pg-progress-label {
-  position: absolute;
-  top: 8px;
-  left: 16px;
-  font-size: 11px;
-  color: var(--text-muted);
-  background: var(--background-primary);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
+@media (prefers-reduced-motion: reduce) {
+  .pg-frame.pg-building::before,
+  .pg-building.is-indeterminate .pg-building-fill {
+    animation: none;
+  }
+}
+
+/* At the tightest stage a card is too narrow for words; the shimmer and the
+   hairline say enough. */
+.pg-viewport[data-density="xs"] .pg-building-label {
+  display: none;
 }
 
 .pg-marquee {

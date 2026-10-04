@@ -94,12 +94,18 @@ export class SteamService {
     return this.app.vault.getFileByPath(normalizePath(path)) !== null;
   }
 
-  /** What a tile of this clipping is drawn with, or null for an ordinary one. */
-  lookFor(record: ClippingRecord): SteamLook | null {
+  /**
+   * What a tile of this clipping is drawn with: a store card, "pending" while
+   * this device has not yet heard from Steam about the game, or null for an
+   * ordinary tile, which is also what a game Steam could not tell us about
+   * falls back to.
+   */
+  lookFor(record: ClippingRecord): SteamLook | "pending" | null {
     const id = steamAppId(record.source);
     if (!id) return null;
     const entry = this.store.get(id);
-    if (!entry?.app) return null;
+    if (!entry) return "pending";
+    if (!entry.app) return null;
     const trailer = this.media().get(sourceVideoKeyFor(record.source))?.file ?? "";
     return steamLook(entry.app, entry.fetchedAt, this.folder(), (p) => this.exists(p), trailer);
   }

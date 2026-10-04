@@ -249,7 +249,9 @@ export default class OrikoPlugin extends Plugin {
         this.scheduleSteam(1000);
         // A clipping added afterwards, by the Web Clipper or by Oriko itself,
         // gets its store card without waiting for the hourly look.
-        this.index.onChange(() => this.scheduleSteam(1500));
+        // Short, because a store page's card waits in its building state
+        // until Steam has answered; long enough to fold a sync storm into one.
+        this.index.onChange(() => this.scheduleSteam(400));
       });
     });
 

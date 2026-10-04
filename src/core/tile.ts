@@ -33,7 +33,64 @@ export interface TileModel {
    * band of store details, and the detail view as a store page.
    */
   steam?: SteamLook;
+  /**
+   * Set while the clipping is still being made, or still waiting on what its
+   * final look needs. The card shows this one state until it is ready and
+   * then its real look, never something in between.
+   */
+  building?: Building;
 }
+
+export interface Building {
+  label: string;
+  /** 0..1, or null for work whose length is unknown. */
+  fraction: number | null;
+  /** The shape the finished card will have, so it does not change size on arrival. */
+  shape: "steam" | "plain";
+}
+
+/** Ids of cards standing in for a clip that has no note yet. */
+export const BUILDING_PREFIX = "building:";
+
+/** Store details are on their way; the card waits for them in one state. */
+export const STEAM_PENDING = "Fetching store details…";
+
+/**
+ * A card for a clip still being made, before any note exists. Its record is
+ * an empty stand-in so the wall can lay it out; nothing reads it.
+ */
+export function buildingTile(id: string, building: Building): TileModel {
+  const shape = building.shape === "steam" ? STEAM_HEADER : DEFAULT_RATIO;
+  return {
+    id,
+    record: {
+      path: "",
+      title: building.label,
+      source: "",
+      description: "",
+      categories: [],
+      status: "",
+      created: "",
+      cover: "",
+      grid: "",
+      folder: "",
+      media: [],
+      haystack: "",
+      properties: {},
+    },
+    posterPath: "",
+    filePath: "",
+    remote: false,
+    kind: "image",
+    animated: false,
+    width: shape.width,
+    height: shape.height,
+    provisional: false,
+    signature: `building|${building.shape}`,
+    building,
+  };
+}
+
 
 /** Steam's header capsule, 460 by 215 (or twice that), whatever the game. */
 const STEAM_HEADER = { width: 460, height: 215 };
@@ -264,12 +321,25 @@ export function buildTiles(
   records: ClippingRecord[],
   cache: MediaCache,
   failedSignatures?: ReadonlyMap<string, string>,
-  steamLookFor?: (record: ClippingRecord) => SteamLook | null
+  steamLookFor?: (record: ClippingRecord) => SteamLook | "pending" | null
 ): TileModel[] {
   const tiles: TileModel[] = [];
 
   for (const record of records) {
-    const steam = steamLookFor?.(record) ?? null;
+    const found = steamLookFor?.(record) ?? null;
+    if (found === "pending") {
+      // A store page this device has not heard about from Steam yet. It
+      // waits as a card of the right shape rather than showing as an
+      // ordinary tile first and turning into a store card a second later.
+      const waiting = buildingTile(record.path, {
+        label: STEAM_PENDING,
+        fraction: null,
+        shape: "steam",
+      });
+      tiles.push({ ...waiting, record });
+      continue;
+    }
+    const steam = found;
     const cover = steam ? steamCover(record, cache, steam) : pickCover(record, cache);
     if (!cover) continue;
     const signature = steam

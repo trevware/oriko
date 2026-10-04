@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MediaCache } from "../src/core/cache";
 import { scanClipping } from "../src/core/scan";
-import { buildTiles } from "../src/core/tile";
+import { BUILDING_PREFIX, STEAM_PENDING, buildTiles, buildingTile } from "../src/core/tile";
 import { COMBOLANDS_BODY, COMBOLANDS_FM, NOOK_BODY, NOOK_FM } from "./fixtures/clippings";
 
 const COMBO_7 =
@@ -495,5 +495,32 @@ describe("buildTiles with a Steam look", () => {
     const [tile] = buildTiles([covered], new MediaCache(), undefined, () => steam);
     expect(tile.filePath).toBe("https://cdn.example/mine.jpg");
     expect(tile.steam).toBe(steam);
+  });
+});
+
+describe("building cards", () => {
+  const record = scanClipping(
+    "Clippings/Roco.md",
+    { title: "Roco", source: "https://store.steampowered.com/app/4821880/" },
+    "<video src=\"https://cdn.example/trailer.mp4\"></video>"
+  );
+
+  it("holds a store page Steam has not answered for in one waiting state", () => {
+    const [tile] = buildTiles([record], new MediaCache(), undefined, () => "pending");
+    expect(tile.id).toBe("Clippings/Roco.md");
+    expect(tile.record).toBe(record);
+    expect(tile.building).toEqual({ label: STEAM_PENDING, fraction: null, shape: "steam" });
+    // The store card's shape, so the card does not resize when it arrives.
+    expect([tile.width, tile.height]).toEqual([460, 215]);
+    expect(tile.filePath).toBe("");
+  });
+
+  it("shapes a clip's card as a store card only for a store page", () => {
+    const steam = buildingTile("building:1", { label: "Starting…", fraction: 0, shape: "steam" });
+    const plain = buildingTile("building:2", { label: "Starting…", fraction: 0, shape: "plain" });
+    expect([steam.width, steam.height]).toEqual([460, 215]);
+    expect([plain.width, plain.height]).toEqual([4, 3]);
+    expect(plain.id.startsWith(BUILDING_PREFIX)).toBe(true);
+    expect(plain.record.path).toBe("");
   });
 });

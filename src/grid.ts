@@ -41,6 +41,7 @@ import {
   toggleSelection,
 } from "./core/selection";
 import type { Rect } from "./core/selection";
+import { BUILDING_PREFIX } from "./core/tile";
 import type { TileModel } from "./core/tile";
 import { steamBandHeight } from "./core/steam";
 import type { SteamLook } from "./core/steam";
@@ -730,7 +731,8 @@ export class GridRenderer {
           const learned = t.provisional ? this.measured.get(t.id) : undefined;
           const width = learned?.w ?? t.width;
           const height = learned?.h ?? t.height;
-          if (!t.steam || !(width > 0)) return { id: t.id, width, height };
+          const card = Boolean(t.steam) || t.building?.shape === "steam";
+          if (!card || !(width > 0)) return { id: t.id, width, height };
           // A store card is its art at the art's own shape with a band of a
           // fixed height under it, which no single ratio can describe, so it
           // is laid out as the height it will be in this column.
@@ -978,7 +980,7 @@ export class GridRenderer {
       const additive = event.shiftKey || event.metaKey || event.ctrlKey;
       // Folders are not clippings: a marquee over one selects nothing in it.
       const hits = idsInRect(
-        this.layout.positions.filter((p) => !this.folderById.has(p.id)),
+        this.layout.positions.filter((p) => !this.folderById.has(p.id) && this.isClipping(p.id)),
         rect
       );
       if (hits.length > 0) this.selectionAnchor = hits[hits.length - 1];
@@ -1106,7 +1108,7 @@ export class GridRenderer {
   }
 
   selectAll(): void {
-    this.applySelection(new Set(this.tiles.map((t) => t.id)));
+    this.applySelection(new Set(this.tiles.filter((t) => this.isClipping(t.id)).map((t) => t.id)));
   }
 
   selectedIds(): string[] {
@@ -1117,10 +1119,30 @@ export class GridRenderer {
    * The tile one step along the wall's own order, filter and sort applied,
    * or null at either end. What the detail view's arrow keys walk.
    */
+  /** The next card that can be opened, stepping over any still being built. */
   neighbor(id: string, direction: -1 | 1): TileModel | null {
     const index = this.tiles.findIndex((tile) => tile.id === id);
     if (index < 0) return null;
-    return this.tiles[index + direction] ?? null;
+    for (let i = index + direction; i >= 0 && i < this.tiles.length; i += direction) {
+      if (!this.tiles[i].building) return this.tiles[i];
+    }
+    return null;
+  }
+
+  /**
+   * Passes the card standing in for a clip to the clipping it became, so the
+   * one card moves to wherever the clipping sorts and changes into it there,
+   * rather than one card leaving as another pops in. Called just before the
+   * tiles that include `to` are set.
+   */
+  handoff(from: string, to: string): void {
+    const element = this.mounted.get(from);
+    if (!element || this.mounted.has(to)) return;
+    this.mounted.delete(from);
+    element.id = to;
+    this.mounted.set(to, element);
+    // Known, so it is not given an entrance: it has been on the wall all along.
+    this.known.add(to);
   }
 
   clearSelection(): void {
@@ -1561,6 +1583,41 @@ export class GridRenderer {
   }
 
   /**
+   * A card still being made: one quiet state, a label saying what is
+   * happening and a hairline of progress, held until the clipping's real
+   * look is ready. Updated in place while it lasts, so the shimmer runs on
+   * rather than restarting on every step.
+   */
+  private paintBuilding(element: TileElement, model: TileModel): void {
+    const building = model.building;
+    if (!building) return;
+
+    if (element.look !== "building") {
+      element.root.empty();
+      element.media = null;
+      element.kind = "";
+      element.look = "building";
+      element.root.removeClass("is-steam");
+      const frame = element.root.createDiv({ cls: "pg-frame pg-building" });
+      frame.createDiv({ cls: "pg-building-label" });
+      frame.createDiv({ cls: "pg-building-bar" }).createDiv({ cls: "pg-building-fill" });
+    }
+    element.id = model.id;
+    element.signature = model.signature;
+
+    const frame = element.root.querySelector<HTMLElement>(".pg-building");
+    const label = frame?.querySelector<HTMLElement>(".pg-building-label");
+    const fill = frame?.querySelector<HTMLElement>(".pg-building-fill");
+    if (label && label.textContent !== building.label) label.setText(building.label);
+    frame?.toggleClass("is-indeterminate", building.fraction === null);
+    if (fill) {
+      const pct = building.fraction === null ? 0 : Math.round(Math.min(1, Math.max(0, building.fraction)) * 100);
+      fill.setCssStyles({ width: building.fraction === null ? "" : `${pct}%` });
+    }
+    this.armTile(element);
+  }
+
+  /**
    * Turns a frame into a store card and returns the box its picture goes in.
    * The band's height is the one the layout reserved, read from the same
    * place, so the art keeps exactly the shape it was laid out at.
@@ -1695,6 +1752,11 @@ export class GridRenderer {
     // clipping that landed on one would then skip its entrance entirely.
     if (this.entering.has(model.id)) this.playEnter(element, model.id, order);
 
+    if (model.building) {
+      this.paintBuilding(element, model);
+      return;
+    }
+
     if (element.signature === model.signature) return;
 
     // Posters are always local files; the painted asset may be either.
@@ -1718,10 +1780,26 @@ export class GridRenderer {
       return;
     }
 
+    // A store card already showing keeps its frame: its picture swaps in
+    // place, as any tile's does, and its band is redrawn, which is all a new
+    // price or a saved copy of the art changes. Rebuilt, the card would blink.
+    if (
+      element.id === model.id &&
+      element.look === "steam" &&
+      model.steam &&
+      model.kind === "image" &&
+      element.media instanceof HTMLImageElement
+    ) {
+      this.swapImage(element.media, original);
+      const frame = element.root.querySelector<HTMLElement>(".pg-frame");
+      frame?.querySelector(".pg-steam-band")?.remove();
+      if (frame) paintBand(frame, model.steam.app);
+      element.signature = model.signature;
+      return;
+    }
+
     // An image tile whose source changed (archiving replaced the remote copy
     // with a local one) swaps in place rather than rebuilding the tile.
-    // Never for a store card, whose band of details has to be redrawn when
-    // its price moves even though its picture has not.
     if (
       element.id === model.id &&
       element.kind === "image" &&
@@ -1823,12 +1901,24 @@ export class GridRenderer {
 
     this.paintBadges(host.createDiv({ cls: "pg-meta" }), model);
 
-    // Armed on the card because the id is in scope here; every way out of
-    // a press (a second finger, movement past the slop, the lift) is on the
-    // viewport, which sees the whole gesture.
+    this.armTile(element);
+  }
+
+  /**
+   * Gives a card its pointer handling. Once per element: the handlers read
+   * the element's id, and the model by that id, when they fire, so they stay
+   * right while a pooled element is reused, repainted in place, or handed
+   * from a building card to the clipping it became.
+   */
+  private armTile(element: TileElement): void {
+    if (element.root.dataset.armed) return;
+    element.root.dataset.armed = "1";
+
+    // Every way out of a press (a second finger, movement past the slop, the
+    // lift) is on the viewport, which sees the whole gesture.
     element.root.addEventListener("pointerdown", (event: PointerEvent) => {
-      if (event.pointerType !== "touch") return;
-      this.armLongPress(model.id, { x: event.clientX, y: event.clientY });
+      if (event.pointerType !== "touch" || !this.isClipping(element.id)) return;
+      this.armLongPress(element.id, { x: event.clientX, y: event.clientY });
     });
     element.root.addEventListener("pointerenter", (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
@@ -1838,10 +1928,12 @@ export class GridRenderer {
     element.root.oncontextmenu = (event: MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
+      const id = element.id;
+      if (!this.isClipping(id)) return;
       // Right-clicking outside the selection acts on that card alone, which
       // is what every file manager does.
-      if (!this.selection.has(model.id)) {
-        this.selectOnly(model.id, new Set([model.id]));
+      if (!this.selection.has(id)) {
+        this.selectOnly(id, new Set([id]));
       }
       this.onContextRequested([...this.selection], event.clientX, event.clientY);
     };
@@ -1849,33 +1941,46 @@ export class GridRenderer {
     element.root.onclick = (event: MouseEvent) => {
       // A pan that ends over a tile must not also open it.
       if (this.panMoved) return;
+      const id = element.id;
+      const model = this.byId.get(id);
+      if (!model || !this.isClipping(id)) return;
 
       // Once a long press has opened selection mode, a tap adds and removes
       // rather than opening. It is cmd-click, without a cmd key to hold.
       if (this.touchSelecting) {
-        this.selectOnly(model.id, toggleSelection(this.baseFor("clippings"), model.id));
+        this.selectOnly(id, toggleSelection(this.baseFor("clippings"), id));
         return;
       }
 
       if (event.metaKey || event.ctrlKey) {
-        this.selectOnly(model.id, toggleSelection(this.baseFor("clippings"), model.id));
+        this.selectOnly(id, toggleSelection(this.baseFor("clippings"), id));
         return;
       }
 
       if (event.shiftKey) {
         this.applySelection(
           rangeSelection(
-            this.tiles.map((t) => t.id),
+            this.tiles.filter((t) => this.isClipping(t.id)).map((t) => t.id),
             this.selectionAnchor,
-            model.id,
+            id,
             this.baseFor("clippings")
           )
         );
         return;
       }
 
+      // Still being built: there is nothing to open yet.
+      if (model.building) return;
       this.openDetail(model, event);
     };
+  }
+
+  /**
+   * False for a card standing in for a clip still being made, which has no
+   * note behind it to select, open or act on.
+   */
+  private isClipping(id: string): boolean {
+    return id !== "" && !id.startsWith(BUILDING_PREFIX);
   }
 
   /**
