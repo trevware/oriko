@@ -123,6 +123,9 @@ interface TileElement {
   kind: string;
   /** "steam" while the element is drawn as a store card, otherwise "". */
   look: string;
+  /** The frame sizeCard last wrote to and what it wrote, so an unchanged card is skipped. */
+  sizedFrame: Element | null;
+  sized: string;
 }
 
 /**
@@ -265,7 +268,6 @@ export class GridRenderer {
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "pg-viewport" });
     this.viewport.dataset.density = DEFAULT_STAGE;
-    this.setSteamBand();
 
     /*
      * On touch the wall is scrolled by the browser rather than by us.
@@ -412,7 +414,6 @@ export class GridRenderer {
     this.viewport.dataset.density = stage;
     if (width === this.targetColumnWidth) return;
     this.targetColumnWidth = width;
-    this.setSteamBand();
     // Folders count as something to lay out. A grid can hold nothing but
     // folders, and this read `this.tiles.length > 0` from before they
     // existed, so such a wall stored the new width and never reflowed to it:
@@ -1483,9 +1484,11 @@ export class GridRenderer {
   private clearTilt(): void {
     this.setHoveredMedia(null);
     if (!this.tiltedId) return;
-    const element = this.mounted.get(this.tiltedId);
-    element?.root.style.removeProperty("--pg-rx");
-    element?.root.style.removeProperty("--pg-ry");
+    const frame = this.mounted.get(this.tiltedId)?.root.firstElementChild;
+    if (frame instanceof HTMLElement) {
+      frame.style.removeProperty("--pg-rx");
+      frame.style.removeProperty("--pg-ry");
+    }
     this.tiltedId = null;
   }
 
@@ -1533,9 +1536,12 @@ export class GridRenderer {
       this.tiltedId = id;
       this.setHoveredMedia(element.media);
       // Pressing the right edge tips the right side away, so rotateY follows
-      // dx and rotateX opposes dy.
-      element.root.style.setProperty("--pg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
-      element.root.style.setProperty("--pg-rx", `${(-pressure.dy * MAX_TILT_DEG).toFixed(2)}deg`);
+      // dx and rotateX opposes dy. On the frame, which is what tips, so each
+      // pointer move restyles it alone and not the whole card inside it.
+      const frame = element.root.firstElementChild;
+      if (!(frame instanceof HTMLElement)) return;
+      frame.style.setProperty("--pg-ry", `${(pressure.dx * MAX_TILT_DEG).toFixed(2)}deg`);
+      frame.style.setProperty("--pg-rx", `${(-pressure.dy * MAX_TILT_DEG).toFixed(2)}deg`);
       return;
     }
 
@@ -1572,14 +1578,12 @@ export class GridRenderer {
     const recycled = this.pool.pop();
     if (recycled) return recycled;
     const root = this.canvas.createDiv({ cls: "pg-tile" });
-    return { root, media: null, id: "", signature: "", kind: "", look: "" };
+    return { root, media: null, id: "", signature: "", kind: "", look: "", sizedFrame: null, sized: "" };
   }
 
   private release(tile: TileElement): void {
     if (this.leaving.has(tile)) return;
     if (this.tiltedId === tile.id) this.tiltedId = null;
-    tile.root.style.removeProperty("--pg-rx");
-    tile.root.style.removeProperty("--pg-ry");
     tile.root.setCssStyles({ display: "none" });
     tile.root.removeClass("is-gliding");
     tile.root.removeClass("is-entering");
@@ -1588,6 +1592,8 @@ export class GridRenderer {
     tile.signature = "";
     tile.kind = "";
     tile.look = "";
+    tile.sizedFrame = null;
+    tile.sized = "";
     tile.root.removeClass("is-steam");
     tile.root.removeClass("is-pushed");
     tile.media = null;
@@ -1749,18 +1755,6 @@ export class GridRenderer {
     return 0;
   }
 
-  /**
-   * The band's height lives on the viewport, not on each card, so a change of
-   * tile size reaches cards that are not repainted for it: their content has
-   * not changed, only the room the layout gives them.
-   */
-  private setSteamBand(): void {
-    this.viewport.style.setProperty(
-      "--pg-steam-band",
-      `${steamBandHeight(this.targetColumnWidth)}px`
-    );
-  }
-
   private sourceFor(path: string, remote: boolean): string {
     return resourceUrl(this.app.vault, path, remote);
   }
@@ -1858,23 +1852,55 @@ export class GridRenderer {
     element.root.style.transform = this.placement(model.id, position);
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
-    // A card whose band shows on hover holds its picture at this height and
-    // grows past it to show the band; see .is-hover-band in styles.css.
-    element.root.style.setProperty("--pg-h", `${position.h}px`);
+
+    // Ahead of the content. A pooled element can come back already carrying
+    // the incoming tile's signature, and a genuinely new clipping that landed
+    // on one would then skip its entrance entirely.
+    if (this.entering.has(model.id)) this.playEnter(element, model.id, order);
+
+    this.paintContent(element, model);
+    this.sizeCard(element, position);
+  }
+
+  /**
+   * The parts of a card that follow its size, written on the element that
+   * reads each one. styles.css registers them as not inherited, so a change
+   * restyles that element alone. Set on the tile, as they first were, a
+   * change of tile size restyled every element of every card on the wall,
+   * twice, which in Obsidian was a fifth of a second per step.
+   */
+  private sizeCard(element: TileElement, position: Position): void {
+    const frame = element.root.firstElementChild;
+    if (!(frame instanceof HTMLElement) || !frame.hasClass("pg-frame")) return;
+    const band = steamBandHeight(this.targetColumnWidth);
+    const key = `${position.w}|${position.h}|${band}`;
+    if (element.sizedFrame === frame && element.sized === key) return;
+    element.sizedFrame = frame;
+    element.sized = key;
 
     // Scale that grows the card by exactly SELECT_LIFT on each edge, whatever
     // its size. A uniform factor would lift a tall tile far more than a short
     // one; the anisotropy here is under 2% and invisible.
     const sx = position.w > SELECT_LIFT * 2 ? position.w / (position.w - SELECT_LIFT * 2) : 1;
     const sy = position.h > SELECT_LIFT * 2 ? position.h / (position.h - SELECT_LIFT * 2) : 1;
-    element.root.style.setProperty("--pg-sx", sx.toFixed(4));
-    element.root.style.setProperty("--pg-sy", sy.toFixed(4));
+    frame.style.setProperty("--pg-sx", sx.toFixed(4));
+    frame.style.setProperty("--pg-sy", sy.toFixed(4));
 
-    // Ahead of the early returns below. A pooled element can come back
-    // already carrying the incoming tile's signature, and a genuinely new
-    // clipping that landed on one would then skip its entrance entirely.
-    if (this.entering.has(model.id)) this.playEnter(element, model.id, order);
+    // A card whose band shows on hover holds its picture at the tile's height
+    // and grows past it to show the band; see .is-hover-band in styles.css.
+    const art = frame.hasClass("is-hover-band")
+      ? frame.querySelector<HTMLElement>(":scope > .pg-steam-art")
+      : null;
+    art?.style.setProperty("--pg-h", `${position.h}px`);
 
+    // A store card's band is as tall as the tile size says, here rather than
+    // set once for the wall, since a change of size reaches every card.
+    const steamBand = frame.querySelector<HTMLElement>(":scope > .pg-steam-band");
+    steamBand?.style.setProperty("--pg-steam-band", `${band}px`);
+  }
+
+  /** What a card shows: built when it changes, left alone when it has not. */
+  private paintContent(element: TileElement, model: TileModel): void {
     if (model.building) {
       this.paintBuilding(element, model);
       return;
@@ -1919,6 +1945,8 @@ export class GridRenderer {
       if (element.media instanceof HTMLImageElement) this.swapImage(element.media, original);
       const frame = element.root.querySelector<HTMLElement>(".pg-frame");
       if (frame) this.repaintBand(frame, model);
+      // A new band, so sizeCard writes its height again.
+      element.sized = "";
       element.signature = model.signature;
       return;
     }

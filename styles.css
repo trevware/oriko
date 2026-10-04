@@ -1,3 +1,44 @@
+/* Per-card values the renderer writes on the element that reads each one,
+   registered as not inherited. An unregistered custom property inherits, so
+   setting one on an element restyles everything inside it too; on a wall of
+   cards against Obsidian's stylesheet that turned a tile-size step into a
+   fifth of a second of restyling, and every hover into a frame or two.
+   Universal syntax keeps each var()'s fallback working where it is unset. */
+@property --pg-sx {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-sy {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-rx {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-ry {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-h {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-band-h {
+  syntax: "*";
+  inherits: false;
+}
+
+@property --pg-steam-band {
+  syntax: "*";
+  inherits: false;
+}
+
 .oriko-view {
   /* One floating surface, defined once. The selection toolbar is the
      reference: every bar, menu and popup over the wall is the same material,
@@ -3211,7 +3252,7 @@ body.is-mobile .pg-spacebar button:active {
 /* The card keeps its picture at full size and grows downward to show the
    band under it while hovered, like a drawer sliding out, over whatever tile
    sits below. The wall makes no room for it. The picture is held at the
-   tile's own height (--pg-h, set on the tile) so the band waits below it,
+   tile's own height (--pg-h, set on the art) so the band waits below it,
    clipped by the card's edge, until the card grows to show it. */
 .pg-frame.is-hover-band .pg-steam-art {
   flex: none;
