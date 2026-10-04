@@ -399,7 +399,10 @@
      renderer from where the cursor sits on the card. */
   transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
     scale(1);
-  transform-style: preserve-3d;
+  /* Flat, deliberately: the card tips as one surface, so nothing inside it
+     needs a 3D context of its own. preserve-3d here gave the picture, the
+     pills and the band a composited layer each on every card on the wall,
+     several hundred in all, which the compositor walked on every frame. */
   /* An outline, not a border or inset shadow: outlines paint above the
      element's descendants, so the ring is not hidden by the image filling
      the card. A negative offset keeps it inside the card edge, so it never
@@ -443,7 +446,13 @@
   flex-direction: column;
   justify-content: space-between;
   opacity: 0;
-  transition: opacity 120ms ease;
+  /* Hidden as well as transparent at rest, once the fade out has run. Each
+     pill blurs what is behind it, and a transparent pill still keeps its
+     own compositor layer for that, on every card; a hidden one keeps none. */
+  visibility: hidden;
+  transition:
+    opacity 120ms ease,
+    visibility 0s linear 120ms;
   pointer-events: none;
 }
 
@@ -452,6 +461,10 @@
 @media (hover: hover) {
   .pg-tile:hover .pg-meta {
     opacity: 1;
+    visibility: visible;
+    transition:
+      opacity 120ms ease,
+      visibility 0s;
   }
 }
 
