@@ -242,8 +242,29 @@ export async function measure(browser, page, scenario, { repeats, keepTrace, inv
   return { frames: pick("frames"), trace: pick("trace"), extra: pick("extra") };
 }
 
-/** Synchronous costs: a full relayout and one render pass, five of each. */
+/**
+ * Composited layers on the wall at rest, the pointer off it. Every layer is
+ * GPU memory and a share of the compositor's work on every frame that
+ * changes anything, so a stray layer per card is a cost the whole wall pays.
+ */
+async function countLayers(page) {
+  const cdp = await page.context().newCDPSession(page);
+  let layers = null;
+  cdp.on("LayerTree.layerTreeDidChange", (e) => {
+    if (e.layers) layers = e.layers;
+  });
+  await cdp.send("LayerTree.enable");
+  await page.evaluate(() => window.__perf.nextFrames(3));
+  await sleep(300);
+  await cdp.send("LayerTree.disable").catch(() => {});
+  await cdp.detach().catch(() => {});
+  return layers ? layers.length : -1;
+}
+
+/** Synchronous costs: a full relayout and one render pass, five of each, and the layer count. */
 export async function measureSync(page) {
+  await park(page);
+  const layers = await countLayers(page);
   const relayout = [];
   const render = [];
   for (let i = 0; i < 5; i++) {
@@ -251,7 +272,7 @@ export async function measureSync(page) {
     render.push(await page.evaluate(() => window.__perf.render()));
     await sleep(50);
   }
-  return { sync: { relayoutMs: round(median(relayout)), renderMs: round(median(render)) } };
+  return { sync: { relayoutMs: round(median(relayout)), renderMs: round(median(render)), layers } };
 }
 
 /* ------------------------------------------------------------------ */
