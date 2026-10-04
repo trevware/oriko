@@ -18,12 +18,16 @@ Turn your web clippings into a wall of pictures. Oriko lays out every clipping i
 
 <p align="center">
   <b>Oriko is free, and built in my spare time.</b><br>
-  If it earns a place in your vault, buying me a coffee keeps it going.
+  If it earns a place in your vault, sponsoring it on GitHub keeps it going.
 </p>
 
 <p align="center">
+  <a href="https://github.com/sponsors/trevware">
+    <img src="https://img.shields.io/badge/Sponsor_on_GitHub-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white" alt="Sponsor on GitHub" height="40">
+  </a>
+  &nbsp;
   <a href="https://buymeacoffee.com/trevware">
-    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="50">
+    <img src="https://img.shields.io/badge/Buy_me_a_coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black" alt="Buy me a coffee" height="40">
   </a>
 </p>
 

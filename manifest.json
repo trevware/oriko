@@ -6,6 +6,9 @@
   "description": "A pannable, zoomable wall of your web clippings. Sort them into grids, filter by any property, and clip from your phone. Media is downloaded into your vault, so clippings keep their images and videos even if the source page is deleted.",
   "author": "Trevor Tarakjian",
   "authorUrl": "https://github.com/trevware",
-  "fundingUrl": "https://buymeacoffee.com/trevware",
+  "fundingUrl": {
+    "GitHub Sponsors": "https://github.com/sponsors/trevware",
+    "Buy Me a Coffee": "https://buymeacoffee.com/trevware"
+  },
   "isDesktopOnly": false
 }
