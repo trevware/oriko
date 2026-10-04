@@ -3,3 +3,5 @@ dist/
 *.log
 .superpowers/
 docs/
+perf/.out/
+perf/results/*-latest.json

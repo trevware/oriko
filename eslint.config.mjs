@@ -4,8 +4,9 @@ import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
 export default defineConfig([
-  // The build script is not plugin code: it runs under node, on purpose.
-  { ignores: ["dist/**", "node_modules/**", "esbuild.config.mjs"] },
+  // The build script and the perf runners are not plugin code: they run
+  // under node, on purpose.
+  { ignores: ["dist/**", "node_modules/**", "esbuild.config.mjs", "perf/**/*.mjs", "perf/.out/**"] },
   ...obsidianmd.configs.recommended,
   {
     languageOptions: {
@@ -28,6 +29,14 @@ export default defineConfig([
       "obsidianmd/rule-custom-message": "off",
       "obsidianmd/no-nodejs-modules": "off",
       "obsidianmd/prefer-window-timers": "off",
+    },
+  },
+  {
+    // The perf shim stands in for Obsidian's own DOM helpers, so it has to
+    // build elements the way those helpers do underneath.
+    files: ["perf/shim/**/*.ts"],
+    rules: {
+      "obsidianmd/prefer-create-el": "off",
     },
   },
 ]);

@@ -1,0 +1,133 @@
+{
+  "target": "obsidian",
+  "date": "2026-10-04T19:56:05.471Z",
+  "chrome": "132.0.6834.196",
+  "oriko": "0.1.66",
+  "tiles": 119,
+  "results": {
+    "vault · relayout": {
+      "sync": {
+        "relayoutMs": 0.4,
+        "renderMs": 2
+      }
+    },
+    "vault · hover-sweep": {
+      "frames": {
+        "frames": 555,
+        "interval": 8.3,
+        "p95": 16.4,
+        "p99": 48.8,
+        "max": 91.1,
+        "janky": 30,
+        "dropped": 69,
+        "droppedPct": 11.1,
+        "hitches": 4,
+        "longFrames": 6
+      },
+      "trace": {
+        "busy": 2106.6,
+        "longestTask": 65.7,
+        "style": 516.8,
+        "layout": 57.6,
+        "paint": 141.7,
+        "layerize": 883.9,
+        "script": 377.3,
+        "gpu": 1395.7,
+        "styleCount": 526,
+        "layoutCount": 235,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cards": 6
+      }
+    },
+    "vault · hover-column-walk": {
+      "frames": {
+        "frames": 772,
+        "interval": 8.3,
+        "p95": 9.8,
+        "p99": 16.7,
+        "max": 51.5,
+        "janky": 10,
+        "dropped": 25,
+        "droppedPct": 3.1,
+        "hitches": 1,
+        "longFrames": 1
+      },
+      "trace": {
+        "busy": 2284.2,
+        "longestTask": 50.2,
+        "style": 544.3,
+        "layout": 45.3,
+        "paint": 219.7,
+        "layerize": 635.5,
+        "script": 383.5,
+        "gpu": 1935.3,
+        "styleCount": 920,
+        "layoutCount": 167,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cardsInColumn": 3
+      }
+    },
+    "vault · wheel-scroll-hover": {
+      "frames": {
+        "frames": 429,
+        "interval": 8.3,
+        "p95": 9.8,
+        "p99": 10.4,
+        "max": 33.5,
+        "janky": 4,
+        "dropped": 9,
+        "droppedPct": 2.1,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 915.7,
+        "longestTask": 26.7,
+        "style": 34.3,
+        "layout": 9.4,
+        "paint": 32.9,
+        "layerize": 501.9,
+        "script": 228.8,
+        "gpu": 411.3,
+        "styleCount": 126,
+        "layoutCount": 32,
+        "forcedLayouts": 0
+      },
+      "extra": {}
+    },
+    "vault · stage-steps": {
+      "frames": {
+        "frames": 461,
+        "interval": 8.3,
+        "p95": 10,
+        "p99": 225.1,
+        "max": 466.6,
+        "janky": 8,
+        "dropped": 201,
+        "droppedPct": 30.3,
+        "hitches": 6,
+        "longFrames": 6
+      },
+      "trace": {
+        "busy": 2206.9,
+        "longestTask": 331.9,
+        "style": 1770.3,
+        "layout": 14.3,
+        "paint": 49,
+        "layerize": 46.6,
+        "script": 36.8,
+        "gpu": 441.6,
+        "styleCount": 232,
+        "layoutCount": 8,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "syncMax": 331.7
+      }
+    }
+  }
+}

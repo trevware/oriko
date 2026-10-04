@@ -1,0 +1,330 @@
+// What the perf runners do to the wall, how they measure it, and how they
+// report against perf/budgets.json. Shared by run.mjs (a synthetic wall in
+// Chrome) and obsidian.mjs (your own clippings in a real Obsidian window).
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const FRAME = 16;
+
+/** Moves the pointer in a straight line, one event a frame, the way a hand does. */
+async function glide(page, from, to, ms) {
+  const steps = Math.max(1, Math.round(ms / FRAME));
+  for (let i = 1; i <= steps; i++) {
+    const k = i / steps;
+    await page.mouse.move(from.x + (to.x - from.x) * k, from.y + (to.y - from.y) * k);
+    await sleep(FRAME);
+  }
+  return to;
+}
+
+/** Off the wall, so nothing is hovered between runs. */
+export async function park(page) {
+  const view = await page.evaluate(() => window.__perf.viewRect());
+  const spot = { x: Math.max(2, view.x - 6), y: view.y + view.h / 2 };
+  await page.mouse.move(spot.x, spot.y);
+  await sleep(500);
+  return spot;
+}
+
+export const SCENARIOS = [
+  {
+    // Card to card across the wall, resting on each long enough for its
+    // band to slide out and the column under it to make room.
+    name: "hover-sweep",
+    async run(page) {
+      let at = await park(page);
+      const cards = (await page.evaluate(() => window.__perf.hoverCards())).slice(0, 10);
+      if (cards.length === 0) throw new Error("no cards on screen to hover");
+      for (const card of cards) {
+        at = await glide(page, at, { x: card.x, y: card.y }, 180);
+        await sleep(420);
+      }
+      return { cards: cards.length };
+    },
+  },
+  {
+    // Straight down the column with the most cards and back up: every card
+    // the pointer reaches opens and pushes the rest of the column, and shuts
+    // as it leaves, which is the motion that cascades.
+    name: "hover-column-walk",
+    async run(page) {
+      await park(page);
+      const view = await page.evaluate(() => window.__perf.viewRect());
+      const rects = await page.evaluate(() => window.__perf.rects());
+      const columns = new Map();
+      for (const r of rects) {
+        if (!r.card || r.y + r.h < view.y || r.y > view.y + view.h) continue;
+        const key = Math.round(r.x);
+        columns.set(key, (columns.get(key) ?? 0) + 1);
+      }
+      const best = [...columns.entries()].sort((a, b) => b[1] - a[1])[0];
+      const left = best ? best[0] : view.x;
+      const width = rects.find((r) => Math.round(r.x) === left)?.w ?? 200;
+      const cx = left + width / 2;
+      // About 450px a second: browsing, not flinging.
+      const top = { x: cx, y: view.y + 20 };
+      const bottom = { x: cx, y: view.y + view.h - 20 };
+      await page.mouse.move(top.x, top.y);
+      await glide(page, top, bottom, 1800);
+      await glide(page, bottom, top, 1800);
+      return { cardsInColumn: best ? best[1] : 0 };
+    },
+  },
+  {
+    // Wheel-scrolling with the pointer resting on the wall: cards pass under
+    // it, so drawers open and shut while the wall moves.
+    name: "wheel-scroll-hover",
+    async run(page) {
+      const view = await page.evaluate(() => window.__perf.viewRect());
+      await page.mouse.move(view.x + view.w * 0.42, view.y + view.h * 0.45);
+      await sleep(300);
+      for (let i = 0; i < 45; i++) {
+        await page.mouse.wheel(0, 60);
+        await sleep(FRAME);
+      }
+      for (let i = 0; i < 45; i++) {
+        await page.mouse.wheel(0, -60);
+        await sleep(FRAME);
+      }
+      return {};
+    },
+  },
+  {
+    // Through the tile sizes and back, which lays the whole wall out again
+    // and resizes every card at each step.
+    name: "stage-steps",
+    async run(page) {
+      await park(page);
+      const sync = [];
+      for (const stage of ["l", "xl", "l", "m", "s", "m"]) {
+        const r = await page.evaluate((s) => window.__perf.setStage(s), stage);
+        sync.push(r.sync);
+        await sleep(650);
+      }
+      return { syncMax: Math.max(...sync) };
+    },
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* Measurement                                                        */
+/* ------------------------------------------------------------------ */
+
+const TRACE_CATEGORIES = ["devtools.timeline", "disabled-by-default-devtools.timeline", "toplevel"];
+/** What made each style recalc necessary. Heavy, so only on request, to diagnose. */
+const INVALIDATION = "disabled-by-default-devtools.timeline.invalidationTracking";
+
+const round = (n) => Math.round(n * 10) / 10;
+
+/** What the renderer and the GPU spent, in ms, from a trace. */
+function summarizeTrace(buffer) {
+  const events = JSON.parse(buffer.toString()).traceEvents ?? [];
+  const names = new Map();
+  for (const e of events) {
+    if (e.ph === "M" && e.name === "thread_name") names.set(`${e.pid}:${e.tid}`, e.args?.name);
+  }
+  const sum = {
+    busy: 0,
+    longestTask: 0,
+    style: 0,
+    layout: 0,
+    paint: 0,
+    layerize: 0,
+    script: 0,
+    gpu: 0,
+    styleCount: 0,
+    layoutCount: 0,
+    forcedLayouts: 0,
+  };
+  // A trace can hold more than one renderer (Obsidian's popouts, devtools);
+  // the one that did the most work is the wall's.
+  const perMain = new Map();
+  for (const e of events) {
+    if (e.ph !== "X" || typeof e.dur !== "number") continue;
+    const key = `${e.pid}:${e.tid}`;
+    if (names.get(key) === "CrRendererMain" && e.name === "ThreadControllerImpl::RunTask") {
+      perMain.set(key, (perMain.get(key) ?? 0) + e.dur);
+    }
+  }
+  const main = [...perMain.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  for (const e of events) {
+    if (e.ph !== "X" || typeof e.dur !== "number") continue;
+    const key = `${e.pid}:${e.tid}`;
+    const ms = e.dur / 1000;
+    if (key === main) {
+      switch (e.name) {
+        case "ThreadControllerImpl::RunTask":
+          sum.busy += ms;
+          sum.longestTask = Math.max(sum.longestTask, ms);
+          break;
+        case "UpdateLayoutTree":
+          sum.style += ms;
+          sum.styleCount++;
+          break;
+        case "Layout":
+          sum.layout += ms;
+          sum.layoutCount++;
+          // A layout with a JS stack under it was forced by a read.
+          if (e.args?.beginData?.stackTrace?.length) sum.forcedLayouts++;
+          break;
+        case "Paint":
+        case "PrePaint":
+          sum.paint += ms;
+          break;
+        case "Layerize":
+          sum.layerize += ms;
+          break;
+        case "FunctionCall":
+        case "EventDispatch":
+        case "FireAnimationFrame":
+        case "TimerFire":
+          sum.script += ms;
+          break;
+      }
+    } else if (names.get(key) === "CrGpuMain" && e.name === "ThreadControllerImpl::RunTask") {
+      sum.gpu += ms;
+    }
+  }
+  for (const k of Object.keys(sum)) sum[k] = round(sum[k]);
+  return sum;
+}
+
+function percentile(values, p) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor((p / 100) * sorted.length))];
+}
+
+function summarizeFrames({ deltas, loaf }) {
+  // The display's own frame interval, read off the run rather than assumed,
+  // so a 120Hz screen is judged against 8.3ms and a 60Hz one against 16.7ms.
+  const interval = percentile(deltas, 50) || 16.7;
+  const dropped = deltas.reduce((n, d) => n + Math.max(0, Math.round(d / interval) - 1), 0);
+  return {
+    frames: deltas.length,
+    interval: round(interval),
+    p95: round(percentile(deltas, 95)),
+    p99: round(percentile(deltas, 99)),
+    max: round(Math.max(0, ...deltas)),
+    // A frame half again as long as the display's is a visible stutter.
+    janky: deltas.filter((d) => d > interval * 1.5).length,
+    dropped,
+    droppedPct: round((dropped / Math.max(1, deltas.length + dropped)) * 100),
+    hitches: deltas.filter((d) => d > 50).length,
+    longFrames: loaf.length,
+  };
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+/** Each scenario `repeats` times, keeping the median of every measure. */
+export async function measure(browser, page, scenario, { repeats, keepTrace, invalidations = false }) {
+  const runs = [];
+  for (let i = 0; i < repeats; i++) {
+    await park(page);
+    await browser.startTracing(page, {
+      categories: invalidations ? [...TRACE_CATEGORIES, INVALIDATION] : TRACE_CATEGORIES,
+    });
+    await page.evaluate(() => window.__perf.startFrames());
+    const extra = await scenario.run(page);
+    await sleep(350);
+    const frames = await page.evaluate(() => window.__perf.stopFrames());
+    const buffer = await browser.stopTracing();
+    if (keepTrace) writeFileSync(join(keepTrace, `${scenario.name}-${i}.trace.json`), buffer);
+    runs.push({ frames: summarizeFrames(frames), trace: summarizeTrace(buffer), extra });
+  }
+  const pick = (part) =>
+    Object.fromEntries(Object.keys(runs[0][part]).map((k) => [k, round(median(runs.map((r) => r[part][k])))]));
+  return { frames: pick("frames"), trace: pick("trace"), extra: pick("extra") };
+}
+
+/** Synchronous costs: a full relayout and one render pass, five of each. */
+export async function measureSync(page) {
+  const relayout = [];
+  const render = [];
+  for (let i = 0; i < 5; i++) {
+    relayout.push(await page.evaluate(() => window.__perf.relayout()));
+    render.push(await page.evaluate(() => window.__perf.render()));
+    await sleep(50);
+  }
+  return { sync: { relayoutMs: round(median(relayout)), renderMs: round(median(render)) } };
+}
+
+/* ------------------------------------------------------------------ */
+/* Report                                                             */
+/* ------------------------------------------------------------------ */
+
+const SHOWN = ["frames.interval", "frames.p95", "frames.dropped", "trace.busy", "trace.style", "trace.layout"];
+
+const get = (obj, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
+
+/**
+ * Prints every result against its budget and the saved run named by
+ * `compare`, writes the report, and returns the budgets missed.
+ */
+export function report({ report: data, budgets, budgetSet, resultsDir, save, compare }) {
+  const baseline =
+    compare && existsSync(join(resultsDir, `${compare}.json`))
+      ? JSON.parse(readFileSync(join(resultsDir, `${compare}.json`), "utf8"))
+      : null;
+  if (compare && !baseline) console.log(`(no saved run called "${compare}" to compare with)`);
+  const rulesFor = budgets[budgetSet] ?? {};
+  const failures = [];
+
+  console.log(`\nOriko wall performance · ${data.target} · Chrome ${data.chrome}\n`);
+  for (const [name, result] of Object.entries(data.results)) {
+    const scenario = name.split(" · ").pop();
+    const rules = { ...(rulesFor["*"] ?? {}), ...(rulesFor[scenario] ?? {}) };
+    const metrics = Object.entries(result).flatMap(([part, values]) =>
+      Object.entries(values).map(([k, v]) => [`${part}.${k}`, v])
+    );
+    const rows = [];
+    for (const [key, value] of metrics) {
+      const limit = rules[key];
+      const before = baseline ? get(baseline.results?.[name], key) : undefined;
+      const shown = limit !== undefined || SHOWN.includes(key) || key.startsWith("sync.") || key.startsWith("extra.");
+      if (!shown) continue;
+      const delta =
+        typeof before === "number"
+          ? before === 0
+            ? value === 0
+              ? ""
+              : `  (was 0)`
+            : `  (${value >= before ? "+" : ""}${Math.round(((value - before) / before) * 100)}% vs ${before})`
+          : "";
+      const over = typeof limit === "number" && value > limit;
+      if (over) failures.push(`${name}: ${key} ${value} > ${limit}`);
+      const mark = over ? "✗" : limit !== undefined ? "✓" : " ";
+      const bound = limit !== undefined ? `  ≤ ${limit}` : "";
+      rows.push(`  ${mark} ${key.padEnd(20)} ${String(value).padStart(8)}${bound}${delta}`);
+    }
+    console.log(`${name}\n${rows.join("\n")}`);
+  }
+
+  writeFileSync(join(resultsDir, `${data.target}-latest.json`), JSON.stringify(data, null, 2));
+  if (save) writeFileSync(join(resultsDir, `${save}.json`), JSON.stringify(data, null, 2));
+  return failures;
+}
+
+export function parseArgs(argv) {
+  const flag = (name) => argv.includes(`--${name}`);
+  const option = (name) => {
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  return {
+    headed: flag("headed"),
+    keepTrace: flag("keep-trace"),
+    only: option("only"),
+    save: option("save"),
+    compare: option("compare"),
+    repeats: Number(option("repeats") ?? 3),
+    vault: option("vault"),
+    keepOpen: flag("keep-open"),
+    invalidations: flag("invalidations"),
+  };
+}
