@@ -1709,9 +1709,9 @@ export class GridRenderer {
   }
 
   /**
-   * How tall a hover band stands, so the bottom pill can ride up with it and
-   * sit just above it. The X band's own estimate, which is close enough for a
-   * pill to clear it; the store band is a fixed height.
+   * How far a card grows on hover to show its band: the X band's own
+   * estimate until the band has been measured on the first hover, and the
+   * store band's fixed height.
    */
   private setHoverBand(frame: HTMLElement, model: TileModel): void {
     if (model.bandMode !== "hover") {
@@ -1854,6 +1854,9 @@ export class GridRenderer {
     element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
+    // A card whose band shows on hover holds its picture at this height and
+    // grows past it to show the band; see .is-hover-band in styles.css.
+    element.root.style.setProperty("--pg-h", `${position.h}px`);
 
     // Scale that grows the card by exactly SELECT_LIFT on each edge, whatever
     // its size. A uniform factor would lift a tall tile far more than a short
@@ -2058,6 +2061,10 @@ export class GridRenderer {
     element.root.addEventListener("pointerenter", (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
       this.armTicker(element.root);
+      // The band's real height, now that it is laid out, so the card grows by
+      // exactly that much; the layout's estimate is only a starting point.
+      const band = element.root.querySelector<HTMLElement>(".pg-frame.is-hover-band .pg-card-band");
+      if (band?.offsetHeight) band.parentElement?.style.setProperty("--pg-band-h", `${band.offsetHeight}px`);
     });
 
     element.root.oncontextmenu = (event: MouseEvent) => {
