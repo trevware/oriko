@@ -5,6 +5,20 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.66] - 2026-10-04
+
+### Added
+- **Steam store pages now look like Steam on your wall.** Clip a game's store page and its tile becomes a store card: the game's header art, with a band underneath showing its name, a couple of genres and the price, sale discount included. A game that isn't out yet shows its release status there. At Tiny tile size the card is just the art.
+- **Opening a Steam clipping gives you the store page.** The trailer plays first, and beside it you get the game's description, price, genres, release date, developer, publisher and platforms, plus a strip of the trailer and screenshots you can click through. Keep in mind the trailer is saved with yt-dlp on a desktop, so it has to fit under Settings → Oriko → Downloads → Maximum file size (MB). On an iPhone it plays straight from Steam until the saved copy syncs.
+- **Steam prices follow where you are.** Oriko works out your country from your time zone and asks that store for its prices, so a wall in Canada shows Canadian dollars. Prices and release dates are checked again once a day. The game's art is saved the first time, so the card keeps its pictures, and deleting the last clipping of a game moves that art to the trash with it.
+- **A clip now builds right on the wall.** The moment you clip something, its card appears in the top-left corner and the bar along the top is gone. You see the page's picture blurred while Oriko works, sharpening as it goes, with the current step in the corner (Reading link, Downloading, Fetching video). When it's done, a check draws itself and the card turns into your clipping, right where it was.
+
+### Changed
+- **Clippings from the same day now show newest first.** They used to be sorted by title within a day. Now the one you just clipped is always first on the wall.
+
+### Fixed
+- **Clippings whose only picture is an SVG now turn up on the wall.** Some sites publish an SVG as their only preview image, and those clippings were saved but never shown. They now get a sharp tile like any other.
+
 ## [0.1.65] - 2026-09-27
 
 ### Fixed
