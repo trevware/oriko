@@ -1,0 +1,173 @@
+{
+ "4821880": {
+  "success": true,
+  "data": {
+   "type": "game",
+   "name": "Roco Kingdom",
+   "steam_appid": 4821880,
+   "is_free": true,
+   "short_description": "Roco Kingdom is a new evolution of open-world creature collecting games, where players become Rocos and set out to meet Jinies in the continent of Carosia. Discover 400+ unique Jinies in this living open world. Form bonds with them as you grow together.",
+   "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/154e7b980954c5c213dc1cb28dd8afc5065bccbc/header.jpg?t=1790630396",
+   "background_raw": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/48ecd58b850f07ccc17a1e54e08874406aa2ceeb/page_bg_raw.jpg?t=1790630396",
+   "developers": [
+    "Morefun Studios"
+   ],
+   "publishers": [
+    "Morefun Studios"
+   ],
+   "genres": [
+    {
+     "id": "1",
+     "description": "Action"
+    },
+    {
+     "id": "25",
+     "description": "Adventure"
+    },
+    {
+     "id": "4",
+     "description": "Casual"
+    },
+    {
+     "id": "29",
+     "description": "Massively Multiplayer"
+    },
+    {
+     "id": "3",
+     "description": "RPG"
+    },
+    {
+     "id": "2",
+     "description": "Strategy"
+    },
+    {
+     "id": "37",
+     "description": "Free To Play"
+    }
+   ],
+   "platforms": {
+    "windows": true,
+    "mac": false,
+    "linux": false
+   },
+   "release_date": {
+    "coming_soon": true,
+    "date": "Coming soon"
+   },
+   "screenshots": [
+    {
+     "id": 0,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/acf68242e105001deff706fd7ad98583694622bc/ss_acf68242e105001deff706fd7ad98583694622bc.600x338.jpg?t=1790630396",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/acf68242e105001deff706fd7ad98583694622bc/ss_acf68242e105001deff706fd7ad98583694622bc.1920x1080.jpg?t=1790630396"
+    },
+    {
+     "id": 1,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/bbd04928569e48ce1ac73d094836e64381b2b674/ss_bbd04928569e48ce1ac73d094836e64381b2b674.600x338.jpg?t=1790630396",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/bbd04928569e48ce1ac73d094836e64381b2b674/ss_bbd04928569e48ce1ac73d094836e64381b2b674.1920x1080.jpg?t=1790630396"
+    },
+    {
+     "id": 2,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/047086b75c834ab1b0d99c5e24c975b49867d469/ss_047086b75c834ab1b0d99c5e24c975b49867d469.600x338.jpg?t=1790630396",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4821880/047086b75c834ab1b0d99c5e24c975b49867d469/ss_047086b75c834ab1b0d99c5e24c975b49867d469.1920x1080.jpg?t=1790630396"
+    }
+   ],
+   "movies": [
+    {
+     "id": 257438447,
+     "name": "RocoKingdom",
+     "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/257438447/c4febede05cc3fbd4f4a89b25735e37e58810cdb/movie_600x337.jpg?t=1790630395",
+     "dash_av1": "https://video.akamai.steamstatic.com/store_trailers/4821880/1224817906/f72a3a75b6e812e52efaa0fffdf0a7f4d3500cc9/1790597417/dash_av1.mpd?t=1790630395",
+     "dash_h264": "https://video.akamai.steamstatic.com/store_trailers/4821880/1224817906/f72a3a75b6e812e52efaa0fffdf0a7f4d3500cc9/1790597417/dash_h264.mpd?t=1790630395",
+     "hls_h264": "https://video.akamai.steamstatic.com/store_trailers/4821880/1224817906/f72a3a75b6e812e52efaa0fffdf0a7f4d3500cc9/1790597417/hls_264_master.m3u8?t=1790630395",
+     "highlight": true
+    }
+   ]
+  }
+ },
+ "1145360": {
+  "success": true,
+  "data": {
+   "type": "game",
+   "name": "Hades",
+   "steam_appid": 1145360,
+   "is_free": false,
+   "short_description": "Defy the god of the dead as you hack and slash out of the Underworld in this rogue-like dungeon crawler from the creators of Bastion, Transistor, and Pyre.",
+   "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/header.jpg?t=1758127023",
+   "background_raw": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/page_bg_raw.jpg?t=1758127023",
+   "developers": [
+    "Supergiant Games"
+   ],
+   "publishers": [
+    "Supergiant Games"
+   ],
+   "genres": [
+    {
+     "id": "1",
+     "description": "Action"
+    },
+    {
+     "id": "23",
+     "description": "Indie"
+    },
+    {
+     "id": "3",
+     "description": "RPG"
+    }
+   ],
+   "platforms": {
+    "windows": true,
+    "mac": true,
+    "linux": false
+   },
+   "release_date": {
+    "coming_soon": false,
+    "date": "17 Sep, 2020"
+   },
+   "price_overview": {
+    "currency": "CAD",
+    "initial": 3250,
+    "final": 812,
+    "discount_percent": 75,
+    "initial_formatted": "CDN$ 32.50",
+    "final_formatted": "CDN$ 8.12"
+   },
+   "screenshots": [
+    {
+     "id": 0,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_c0fed447426b69981cf1721756acf75369801b31.600x338.jpg?t=1758127023",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_c0fed447426b69981cf1721756acf75369801b31.1920x1080.jpg?t=1758127023"
+    },
+    {
+     "id": 1,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_8a9f0953e8a014bd3df2789c2835cb787cd3764d.600x338.jpg?t=1758127023",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_8a9f0953e8a014bd3df2789c2835cb787cd3764d.1920x1080.jpg?t=1758127023"
+    },
+    {
+     "id": 2,
+     "path_thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_68300459a8c3daacb2ec687adcdbf4442fcc4f47.600x338.jpg?t=1758127023",
+     "path_full": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/ss_68300459a8c3daacb2ec687adcdbf4442fcc4f47.1920x1080.jpg?t=1758127023"
+    }
+   ],
+   "movies": [
+    {
+     "id": 256801252,
+     "name": "Hades - v1.0 Launch Trailer",
+     "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256801252/movie.293x165.jpg?t=1600353465",
+     "dash_av1": "https://video.akamai.steamstatic.com/store_trailers/1145360/312686/b0312c49135823cc34946e98148abfb8da71f0fb/1750627549/dash_av1.mpd?t=1600353465",
+     "dash_h264": "https://video.akamai.steamstatic.com/store_trailers/1145360/312686/b0312c49135823cc34946e98148abfb8da71f0fb/1750627549/dash_h264.mpd?t=1600353465",
+     "hls_h264": "https://video.akamai.steamstatic.com/store_trailers/1145360/312686/b0312c49135823cc34946e98148abfb8da71f0fb/1750627549/hls_264_master.m3u8?t=1600353465",
+     "highlight": true
+    },
+    {
+     "id": 256801288,
+     "name": "Hades - v1.0 Gameplay Showcase",
+     "thumbnail": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/256801288/movie.293x165.jpg?t=1600353474",
+     "dash_av1": "https://video.akamai.steamstatic.com/store_trailers/1145360/312747/37b96035b5c9c7b12455eadc7bbc7d2b3afbd2fd/1750627553/dash_av1.mpd?t=1600353474",
+     "dash_h264": "https://video.akamai.steamstatic.com/store_trailers/1145360/312747/37b96035b5c9c7b12455eadc7bbc7d2b3afbd2fd/1750627553/dash_h264.mpd?t=1600353474",
+     "hls_h264": "https://video.akamai.steamstatic.com/store_trailers/1145360/312747/37b96035b5c9c7b12455eadc7bbc7d2b3afbd2fd/1750627553/hls_264_master.m3u8?t=1600353474",
+     "highlight": true
+    }
+   ]
+  }
+ }
+}
