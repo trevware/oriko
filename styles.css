@@ -2891,8 +2891,21 @@ body.is-mobile .pg-spacebar button:active {
   background: var(--pg-steam-navy);
 }
 
+/* The selection ring is the frame's outline, which a box paints before its
+   positioned children. The art is positioned, for the pills over it, so at
+   z-index auto it covered the ring and a selected card showed it only round
+   its band. Below the frame's own content it sits under the ring like a plain
+   tile's picture does. Isolated, so the card stays its own stacking context
+   when a hover drops the transform (Reduce Motion), or the art would sink
+   beneath the card's background. */
+.pg-frame.pg-steam,
+.pg-frame.pg-postcard {
+  isolation: isolate;
+}
+
 .pg-steam-art {
   position: relative;
+  z-index: -1;
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
