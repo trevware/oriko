@@ -23,6 +23,7 @@ import {
   xStatus,
 } from "./core/resolve";
 import type { ProgressState } from "./core/progress";
+import { previewFor } from "./core/building";
 import type { OrikoSettings } from "./core/settings";
 import { scanAvailable, scanPage } from "./page-scanner";
 
@@ -55,6 +56,12 @@ export class CaptureService {
   onBegin: ((source: string) => void) | null = null;
   /** What the clip is doing now, shown on its card. Null when it ended without a note. */
   onProgress: ((state: ProgressState | null) => void) | null = null;
+  /**
+   * The picture the clip will most likely end up showing, as soon as it is
+   * known, so its card can show it blurred and sharpen it as the clip goes.
+   * A blob: URL for a pasted picture, which the receiver releases.
+   */
+  onPreview: ((url: string) => void) | null = null;
   /**
    * The note's path, told just before the note is written, so the card can
    * become that clipping's card when it arrives on the wall instead of the
@@ -105,6 +112,8 @@ export class CaptureService {
     }
 
     this.onBegin?.("");
+    // A pasted picture is its own preview, before a byte of it is saved.
+    if (kind === "image" && this.onPreview) this.onPreview(URL.createObjectURL(blob));
     this.report(0.3, `Saving ${kind}…`);
 
     const folder = normalizePath(this.settings().attachmentFolder);
@@ -222,6 +231,9 @@ export class CaptureService {
       new Notice("Oriko: no image or video found, nothing created");
       return;
     }
+
+    const preview = previewFor(link.media, link.url);
+    if (preview) this.onPreview?.(preview);
 
     // Archive before writing the note, so the note can embed the files
     // themselves. These CDN urls are signed and expire within days; a note

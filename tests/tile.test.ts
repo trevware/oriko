@@ -509,15 +509,25 @@ describe("building cards", () => {
     const [tile] = buildTiles([record], new MediaCache(), undefined, () => "pending");
     expect(tile.id).toBe("Clippings/Roco.md");
     expect(tile.record).toBe(record);
-    expect(tile.building).toEqual({ label: STEAM_PENDING, fraction: null, shape: "steam" });
+    expect(tile.building).toMatchObject({ label: STEAM_PENDING, progress: 0.9, shape: "steam" });
     // The store card's shape, so the card does not resize when it arrives.
     expect([tile.width, tile.height]).toEqual([460, 215]);
     expect(tile.filePath).toBe("");
   });
 
+  it("previews a waiting store page with the picture its note already carries", () => {
+    const withImage = scanClipping(
+      "Clippings/Hades.md",
+      { title: "Hades", source: "https://store.steampowered.com/app/1145360/" },
+      "![](https://cdn.example/capsule.jpg)"
+    );
+    const [tile] = buildTiles([withImage], new MediaCache(), undefined, () => "pending");
+    expect(tile.building?.preview).toEqual({ path: "https://cdn.example/capsule.jpg", remote: true });
+  });
+
   it("shapes a clip's card as a store card only for a store page", () => {
-    const steam = buildingTile("building:1", { label: "Starting…", fraction: 0, shape: "steam" });
-    const plain = buildingTile("building:2", { label: "Starting…", fraction: 0, shape: "plain" });
+    const steam = buildingTile("building:1", { label: "Starting…", progress: 0, shape: "steam" });
+    const plain = buildingTile("building:2", { label: "Starting…", progress: 0, shape: "plain" });
     expect([steam.width, steam.height]).toEqual([460, 215]);
     expect([plain.width, plain.height]).toEqual([4, 3]);
     expect(plain.id.startsWith(BUILDING_PREFIX)).toBe(true);

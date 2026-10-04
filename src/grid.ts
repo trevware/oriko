@@ -42,6 +42,7 @@ import {
 } from "./core/selection";
 import type { Rect } from "./core/selection";
 import { BUILDING_PREFIX } from "./core/tile";
+import { previewBlur, stepIcon } from "./core/building";
 import type { TileModel } from "./core/tile";
 import { steamBandHeight } from "./core/steam";
 import type { SteamLook } from "./core/steam";
@@ -58,6 +59,9 @@ const GAP = 6;
 const SELECT_LIFT = 4;
 /** How far .pg-frame sits inside its tile, on each edge. */
 const FRAME_INSET = 4;
+/** How long a landing card shows its check before fading, and how long the fade takes. */
+const LAND_HOLD_MS = 650;
+const LAND_FADE_MS = 420;
 
 /** Horizontal padding inside a pill, matching .pg-badge in styles.css. */
 const TICKER_PAD = 9;
@@ -1592,29 +1596,81 @@ export class GridRenderer {
     const building = model.building;
     if (!building) return;
 
-    if (element.look !== "building") {
+    const shape = `building-${building.shape}`;
+    if (element.look !== shape) {
       element.root.empty();
       element.media = null;
       element.kind = "";
-      element.look = "building";
+      element.look = shape;
       element.root.removeClass("is-steam");
       const frame = element.root.createDiv({ cls: "pg-frame pg-building" });
-      frame.createDiv({ cls: "pg-building-label" });
-      frame.createDiv({ cls: "pg-building-bar" }).createDiv({ cls: "pg-building-fill" });
+      // The same two parts as a store card, so the waiting card already has
+      // its band where the real one will have it.
+      const art = frame.createDiv({ cls: "pg-building-art" });
+      art.createEl("img", { cls: "pg-building-preview", attr: { alt: "", decoding: "async" } });
+      const pill = art.createDiv({ cls: "pg-building-pill" });
+      pill.createSpan({ cls: "pg-building-icon" });
+      pill.createSpan({ cls: "pg-building-text" });
+      if (building.shape === "steam") {
+        frame.addClass("pg-steam");
+        const band = frame.createDiv({ cls: "pg-steam-band pg-building-band" });
+        band.createDiv({ cls: "pg-building-line" });
+        band.createDiv({ cls: "pg-building-line is-short" });
+      }
     }
     element.id = model.id;
     element.signature = model.signature;
 
     const frame = element.root.querySelector<HTMLElement>(".pg-building");
-    const label = frame?.querySelector<HTMLElement>(".pg-building-label");
-    const fill = frame?.querySelector<HTMLElement>(".pg-building-fill");
-    if (label && label.textContent !== building.label) label.setText(building.label);
-    frame?.toggleClass("is-indeterminate", building.fraction === null);
-    if (fill) {
-      const pct = building.fraction === null ? 0 : Math.round(Math.min(1, Math.max(0, building.fraction)) * 100);
-      fill.setCssStyles({ width: building.fraction === null ? "" : `${pct}%` });
+    if (!frame) return;
+    const icon = frame.querySelector<HTMLElement>(".pg-building-icon");
+    const text = frame.querySelector<HTMLElement>(".pg-building-text");
+    const preview = frame.querySelector<HTMLImageElement>(".pg-building-preview");
+
+    if (text && text.textContent !== building.label) text.setText(building.label);
+    const name = stepIcon(building.label);
+    if (icon && icon.dataset.icon !== name) {
+      icon.dataset.icon = name;
+      icon.empty();
+      setIcon(icon, name);
+    }
+
+    if (preview) {
+      preview.style.setProperty("--pg-blur", `${previewBlur(building.progress)}px`);
+      const src = building.preview ? this.sourceFor(building.preview.path, building.preview.remote) : "";
+      if (src && preview.dataset.src !== src) {
+        preview.dataset.src = src;
+        // Shown once it has pixels, so a slow or refused picture leaves the
+        // shimmer in place rather than an empty frame.
+        preview.onload = () => frame.addClass("has-preview");
+        preview.onerror = () => frame.removeClass("has-preview");
+        preview.src = src;
+      }
     }
     this.armTile(element);
+  }
+
+  /**
+   * The moment a building card becomes its clipping: the old card is laid
+   * back over the new one, its pill turns to a check that draws itself, and
+   * then it fades away to show the clipping underneath. The new card is
+   * fully built beneath it by then, so the fade is all anyone sees.
+   */
+  private land(element: TileElement, card: HTMLElement): void {
+    card.addClass("is-landing");
+    const icon = card.querySelector<HTMLElement>(".pg-building-icon");
+    const text = card.querySelector<HTMLElement>(".pg-building-text");
+    if (icon) {
+      icon.empty();
+      icon.dataset.icon = "check";
+      setIcon(icon, "check");
+    }
+    text?.setText("Clipped");
+    element.root.appendChild(card);
+    window.setTimeout(() => {
+      card.addClass("is-gone");
+      window.setTimeout(() => card.remove(), LAND_FADE_MS);
+    }, LAND_HOLD_MS);
   }
 
   /**
@@ -1821,6 +1877,13 @@ export class GridRenderer {
       return;
     }
 
+    // A card that was building lands rather than being swapped out.
+    const landing =
+      element.id === model.id && element.look.startsWith("building")
+        ? element.root.querySelector<HTMLElement>(".pg-frame.pg-building")
+        : null;
+    landing?.remove();
+
     element.id = model.id;
     element.signature = model.signature;
     element.kind = model.kind;
@@ -1901,6 +1964,7 @@ export class GridRenderer {
 
     this.paintBadges(host.createDiv({ cls: "pg-meta" }), model);
 
+    if (landing) this.land(element, landing);
     this.armTile(element);
   }
 

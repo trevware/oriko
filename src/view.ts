@@ -80,6 +80,7 @@ import {
 } from "./core/spaces";
 import type { GridSpace, PlacedGrid } from "./core/spaces";
 import { BUILDING_PREFIX, buildTiles, buildingTile, previewOf } from "./core/tile";
+import { advance } from "./core/building";
 import type { TileModel } from "./core/tile";
 import type { ClippingRecord } from "./core/scan";
 import { steamAppId } from "./core/steam";
@@ -130,7 +131,14 @@ export class OrikoView extends ItemView {
    * to that clipping (see applyFilter). A finished one whose clipping this
    * wall does not show is let go.
    */
-  private builds: Array<{ id: string; tile: TileModel; path: string; finishedAt: number }> = [];
+  private builds: Array<{
+    id: string;
+    tile: TileModel;
+    path: string;
+    finishedAt: number;
+    /** A blob: URL made for a pasted picture's preview, released once the card is gone. */
+    blob: string;
+  }> = [];
   private buildSeq = 0;
   private actionBar: ActionBar | null = null;
   private menu: ContextMenu | null = null;
@@ -220,6 +228,7 @@ export class OrikoView extends ItemView {
     const capture = this.plugin.capture;
     capture.onBegin = (source) => this.beginBuild(source);
     capture.onProgress = (state) => this.progressBuild(state);
+    capture.onPreview = (url) => this.previewBuild(url);
     capture.onCreating = (path) => {
       const build = this.activeBuild();
       if (build) build.path = path;
@@ -832,8 +841,10 @@ export class OrikoView extends ItemView {
     this.playback = null;
     this.plugin.capture.onBegin = null;
     this.plugin.capture.onProgress = null;
+    this.plugin.capture.onPreview = null;
     this.plugin.capture.onCreating = null;
     this.plugin.capture.onFinished = null;
+    for (const build of this.builds) this.releaseBuild(build);
     this.builds = [];
     this.actionBar?.destroy();
     this.actionBar = null;
@@ -1383,10 +1394,10 @@ export class OrikoView extends ItemView {
     const id = `${BUILDING_PREFIX}${++this.buildSeq}`;
     const tile = buildingTile(id, {
       label: "Starting…",
-      fraction: 0,
+      progress: 0,
       shape: steamAppId(source) ? "steam" : "plain",
     });
-    this.builds.push({ id, tile, path: "", finishedAt: 0 });
+    this.builds.push({ id, tile, path: "", finishedAt: 0, blob: "" });
     this.applyFilter({});
     this.grid?.reveal(id, { fit: false, select: false });
   }
@@ -1399,15 +1410,45 @@ export class OrikoView extends ItemView {
       // Nothing was made, so there is nothing to become: the card goes.
       if (!build.path) {
         this.builds = this.builds.filter((b) => b !== build);
+        this.releaseBuild(build);
         this.applyFilter({});
       }
       return;
     }
-    if (build.tile.building) {
-      build.tile.building = { ...build.tile.building, label: state.label, fraction: state.fraction };
+    const building = build.tile.building;
+    if (building) {
+      build.tile.building = {
+        ...building,
+        label: state.label,
+        progress: advance(building.progress, state.fraction),
+      };
     }
     // The grid holds this very model, so a render repaints the card in place.
     this.grid?.render();
+  }
+
+  /** The page's own picture for the clip in progress, shown blurred on its card. */
+  private previewBuild(url: string): void {
+    const build = this.activeBuild();
+    if (!build?.tile.building) {
+      if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      return;
+    }
+    if (url.startsWith("blob:")) build.blob = url;
+    build.tile.building = { ...build.tile.building, preview: { path: url, remote: true } };
+    this.grid?.render();
+  }
+
+  /**
+   * Lets go of what a card held. A pasted picture's preview outlives the
+   * card by its landing, which shows it for a moment longer, so it is
+   * released after that rather than at once.
+   */
+  private releaseBuild(build: { blob: string }): void {
+    if (!build.blob) return;
+    const blob = build.blob;
+    build.blob = "";
+    window.setTimeout(() => URL.revokeObjectURL(blob), 4000);
   }
 
   /**
@@ -1424,9 +1465,13 @@ export class OrikoView extends ItemView {
     this.builds = this.builds.filter((build) => {
       if (build.path && present.has(build.path)) {
         this.grid?.handoff(build.id, build.path);
+        this.releaseBuild(build);
         return false;
       }
-      if (build.finishedAt && now - build.finishedAt > BUILD_GRACE_MS) return false;
+      if (build.finishedAt && now - build.finishedAt > BUILD_GRACE_MS) {
+        this.releaseBuild(build);
+        return false;
+      }
       waiting.unshift(build.tile);
       return true;
     });

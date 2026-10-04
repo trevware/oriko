@@ -43,10 +43,12 @@ export interface TileModel {
 
 export interface Building {
   label: string;
-  /** 0..1, or null for work whose length is unknown. */
-  fraction: number | null;
+  /** How far along the clip is, 0..1, only ever moving forward. Sharpens the preview. */
+  progress: number;
   /** The shape the finished card will have, so it does not change size on arrival. */
   shape: "steam" | "plain";
+  /** The page's own picture, shown blurred behind the step until the card lands. */
+  preview?: { path: string; remote: boolean };
 }
 
 /** Ids of cards standing in for a clip that has no note yet. */
@@ -331,10 +333,20 @@ export function buildTiles(
       // A store page this device has not heard about from Steam yet. It
       // waits as a card of the right shape rather than showing as an
       // ordinary tile first and turning into a store card a second later.
+      // The note is written by now, so the clip is nearly done, and whatever
+      // picture it carries is the preview.
+      const own = pickCover(record, cache);
+      const still =
+        own?.kind === "image"
+          ? { path: own.filePath, remote: own.remote }
+          : own?.posterPath
+            ? { path: own.posterPath, remote: false }
+            : undefined;
       const waiting = buildingTile(record.path, {
         label: STEAM_PENDING,
-        fraction: null,
+        progress: 0.9,
         shape: "steam",
+        ...(still ? { preview: still } : {}),
       });
       tiles.push({ ...waiting, record });
       continue;
