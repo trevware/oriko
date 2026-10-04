@@ -14,7 +14,7 @@ import { buildDiagnostics } from "./core/diagnose";
 import { setToolOverrides } from "./convert";
 import { ArchiveService } from "./archive-service";
 import { SteamService } from "./steam-service";
-import { XService } from "./x-service";
+import { PostService } from "./post-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { OrikoSettings, DEFAULT_SETTINGS, isCardMode } from "./core/settings";
@@ -44,7 +44,7 @@ export default class OrikoPlugin extends Plugin {
   index!: ClippingIndex;
   archiver!: ArchiveService;
   steam!: SteamService;
-  x!: XService;
+  posts!: PostService;
   capture!: CaptureService;
   /** The last shared file this device wrote, to recognise its own echo. */
   private wroteShared = "";
@@ -70,11 +70,11 @@ export default class OrikoPlugin extends Plugin {
    */
   scheduleLookups(delayMs: number): void {
     window.clearTimeout(this.steamTimer);
-    // X posts ride the same timer: both are a per-device look-up that a
-    // new clipping wants answered quickly and a sync storm wants once.
+    // Posts ride the same timer: both are a per-device look-up that a new
+    // clipping wants answered quickly and a sync storm wants once.
     this.steamTimer = window.setTimeout(() => {
       void this.steam.refresh(this.settings.archiveOnCreate);
-      void this.x.refresh();
+      void this.posts.refresh();
     }, delayMs);
   }
 
@@ -107,13 +107,13 @@ export default class OrikoPlugin extends Plugin {
       () => this.index.records()
     );
     await this.steam.load();
-    this.x = new XService(
+    this.posts = new PostService(
       this.app,
       () => this.settings,
       this.manifest.dir ?? `${this.app.vault.configDir}/plugins/oriko`,
       () => this.index.records()
     );
-    await this.x.load();
+    await this.posts.load();
     this.register(() => window.clearTimeout(this.steamTimer));
     // Prices move while Obsidian stays open for days. The pass asks only
     // about games whose answer is a day old, so an hourly look costs nothing.
@@ -124,7 +124,7 @@ export default class OrikoPlugin extends Plugin {
       this.archiver,
       this.index
     );
-    this.capture.onXDetails = (id, details) => this.x.seed(id, details);
+    this.capture.onXDetails = (id, details) => this.posts.seed("x", id, details);
 
     this.registerView(
       VIEW_TYPE_GRID,
@@ -527,6 +527,11 @@ export default class OrikoPlugin extends Plugin {
     if (!isStage(this.settings.tileSize)) this.settings.tileSize = DEFAULT_SETTINGS.tileSize;
     if (!isCardMode(this.settings.steamCards)) this.settings.steamCards = DEFAULT_SETTINGS.steamCards;
     if (!isCardMode(this.settings.xCards)) this.settings.xCards = DEFAULT_SETTINGS.xCards;
+    // A post site added since this vault last saved its settings starts the
+    // way X posts already show, so the wall does not change under you.
+    for (const key of ["instagramCards", "threadsCards", "youtubeCards"] as const) {
+      if (!isCardMode(this.settings[key])) this.settings[key] = this.settings.xCards;
+    }
     setToolOverrides({ ytdlp: this.settings.ytdlpPath, ffmpeg: this.settings.ffmpegPath });
   }
 

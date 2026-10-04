@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { PostLook, PostSite } from "../src/core/posts";
 import { MediaCache } from "../src/core/cache";
 import { scanClipping } from "../src/core/scan";
 import { BUILDING_PREFIX, STEAM_PENDING, buildTiles, buildingTile } from "../src/core/tile";
@@ -546,30 +547,55 @@ describe("site card modes", () => {
     },
     "![](https://cdn.example/loop.jpg)"
   );
-  const look = {
-    post: { id: "2090086481281069566", handle: "PERFECTL00P", name: "perfectloop", text: "keep climbing" },
+  const look: PostLook = {
+    post: { site: "x", id: "2090086481281069566", handle: "PERFECTL00P", name: "perfectloop", text: "keep climbing" },
     details: null,
+    name: "perfectloop",
+    avatar: "",
     stamp: "bare",
   };
 
   it("draws an X post as a card with its band under the picture by default", () => {
-    const [tile] = buildTiles([post], new MediaCache(), undefined, { x: () => look });
-    expect(tile.x).toBe(look);
+    const [tile] = buildTiles([post], new MediaCache(), undefined, { post: () => look });
+    expect(tile.post).toBe(look);
     expect(tile.bandMode).toBe("always");
     expect(tile.filePath).toBe("https://cdn.example/loop.jpg");
   });
 
   it("keeps the band for hovering when asked, and repaints for the change", () => {
-    const [always] = buildTiles([post], new MediaCache(), undefined, { x: () => look });
-    const [hover] = buildTiles([post], new MediaCache(), undefined, { x: () => look, xMode: "hover" });
+    const [always] = buildTiles([post], new MediaCache(), undefined, { post: () => look });
+    const [hover] = buildTiles([post], new MediaCache(), undefined, {
+      post: () => look,
+      postMode: () => "hover",
+    });
     expect(hover.bandMode).toBe("hover");
     expect(hover.signature).not.toBe(always.signature);
   });
 
   it("draws a plain tile when a site's cards are off", () => {
-    const [tile] = buildTiles([post], new MediaCache(), undefined, { x: () => look, xMode: "never" });
-    expect(tile.x).toBeUndefined();
+    const [tile] = buildTiles([post], new MediaCache(), undefined, {
+      post: () => look,
+      postMode: () => "never",
+    });
+    expect(tile.post).toBeUndefined();
     expect(tile.bandMode).toBeUndefined();
+  });
+
+  it("asks each site's own setting", () => {
+    const video: PostLook = { ...look, post: { ...look.post, site: "youtube" } };
+    const modes = { x: "hover", youtube: "never" } as const;
+    const looks = {
+      post: (r: { source: string }) => (r.source.includes("x.com") ? look : video),
+      postMode: (site: PostSite) => (modes as Record<string, "hover" | "never">)[site] ?? "always",
+    };
+    const clip = scanClipping(
+      "Clippings/video.md",
+      { title: "v", source: "https://www.youtube.com/watch?v=DL2WnXqzZi8" },
+      "![](https://cdn.example/v.jpg)"
+    );
+    const [x, yt] = buildTiles([post, clip], new MediaCache(), undefined, looks);
+    expect(x.bandMode).toBe("hover");
+    expect(yt.post).toBeUndefined();
   });
 
   it("never holds a store page waiting when Steam cards are off", () => {

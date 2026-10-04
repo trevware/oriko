@@ -331,6 +331,36 @@ export class OrikoSettingTab extends PluginSettingTab {
               options: { always: "Always show", hover: "Show on hover", never: "Never show" },
             },
           },
+          {
+            name: "Instagram posts",
+            desc: "Who posted it, the likes and the start of the caption, in a band under the picture, only while you hover, or a plain tile. The avatar and today's likes come from Instagram, so they need Use community media resolvers on.",
+            aliases: ["instagram", "reels", "posts", "author", "card", "band"],
+            control: {
+              type: "dropdown",
+              key: "instagramCards",
+              options: { always: "Always show", hover: "Show on hover", never: "Never show" },
+            },
+          },
+          {
+            name: "Threads posts",
+            desc: "Who posted it, the likes and the start of what they said, in a band under the picture, only while you hover, or a plain tile. The avatar and likes come from Threads, so they need Use community media resolvers on.",
+            aliases: ["threads", "posts", "author", "card", "band"],
+            control: {
+              type: "dropdown",
+              key: "threadsCards",
+              options: { always: "Always show", hover: "Show on hover", never: "Never show" },
+            },
+          },
+          {
+            name: "YouTube videos",
+            desc: "The channel, the views and the length over the video's title, in a band under the picture, only while you hover, or a plain tile. The channel's avatar, the views and the length come from YouTube, so they need Use community media resolvers on.",
+            aliases: ["youtube", "videos", "channel", "views", "card", "band"],
+            control: {
+              type: "dropdown",
+              key: "youtubeCards",
+              options: { always: "Always show", hover: "Show on hover", never: "Never show" },
+            },
+          },
         ],
       },
       {
@@ -381,7 +411,10 @@ export class OrikoSettingTab extends PluginSettingTab {
         break;
       }
       case "steamCards":
-      case "xCards": {
+      case "xCards":
+      case "instagramCards":
+      case "threadsCards":
+      case "youtubeCards": {
         settings[key] = isCardMode(value) ? value : "always";
         // Turning a card on asks the sites about anything not yet looked up.
         return this.plugin.saveSettings().then(() => this.plugin.scheduleLookups(0));

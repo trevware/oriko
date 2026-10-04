@@ -24,8 +24,8 @@ import {
 } from "./core/resolve";
 import type { ProgressState } from "./core/progress";
 import { previewFor } from "./core/building";
+import type { PostDetails } from "./core/posts";
 import { parseFxDetails } from "./core/xpost";
-import type { XDetails } from "./core/xpost";
 import type { OrikoSettings } from "./core/settings";
 import { scanAvailable, scanPage } from "./page-scanner";
 
@@ -35,7 +35,7 @@ import { scanAvailable, scanPage } from "./page-scanner";
  * as Threads; X withholds them from everything but named crawlers, which is
  * why X posts go through the resolver instead.
  */
-const USER_AGENT = "Mozilla/5.0 (compatible; Oriko/0.1; Obsidian link preview)";
+export const USER_AGENT = "Mozilla/5.0 (compatible; Oriko/0.1; Obsidian link preview)";
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
@@ -70,8 +70,8 @@ export class CaptureService {
    * wall briefly showing both.
    */
   onCreating: ((path: string) => void) | null = null;
-  /** What fxtwitter said about a post being clipped, handed to the X card's store. */
-  onXDetails: ((id: string, details: XDetails) => void) | null = null;
+  /** What fxtwitter said about a post being clipped, handed to the post card's store. */
+  onXDetails: ((id: string, details: PostDetails) => void) | null = null;
   /**
    * Carries the note's path as well as its label: the grid flies to what you
    * just clipped, and a title is not enough to find a tile by.

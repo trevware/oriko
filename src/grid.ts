@@ -48,9 +48,9 @@ import type { TileModel } from "./core/tile";
 import { steamBandHeight } from "./core/steam";
 import type { SteamLook } from "./core/steam";
 import { paintBand } from "./steam-card";
-import { paintXBand } from "./x-card";
-import { bandHeight, bandLines } from "./core/xpost";
-import type { XLook } from "./core/xpost";
+import { paintPostBand } from "./post-card";
+import { bandHeight, bandLines } from "./core/posts";
+import type { PostLook } from "./core/posts";
 
 /** Layout gap. Cards sit inset inside their box, adding SELECT_LIFT a side. */
 const GAP = 6;
@@ -1712,11 +1712,11 @@ export class GridRenderer {
     return art;
   }
 
-  /** The same for an X post: its picture over a band naming who posted it. */
-  private paintXFrame(frame: HTMLElement, x: XLook): HTMLElement {
-    frame.addClass("pg-xcard");
+  /** The same for a post: its picture over a band naming who posted it. */
+  private paintPostFrame(frame: HTMLElement, post: PostLook): HTMLElement {
+    frame.addClass("pg-postcard");
     const art = frame.createDiv({ cls: "pg-steam-art" });
-    paintXBand(frame, x, bandLines(x.post.text, this.columnWidth - FRAME_INSET * 2));
+    paintPostBand(frame, post, bandLines(post.post.text, this.columnWidth - FRAME_INSET * 2));
     return art;
   }
 
@@ -1724,15 +1724,15 @@ export class GridRenderer {
   private repaintBand(frame: HTMLElement, model: TileModel): void {
     frame.querySelector(".pg-card-band")?.remove();
     if (model.steam) paintBand(frame, model.steam.app).addClass("pg-card-band");
-    else if (model.x) {
-      paintXBand(frame, model.x, bandLines(model.x.post.text, this.columnWidth - FRAME_INSET * 2));
+    else if (model.post) {
+      paintPostBand(frame, model.post, bandLines(model.post.post.text, this.columnWidth - FRAME_INSET * 2));
     }
     frame.toggleClass("is-hover-band", model.bandMode === "hover");
     this.setHoverBand(frame, model);
   }
 
   /**
-   * How far a card grows on hover to show its band: the X band's own
+   * How far a card grows on hover to show its band: a post band's own
    * estimate until the band has been measured on the first hover, and the
    * store band's fixed height.
    */
@@ -1743,8 +1743,8 @@ export class GridRenderer {
     }
     const height = model.steam
       ? HOVER_STEAM_BAND
-      : model.x
-        ? bandHeight(model.x.post.text, this.columnWidth - FRAME_INSET * 2)
+      : model.post
+        ? bandHeight(model.post.post.text, this.columnWidth - FRAME_INSET * 2)
         : 0;
     frame.style.setProperty("--pg-band-h", `${height}px`);
   }
@@ -1762,8 +1762,8 @@ export class GridRenderer {
     }
     if (t.bandMode !== "always") return 0;
     if (t.steam) return steamBandHeight(this.targetColumnWidth);
-    if (t.x && this.targetColumnWidth > 140) {
-      return bandHeight(t.x.post.text, this.columnWidth - FRAME_INSET * 2);
+    if (t.post && this.targetColumnWidth > 140) {
+      return bandHeight(t.post.post.text, this.columnWidth - FRAME_INSET * 2);
     }
     return 0;
   }
@@ -1947,7 +1947,7 @@ export class GridRenderer {
     // any tile's does, and its band is redrawn, which is all a new price, a
     // saved copy of the art, an avatar or a like count changes. Rebuilt, the
     // card would blink, and a video would start over.
-    const look = model.steam ? "steam" : model.x ? "x" : "";
+    const look = model.steam ? "steam" : model.post ? "post" : "";
     if (
       look &&
       element.id === model.id &&
@@ -2006,12 +2006,12 @@ export class GridRenderer {
     // pills that float over it, go into the art and leave the band alone.
     const host = model.steam
       ? this.paintSteamFrame(frame, model.steam)
-      : model.x
-        ? this.paintXFrame(frame, model.x)
+      : model.post
+        ? this.paintPostFrame(frame, model.post)
         : frame;
-    frame.toggleClass("is-hover-band", Boolean(model.bandMode === "hover" && (model.steam || model.x)));
+    frame.toggleClass("is-hover-band", Boolean(model.bandMode === "hover" && (model.steam || model.post)));
     this.setHoverBand(frame, model);
-    element.look = model.steam ? "steam" : model.x ? "x" : "";
+    element.look = model.steam ? "steam" : model.post ? "post" : "";
     element.root.toggleClass("is-steam", Boolean(model.steam));
 
     if (model.kind === "video") {

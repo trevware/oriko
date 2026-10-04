@@ -17,14 +17,8 @@ const YOUTUBE_HOSTS = new Set([
 ]);
 const YOUTUBE_PATHS = /^\/(?:embed|shorts|v|live)\/([A-Za-z0-9_-]{11})/;
 
-/**
- * Resolves a video page URL to its thumbnail without any network request.
- *
- * Clippings routinely reference a video by its page URL, sometimes with
- * markdown image syntax. Fetching that URL returns HTML, so the archiver
- * rejects it; this turns it into a real cover instead.
- */
-export function knownHostThumbnail(pageUrl: string): ThumbnailCandidate | null {
+/** The video a YouTube link is of, in any of its shapes, or null. */
+export function youtubeVideoId(pageUrl: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(pageUrl);
@@ -41,7 +35,19 @@ export function knownHostThumbnail(pageUrl: string): ThumbnailCandidate | null {
     id = parsed.searchParams.get("v") ?? YOUTUBE_PATHS.exec(parsed.pathname)?.[1] ?? null;
   }
 
-  if (!id || !YOUTUBE_ID.test(id)) return null;
+  return id && YOUTUBE_ID.test(id) ? id : null;
+}
+
+/**
+ * Resolves a video page URL to its thumbnail without any network request.
+ *
+ * Clippings routinely reference a video by its page URL, sometimes with
+ * markdown image syntax. Fetching that URL returns HTML, so the archiver
+ * rejects it; this turns it into a real cover instead.
+ */
+export function knownHostThumbnail(pageUrl: string): ThumbnailCandidate | null {
+  const id = youtubeVideoId(pageUrl);
+  if (!id) return null;
 
   // maxres exists only for videos uploaded at that resolution, so the
   // archiver walks down to sizes YouTube always generates.

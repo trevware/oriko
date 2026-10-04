@@ -112,14 +112,14 @@ export function perfApi(getGrid: () => GridRenderer | null) {
       return { x: r.left, y: r.top, w: r.width, h: r.height };
     },
 
-    /** Every tile in client space, marking the X and Steam cards. */
+    /** Every tile in client space, marking the post and Steam cards. */
     rects(): Rect[] {
       const grid = getGrid();
       if (!grid) return [];
       const out: Rect[] = [];
       for (const t of inside(grid).tiles) {
         const r = grid.tileRect(t.id);
-        if (r) out.push({ id: t.id, ...r, card: Boolean(t.x || t.steam) });
+        if (r) out.push({ id: t.id, ...r, card: Boolean(t.post || t.steam) });
       }
       return out;
     },

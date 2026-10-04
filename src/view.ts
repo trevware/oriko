@@ -82,6 +82,8 @@ import type { GridSpace, PlacedGrid } from "./core/spaces";
 import { BUILDING_PREFIX, buildTiles, buildingTile, previewOf } from "./core/tile";
 import { advance } from "./core/building";
 import type { TileLooks, TileModel } from "./core/tile";
+import type { PostSite } from "./core/posts";
+import { postCardMode } from "./core/settings";
 import type { ClippingRecord } from "./core/scan";
 import { steamAppId } from "./core/steam";
 
@@ -180,9 +182,9 @@ export class OrikoView extends ItemView {
   private looks(): TileLooks {
     return {
       steam: (record: ClippingRecord) => this.plugin.steam.lookFor(record),
-      x: (record: ClippingRecord) => this.plugin.x.lookFor(record),
+      post: (record: ClippingRecord) => this.plugin.posts.lookFor(record),
       steamMode: this.plugin.settings.steamCards,
-      xMode: this.plugin.settings.xCards,
+      postMode: (site: PostSite) => postCardMode(this.plugin.settings, site),
     };
   }
   /**
@@ -515,7 +517,7 @@ export class OrikoView extends ItemView {
     this.plugin.index.onChange(() => this.refresh());
     this.plugin.archiver.onChange(() => this.refresh());
     this.plugin.steam.onChange(() => this.refresh());
-    this.plugin.x.onChange(() => this.refresh());
+    this.plugin.posts.onChange(() => this.refresh());
 
     // The stage is a fixed frame: the wall pans inside it, and nothing else
     // may move it. Overflow: hidden stops a user scrolling it but not the

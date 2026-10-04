@@ -1,4 +1,5 @@
 import type { DensityStage } from "./density";
+import type { PostSite } from "./posts";
 import type { GridLook, LookScope } from "./look";
 import type { FolderSpace } from "./folders";
 import type { GridSpace, SharedClipTarget } from "./spaces";
@@ -11,6 +12,18 @@ export type CardMode = "always" | "hover" | "never";
 
 export function isCardMode(value: unknown): value is CardMode {
   return value === "always" || value === "hover" || value === "never";
+}
+
+/** Each post site's own setting. */
+export const POST_CARD_KEYS = {
+  x: "xCards",
+  instagram: "instagramCards",
+  threads: "threadsCards",
+  youtube: "youtubeCards",
+} as const satisfies Record<PostSite, keyof OrikoSettings>;
+
+export function postCardMode(settings: OrikoSettings, site: PostSite): CardMode {
+  return settings[POST_CARD_KEYS[site]];
 }
 
 export interface OrikoSettings {
@@ -93,6 +106,12 @@ export interface OrikoSettings {
   steamCards: CardMode;
   /** How an X post shows who posted it and what they said on the wall. */
   xCards: CardMode;
+  /** The same for an Instagram post. */
+  instagramCards: CardMode;
+  /** The same for a Threads post. */
+  threadsCards: CardMode;
+  /** The same for a YouTube video: its channel, views and length over its title. */
+  youtubeCards: CardMode;
   /** Full path to yt-dlp, "" to discover it on PATH and in common installs. */
   ytdlpPath: string;
   /** Full path to ffmpeg, "" to discover it on PATH and in common installs. */
@@ -122,6 +141,9 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   gridTileSizes: {},
   steamCards: "always",
   xCards: "always",
+  instagramCards: "always",
+  threadsCards: "always",
+  youtubeCards: "always",
   ytdlpPath: "",
   ffmpegPath: "",
 };

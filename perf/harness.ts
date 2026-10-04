@@ -14,7 +14,7 @@ import type { DensityStage } from "../src/core/density";
 import type { TileModel } from "../src/core/tile";
 import type { ClippingRecord } from "../src/core/scan";
 import type { SteamApp, SteamLook } from "../src/core/steam";
-import { xLook } from "../src/core/xpost";
+import { postLook } from "../src/core/posts";
 import { nextFrames, perfApi } from "./api";
 
 type BandMode = "always" | "hover";
@@ -190,12 +190,12 @@ async function buildTiles(spec: WallSpec): Promise<TileModel[]> {
       signature: `${id}|${url}`,
     };
     if (kind === "x") {
-      model.x = xLook(
-        { id: String(1800000000000000000 + i), handle: "someone", name: `Someone ${i}`, text },
-        { fetchedAt: 1, details: { avatar: "", verified: rand() < 0.4, likes: Math.floor(rand() * 90000) } }
+      model.post = postLook(
+        { site: "x", id: String(1800000000000000000 + i), handle: "someone", name: `Someone ${i}`, text },
+        { fetchedAt: 1, details: { avatar: "", verified: rand() < 0.4, count: Math.floor(rand() * 90000) } }
       );
       model.bandMode = spec.bandMode;
-      model.signature += `|x|${model.x.stamp}|${spec.bandMode}`;
+      model.signature += `|post|${model.post.stamp}|${spec.bandMode}`;
     }
     if (kind === "steam") {
       const app = steamApp(String(100000 + i), rand);

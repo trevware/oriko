@@ -5,7 +5,7 @@ import type { CanonicalMedia } from "./normalize";
 import { knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
 import type { SteamLook } from "./steam";
-import type { XLook } from "./xpost";
+import type { PostLook, PostSite } from "./posts";
 import type { CardMode } from "./settings";
 
 export interface TileModel {
@@ -35,11 +35,14 @@ export interface TileModel {
    * band of store details, and the detail view as a store page.
    */
   steam?: SteamLook;
-  /** Set when the clipping is an X post: drawn as its picture over a band naming who posted it. */
-  x?: XLook;
   /**
-   * How a Steam or X card shows its band: under the picture, with room made
-   * for it on the wall, or over the picture while the card is hovered.
+   * Set when the clipping is a post (X, Instagram, Threads, YouTube): drawn
+   * as its picture over a band naming who posted it. See posts.ts.
+   */
+  post?: PostLook;
+  /**
+   * How a Steam or post card shows its band: under the picture, with room
+   * made for it on the wall, or over the picture while the card is hovered.
    */
   bandMode?: "always" | "hover";
   /**
@@ -333,9 +336,10 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
 /** The site cards a wall draws, and how each shows its band. */
 export interface TileLooks {
   steam?: (record: ClippingRecord) => SteamLook | "pending" | null;
-  x?: (record: ClippingRecord) => XLook | null;
+  post?: (record: ClippingRecord) => PostLook | null;
   steamMode?: CardMode;
-  xMode?: CardMode;
+  /** Each post site has its own setting. */
+  postMode?: (site: PostSite) => CardMode;
 }
 
 export function buildTiles(
@@ -346,7 +350,7 @@ export function buildTiles(
 ): TileModel[] {
   const tiles: TileModel[] = [];
   const steamMode = looks.steamMode ?? "always";
-  const xMode = looks.xMode ?? "always";
+  const postMode = (site: PostSite): CardMode => looks.postMode?.(site) ?? "always";
 
   for (const record of records) {
     // Never is a plain tile, the way the clipping looked before it had a card.
@@ -375,15 +379,16 @@ export function buildTiles(
       continue;
     }
     const steam = found;
-    const x = steam || xMode === "never" ? null : (looks.x?.(record) ?? null);
+    const asked = steam ? null : (looks.post?.(record) ?? null);
+    const post = asked && postMode(asked.post.site) !== "never" ? asked : null;
     const cover = steam ? steamCover(record, cache, steam) : pickCover(record, cache);
     if (!cover) continue;
-    const mode = steam ? steamMode : x ? xMode : "never";
+    const mode = steam ? steamMode : post ? postMode(post.post.site) : "never";
     const band = mode === "never" ? "" : `|${mode}`;
     const signature = steam
       ? `${signatureOf(cover)}|steam:${steam.stamp}${band}`
-      : x
-        ? `${signatureOf(cover)}|x:${x.stamp}${band}`
+      : post
+        ? `${signatureOf(cover)}|post:${post.stamp}${band}`
         : signatureOf(cover);
     if (failedSignatures?.get(record.path) === signature) continue;
     tiles.push({
@@ -392,7 +397,7 @@ export function buildTiles(
       signature,
       ...cover,
       ...(steam ? { steam } : {}),
-      ...(x ? { x } : {}),
+      ...(post ? { post } : {}),
       ...(mode !== "never" ? { bandMode: mode } : {}),
     });
   }

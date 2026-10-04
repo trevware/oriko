@@ -174,7 +174,7 @@ export async function runChecks(page) {
     cards.find((c) => rects.some((r) => Math.round(r.x) === Math.round(c.x - c.w / 2) && r.y > c.y + c.h / 2)) ??
     cards[0];
   if (!card) {
-    check("a card to hover", false, "no X or Steam card on screen");
+    check("a card to hover", false, "no post or Steam card on screen");
     return results;
   }
   // Off centre, so the card tips, and inside the part of it on screen: a

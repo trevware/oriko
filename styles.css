@@ -3140,15 +3140,15 @@ body.is-mobile .pg-spacebar button:active {
   fill: currentColor;
 }
 
-/* ---- X: post clippings drawn as their picture over the author ---------- */
+/* ---- Posts: X, Instagram, Threads and YouTube, picture over the author ---- */
 
-.pg-frame.pg-xcard {
+.pg-frame.pg-postcard {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
 }
 
-.pg-x-band {
+.pg-post-band {
   flex: 0 0 auto;
   display: grid;
   gap: 6px;
@@ -3159,7 +3159,7 @@ body.is-mobile .pg-spacebar button:active {
   color: var(--text-normal);
 }
 
-.pg-x-who {
+.pg-post-who {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3167,7 +3167,7 @@ body.is-mobile .pg-spacebar button:active {
   height: 22px;
 }
 
-.pg-x-avatar {
+.pg-post-avatar {
   position: relative;
   flex: none;
   display: grid;
@@ -3179,13 +3179,13 @@ body.is-mobile .pg-spacebar button:active {
   background: var(--background-modifier-border);
 }
 
-.pg-x-initial {
+.pg-post-initial {
   font-size: 10.5px;
   font-weight: 700;
   color: var(--text-muted);
 }
 
-.pg-x-avatar img {
+.pg-post-avatar img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -3195,11 +3195,11 @@ body.is-mobile .pg-spacebar button:active {
   transition: opacity 240ms ease;
 }
 
-.pg-x-avatar img.is-loaded {
+.pg-post-avatar img.is-loaded {
   opacity: 1;
 }
 
-.pg-x-name {
+.pg-post-name {
   min-width: 0;
   overflow: hidden;
   font-size: 12.5px;
@@ -3208,27 +3208,27 @@ body.is-mobile .pg-spacebar button:active {
   text-overflow: ellipsis;
 }
 
-.pg-x-badge {
+.pg-post-badge {
   display: grid;
   flex: none;
   width: 14px;
   height: 14px;
 }
 
-.pg-x-badge .svg-icon {
+.pg-post-badge .svg-icon {
   width: 14px;
   height: 14px;
   stroke: #fff;
   stroke-width: 2.4;
 }
 
-.pg-x-badge .svg-icon > :first-child {
+.pg-post-badge .svg-icon > :first-child {
   fill: #1d9bf0;
   stroke: #1d9bf0;
   stroke-width: 1;
 }
 
-.pg-x-likes {
+.pg-post-count {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -3239,20 +3239,20 @@ body.is-mobile .pg-spacebar button:active {
   font-variant-numeric: tabular-nums;
 }
 
-.pg-x-heart {
+.pg-post-heart {
   display: grid;
 }
 
-.pg-x-heart .svg-icon {
+.pg-post-heart .svg-icon {
   width: 13px;
   height: 13px;
   stroke-width: 2;
 }
 
-.pg-x-text {
+.pg-post-text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: var(--pg-x-lines, 2);
+  -webkit-line-clamp: var(--pg-post-lines, 2);
   overflow: hidden;
   overflow-wrap: anywhere;
   font-size: 12.5px;
