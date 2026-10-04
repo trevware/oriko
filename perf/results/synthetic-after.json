@@ -1,0 +1,378 @@
+{
+  "target": "synthetic",
+  "date": "2026-10-04T20:45:12.596Z",
+  "chrome": "154.0.8037.95",
+  "results": {
+    "vault · relayout": {
+      "sync": {
+        "relayoutMs": 0.2,
+        "renderMs": 0.3,
+        "layers": 216
+      }
+    },
+    "vault · hover-sweep": {
+      "frames": {
+        "frames": 425,
+        "interval": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 470.7,
+        "longestTask": 5.5,
+        "style": 42.8,
+        "layout": 29.7,
+        "paint": 62.3,
+        "layerize": 120.2,
+        "script": 73.9,
+        "gpu": 447.3,
+        "styleCount": 464,
+        "layoutCount": 194,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cards": 8
+      }
+    },
+    "vault · hover-column-walk": {
+      "frames": {
+        "frames": 500,
+        "interval": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 641.8,
+        "longestTask": 6.8,
+        "style": 92.4,
+        "layout": 22.8,
+        "paint": 67.7,
+        "layerize": 83.1,
+        "script": 176.6,
+        "gpu": 567.1,
+        "styleCount": 695,
+        "layoutCount": 90,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cardsInColumn": 3
+      }
+    },
+    "vault · wheel-scroll-hover": {
+      "frames": {
+        "frames": 309,
+        "interval": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 528.2,
+        "longestTask": 6.7,
+        "style": 23,
+        "layout": 3.6,
+        "paint": 53.4,
+        "layerize": 168.3,
+        "script": 232.2,
+        "gpu": 138.8,
+        "styleCount": 209,
+        "layoutCount": 16,
+        "forcedLayouts": 0
+      },
+      "extra": {}
+    },
+    "vault · stage-steps": {
+      "frames": {
+        "frames": 287,
+        "interval": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 466.2,
+        "longestTask": 25.5,
+        "style": 95.3,
+        "layout": 23.4,
+        "paint": 106.7,
+        "layerize": 95.3,
+        "script": 44.1,
+        "gpu": 69,
+        "styleCount": 120,
+        "layoutCount": 8,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "syncMax": 2.9
+      }
+    },
+    "cards-hover · relayout": {
+      "sync": {
+        "relayoutMs": 0.5,
+        "renderMs": 0.2,
+        "layers": 41
+      }
+    },
+    "cards-hover · hover-sweep": {
+      "frames": {
+        "frames": 381,
+        "interval": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 420.7,
+        "longestTask": 4.4,
+        "style": 60.5,
+        "layout": 21.4,
+        "paint": 80.9,
+        "layerize": 63,
+        "script": 91.5,
+        "gpu": 604.3,
+        "styleCount": 438,
+        "layoutCount": 208,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cards": 7
+      }
+    },
+    "cards-hover · hover-column-walk": {
+      "frames": {
+        "frames": 505,
+        "interval": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 498.5,
+        "longestTask": 6.5,
+        "style": 93.6,
+        "layout": 10.1,
+        "paint": 54.5,
+        "layerize": 31.9,
+        "script": 163,
+        "gpu": 704.7,
+        "styleCount": 698,
+        "layoutCount": 90,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cardsInColumn": 4
+      }
+    },
+    "cards-hover · wheel-scroll-hover": {
+      "frames": {
+        "frames": 310,
+        "interval": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 424,
+        "longestTask": 6.8,
+        "style": 43.8,
+        "layout": 26.9,
+        "paint": 71,
+        "layerize": 79.7,
+        "script": 168.4,
+        "gpu": 421.1,
+        "styleCount": 397,
+        "layoutCount": 168,
+        "forcedLayouts": 0
+      },
+      "extra": {}
+    },
+    "cards-always · relayout": {
+      "sync": {
+        "relayoutMs": 1.3,
+        "renderMs": 0.2,
+        "layers": 37
+      }
+    },
+    "cards-always · wheel-scroll-hover": {
+      "frames": {
+        "frames": 309,
+        "interval": 16.7,
+        "p95": 16.7,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 372.6,
+        "longestTask": 4.8,
+        "style": 37.9,
+        "layout": 15.9,
+        "paint": 66.8,
+        "layerize": 70.5,
+        "script": 120,
+        "gpu": 417.8,
+        "styleCount": 364,
+        "layoutCount": 77,
+        "forcedLayouts": 0
+      },
+      "extra": {}
+    },
+    "cards-always · stage-steps": {
+      "frames": {
+        "frames": 288,
+        "interval": 16.7,
+        "p95": 16.8,
+        "p99": 16.8,
+        "max": 16.8,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 264.4,
+        "longestTask": 16.6,
+        "style": 36.5,
+        "layout": 14.9,
+        "paint": 60.9,
+        "layerize": 25.6,
+        "script": 51.9,
+        "gpu": 82.3,
+        "styleCount": 130,
+        "layoutCount": 13,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "syncMax": 2.6
+      }
+    }
+  },
+  "checks": {
+    "vault": [
+      {
+        "name": "drawer opens by its band's height",
+        "ok": true,
+        "detail": "frame 443px, tile 368px, band 83px"
+      },
+      {
+        "name": "picture stays whole while open",
+        "ok": true,
+        "detail": "art 360px for a 368px tile"
+      },
+      {
+        "name": "column below makes exactly that much room",
+        "ok": true,
+        "detail": "4 lowered by 83px"
+      },
+      {
+        "name": "pills show on hover",
+        "ok": true,
+        "detail": "visible at 1"
+      },
+      {
+        "name": "card tilts toward the pointer",
+        "ok": true,
+        "detail": "0.64deg|3.30deg"
+      },
+      {
+        "name": "drawer shuts and the column returns",
+        "ok": true,
+        "detail": "frame 360px, 0 still lowered"
+      },
+      {
+        "name": "pills hidden at rest, holding no layers",
+        "ok": true,
+        "detail": "hidden at 0"
+      },
+      {
+        "name": "tightest stage drops bands and pills",
+        "ok": true,
+        "detail": "band hidden, pills none"
+      }
+    ],
+    "cards-hover": [
+      {
+        "name": "drawer opens by its band's height",
+        "ok": true,
+        "detail": "frame 265px, tile 207px, band 66px"
+      },
+      {
+        "name": "picture stays whole while open",
+        "ok": true,
+        "detail": "art 199px for a 207px tile"
+      },
+      {
+        "name": "column below makes exactly that much room",
+        "ok": true,
+        "detail": "4 lowered by 66px"
+      },
+      {
+        "name": "pills show on hover",
+        "ok": true,
+        "detail": "visible at 1"
+      },
+      {
+        "name": "card tilts toward the pointer",
+        "ok": true,
+        "detail": "2.75deg|3.30deg"
+      },
+      {
+        "name": "drawer shuts and the column returns",
+        "ok": true,
+        "detail": "frame 199px, 0 still lowered"
+      },
+      {
+        "name": "pills hidden at rest, holding no layers",
+        "ok": true,
+        "detail": "hidden at 0"
+      },
+      {
+        "name": "tightest stage drops bands and pills",
+        "ok": true,
+        "detail": "band hidden, pills none"
+      }
+    ]
+  }
+}

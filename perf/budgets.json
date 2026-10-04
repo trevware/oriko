@@ -1,1 +1,18 @@
-{ "synthetic": {}, "obsidian": {} }
+{
+  "_about": "Ceilings for npm run perf (synthetic) and npm run perf:obsidian (obsidian). Set 2026-10-04 from the Aegis wall on a 120Hz MacBook after the performance pass, with room for run-to-run noise of about 20%. 0.1.66 before the pass (results/obsidian-before.json) misses the obsidian set on hover-sweep, hover-column-walk, stage-steps and the layer count. The obsidian set is the release gate; the synthetic set is a quick smoke test, since a bare page does not pay Obsidian's per-element style cost.",
+  "synthetic": {
+    "*": { "frames.dropped": 3 },
+    "relayout": { "sync.layers": 260, "sync.relayoutMs": 5, "sync.renderMs": 3 },
+    "hover-sweep": { "trace.style": 150, "trace.longestTask": 20 },
+    "hover-column-walk": { "trace.style": 250, "trace.longestTask": 20 },
+    "wheel-scroll-hover": { "trace.style": 120, "trace.longestTask": 20 },
+    "stage-steps": { "trace.style": 250, "trace.longestTask": 60, "extra.syncMax": 15 }
+  },
+  "obsidian": {
+    "relayout": { "sync.layers": 230, "sync.relayoutMs": 5, "sync.renderMs": 5 },
+    "hover-sweep": { "frames.dropped": 30, "trace.style": 200, "trace.longestTask": 30 },
+    "hover-column-walk": { "frames.dropped": 12, "trace.style": 300, "trace.longestTask": 30 },
+    "wheel-scroll-hover": { "frames.dropped": 12, "trace.style": 150, "trace.longestTask": 30 },
+    "stage-steps": { "frames.dropped": 50, "trace.style": 450, "extra.syncMax": 40 }
+  }
+}

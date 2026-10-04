@@ -1,0 +1,178 @@
+{
+  "target": "obsidian",
+  "date": "2026-10-04T20:43:43.503Z",
+  "chrome": "132.0.6834.196",
+  "oriko": "0.1.66",
+  "tiles": 119,
+  "results": {
+    "vault · relayout": {
+      "sync": {
+        "relayoutMs": 0.3,
+        "renderMs": 0.6,
+        "layers": 187
+      }
+    },
+    "vault · hover-sweep": {
+      "frames": {
+        "frames": 594,
+        "interval": 8.3,
+        "p95": 10.2,
+        "p99": 16.7,
+        "max": 18.2,
+        "janky": 15,
+        "dropped": 15,
+        "droppedPct": 2.5,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 1318.4,
+        "longestTask": 13.5,
+        "style": 96.2,
+        "layout": 84.5,
+        "paint": 140.1,
+        "layerize": 471.2,
+        "script": 127.3,
+        "gpu": 1444.6,
+        "styleCount": 558,
+        "layoutCount": 263,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cards": 6
+      }
+    },
+    "vault · hover-column-walk": {
+      "frames": {
+        "frames": 783,
+        "interval": 8.3,
+        "p95": 9.7,
+        "p99": 10.3,
+        "max": 10.4,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 1446.3,
+        "longestTask": 7.7,
+        "style": 147.4,
+        "layout": 54.7,
+        "paint": 133.5,
+        "layerize": 306,
+        "script": 232.4,
+        "gpu": 1899.4,
+        "styleCount": 929,
+        "layoutCount": 173,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "cardsInColumn": 3
+      }
+    },
+    "vault · wheel-scroll-hover": {
+      "frames": {
+        "frames": 438,
+        "interval": 8.3,
+        "p95": 9.8,
+        "p99": 10.3,
+        "max": 10.4,
+        "janky": 0,
+        "dropped": 0,
+        "droppedPct": 0,
+        "hitches": 0,
+        "longFrames": 0
+      },
+      "trace": {
+        "busy": 772.2,
+        "longestTask": 7,
+        "style": 56.5,
+        "layout": 10.9,
+        "paint": 43,
+        "layerize": 257.2,
+        "script": 180.9,
+        "gpu": 409.5,
+        "styleCount": 411,
+        "layoutCount": 32,
+        "forcedLayouts": 0
+      },
+      "extra": {}
+    },
+    "vault · stage-steps": {
+      "frames": {
+        "frames": 553,
+        "interval": 8.3,
+        "p95": 9.8,
+        "p99": 33.2,
+        "max": 51.1,
+        "janky": 8,
+        "dropped": 25,
+        "droppedPct": 4.3,
+        "hitches": 1,
+        "longFrames": 5
+      },
+      "trace": {
+        "busy": 780,
+        "longestTask": 52.8,
+        "style": 222.3,
+        "layout": 24.5,
+        "paint": 57.9,
+        "layerize": 28.6,
+        "script": 70.5,
+        "gpu": 491.2,
+        "styleCount": 227,
+        "layoutCount": 8,
+        "forcedLayouts": 0
+      },
+      "extra": {
+        "syncMax": 5
+      }
+    }
+  },
+  "checks": {
+    "vault": [
+      {
+        "name": "drawer opens by its band's height",
+        "ok": true,
+        "detail": "frame 766px, tile 691px, band 83px"
+      },
+      {
+        "name": "picture stays whole while open",
+        "ok": true,
+        "detail": "art 683px for a 691px tile"
+      },
+      {
+        "name": "column below makes exactly that much room",
+        "ok": true,
+        "detail": "3 lowered by 83px"
+      },
+      {
+        "name": "pills show on hover",
+        "ok": true,
+        "detail": "visible at 1"
+      },
+      {
+        "name": "card tilts toward the pointer",
+        "ok": true,
+        "detail": "-0.47deg|3.30deg"
+      },
+      {
+        "name": "drawer shuts and the column returns",
+        "ok": true,
+        "detail": "frame 683px, 0 still lowered"
+      },
+      {
+        "name": "pills hidden at rest, holding no layers",
+        "ok": true,
+        "detail": "hidden at 0"
+      },
+      {
+        "name": "tightest stage drops bands and pills",
+        "ok": true,
+        "detail": "band hidden, pills none"
+      }
+    ]
+  }
+}
