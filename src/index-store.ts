@@ -9,6 +9,12 @@ export function isInFolder(path: string, folder: string): boolean {
   return !name.startsWith("_");
 }
 
+/**
+ * Newest first: by the day a clipping says it was made, then, within a day,
+ * by when its note file was made, so the clip just taken is always the first
+ * tile on the wall and the card that built it never has to move. Title only
+ * settles what neither can, as for clippings that came in together.
+ */
 export function sortRecords(records: ClippingRecord[]): ClippingRecord[] {
   return [...records].sort((a, b) => {
     if (a.created !== b.created) {
@@ -16,6 +22,8 @@ export function sortRecords(records: ClippingRecord[]): ClippingRecord[] {
       if (!b.created) return -1;
       return a.created < b.created ? 1 : -1;
     }
+    const born = (b.born ?? 0) - (a.born ?? 0);
+    if (born !== 0) return born;
     return a.title.localeCompare(b.title);
   });
 }
@@ -69,7 +77,10 @@ export class ClippingIndex {
   async ingest(file: TFile): Promise<void> {
     if (!isInFolder(file.path, this.folder())) return;
     const body = await this.app.vault.cachedRead(file);
-    this.byPath.set(file.path, scanClipping(file.path, this.frontmatterOf(file, body), body));
+    this.byPath.set(file.path, {
+      ...scanClipping(file.path, this.frontmatterOf(file, body), body),
+      born: file.stat.ctime,
+    });
     this.sorted = null;
   }
 

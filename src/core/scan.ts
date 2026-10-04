@@ -33,6 +33,12 @@ export interface ClippingRecord {
    */
   folder: string;
   media: MediaRef[];
+  /**
+   * When the note file was made, in milliseconds, from the vault rather than
+   * the note: `created` is only a day, and this orders a day's clippings
+   * newest first. Absent outside the index, as in tests.
+   */
+  born?: number;
   haystack: string;
   /**
    * Every frontmatter value, normalized to strings, so any key can back a

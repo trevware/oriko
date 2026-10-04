@@ -59,6 +59,16 @@ describe("sortRecords", () => {
     expect(sorted[0].path).toBe("b.md");
   });
 
+  it("orders a day's clippings by when their notes were made, newest first", () => {
+    const sorted = sortRecords([
+      { ...rec("a.md", "2026-10-04", "Alpha"), born: 1000 },
+      { ...rec("z.md", "2026-10-04", "Zulu"), born: 3000 },
+      { ...rec("m.md", "2026-10-04", "Mike"), born: 2000 },
+      { ...rec("old.md", "2026-10-03", "Older"), born: 9000 },
+    ]);
+    expect(sorted.map((r) => r.path)).toEqual(["z.md", "m.md", "a.md", "old.md"]);
+  });
+
   it("falls back to title when created dates match", () => {
     const sorted = sortRecords([
       rec("b.md", "2026-01-01", "Beta"),
