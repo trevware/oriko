@@ -65,8 +65,10 @@ const FRAME_INSET = 4;
 /** How long a landing card shows its check before fading, and how long the fade takes. */
 const LAND_HOLD_MS = 650;
 const LAND_FADE_MS = 420;
-/** A store card's band when it rises over the art on hover; matches styles.css. */
+/** A store card's band when it slides out on hover; matches styles.css. */
 const HOVER_STEAM_BAND = 56;
+/** How long cards take to make room under an opened card; matches .is-pushed. */
+const PUSH_MS = 260;
 
 /** Horizontal padding inside a pill, matching .pg-badge in styles.css. */
 const TICKER_PAD = 9;
@@ -1586,6 +1588,8 @@ export class GridRenderer {
     tile.kind = "";
     tile.look = "";
     tile.root.removeClass("is-steam");
+    tile.root.removeClass("is-pushed");
+    tile.root.style.removeProperty("--pg-push");
     tile.media = null;
     this.pool.push(tile);
   }
@@ -1851,7 +1855,7 @@ export class GridRenderer {
     // otherwise it would visibly fly across the canvas.
     element.root.toggleClass("is-gliding", !this.restaging && element.id === model.id);
     element.root.toggleClass("is-focus-hidden", this.focusedId === model.id);
-    element.root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+    element.root.style.transform = `translate3d(${position.x}px, calc(${position.y}px + var(--pg-push, 0px)), 0)`;
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
     // A card whose band shows on hover holds its picture at this height and
@@ -2062,9 +2066,16 @@ export class GridRenderer {
       if (event.pointerType === "touch") return;
       this.armTicker(element.root);
       // The band's real height, now that it is laid out, so the card grows by
-      // exactly that much; the layout's estimate is only a starting point.
+      // exactly that much and pushes what is below it by the same.
       const band = element.root.querySelector<HTMLElement>(".pg-frame.is-hover-band .pg-card-band");
-      if (band?.offsetHeight) band.parentElement?.style.setProperty("--pg-band-h", `${band.offsetHeight}px`);
+      if (!band?.offsetHeight || this.panning || this.viewport.hasClass("is-selecting")) return;
+      if (this.viewport.dataset.density === "xs") return;
+      band.parentElement?.style.setProperty("--pg-band-h", `${band.offsetHeight}px`);
+      this.pushBelow(element.id, band.offsetHeight);
+    });
+    element.root.addEventListener("pointerleave", (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      if (this.pushedFor === element.id) this.clearPush();
     });
 
     element.root.oncontextmenu = (event: MouseEvent) => {
@@ -2115,6 +2126,76 @@ export class GridRenderer {
       if (model.building) return;
       this.openDetail(model, event);
     };
+  }
+
+  /** Whose drawer is open, by how much, and what it pushed down to make room. */
+  private pushedFor = "";
+  private pushedAmount = 0;
+  private pushedIds = new Set<string>();
+
+  /**
+   * Makes room under a card whose band has slid out on hover: everything
+   * below it in its column moves down by the band's height. Anything wider
+   * than one column that moves takes the columns it spans with it, so no
+   * card ends up under another. Nothing changes column, which a fresh
+   * layout would do; the cards only slide, and slide back on the way out.
+   *
+   * Run again after every render while the drawer is open, which is cheap
+   * when nothing moved, so cards mounted by a scroll and positions changed
+   * by a relayout are pushed too.
+   */
+  private pushBelow(id: string, amount: number): void {
+    const origin = this.positionById.get(id);
+    if (!origin) {
+      this.clearPush();
+      return;
+    }
+    const floor = origin.y + origin.h - 1;
+    const lanes: Array<[number, number]> = [[origin.x + 1, origin.x + origin.w - 1]];
+    const below = this.layout.positions
+      .filter((p) => p.id !== id && p.y >= floor)
+      .sort((a, b) => a.y - b.y);
+    const next = new Set<string>();
+    for (const p of below) {
+      const left = p.x + 1;
+      const right = p.x + p.w - 1;
+      if (!lanes.some(([a, b]) => left < b && right > a)) continue;
+      next.add(p.id);
+      lanes.push([left, right]);
+    }
+
+    for (const gone of this.pushedIds) if (!next.has(gone)) this.unpush(gone);
+    this.pushedFor = id;
+    this.pushedAmount = amount;
+    this.pushedIds = next;
+    for (const pushed of next) {
+      const el = this.elementFor(pushed);
+      if (!el || el.style.getPropertyValue("--pg-push") === `${amount}px`) continue;
+      el.addClass("is-pushed");
+      el.style.setProperty("--pg-push", `${amount}px`);
+    }
+  }
+
+  private clearPush(): void {
+    for (const pushed of this.pushedIds) this.unpush(pushed);
+    this.pushedFor = "";
+    this.pushedAmount = 0;
+    this.pushedIds = new Set();
+  }
+
+  private unpush(id: string): void {
+    const el = this.elementFor(id);
+    if (!el) return;
+    el.style.removeProperty("--pg-push");
+    // Kept a moment so the slide back runs, then dropped so an ordinary move
+    // on the wall is not animated by it.
+    window.setTimeout(() => {
+      if (!el.style.getPropertyValue("--pg-push")) el.removeClass("is-pushed");
+    }, PUSH_MS + 40);
+  }
+
+  private elementFor(id: string): HTMLElement | undefined {
+    return this.mounted.get(id)?.root ?? this.mountedFolders.get(id);
   }
 
   /**
@@ -2184,6 +2265,14 @@ export class GridRenderer {
     // restaging with it, so they glide as usual.
     this.restaging = false;
 
+    // An open drawer keeps its room through a scroll or a relayout, and one
+    // whose card is no longer under the pointer gives it back.
+    if (this.pushedFor) {
+      const open = this.mounted.get(this.pushedFor)?.root.matches(":hover") ?? false;
+      if (open) this.pushBelow(this.pushedFor, this.pushedAmount);
+      else this.clearPush();
+    }
+
     this.paintSelection();
     this.onRendered();
   }
@@ -2214,7 +2303,7 @@ export class GridRenderer {
     }
 
     root.toggleClass("is-gliding", !this.restaging && root.dataset.signature !== undefined);
-    root.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
+    root.style.transform = `translate3d(${position.x}px, calc(${position.y}px + var(--pg-push, 0px)), 0)`;
     root.style.width = `${position.w}px`;
     root.style.height = `${position.h}px`;
     root.dataset.width = String(model.folder.width);
