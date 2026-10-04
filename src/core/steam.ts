@@ -1,5 +1,6 @@
 import { decodeEntities } from "./page-cover";
 import type { ClippingRecord } from "./scan";
+import { countryOfZone } from "./zones";
 
 /**
  * Steam's look: a clipping of a store page drawn as a store card on the wall
@@ -81,6 +82,19 @@ export function steamAppId(url: string): string | null {
  */
 export function appDetailsUrl(id: string, region: string): string {
   return `https://store.steampowered.com/api/appdetails?appids=${id}&cc=${region.toLowerCase()}&l=english`;
+}
+
+/**
+ * The country to price in, from where the person is.
+ *
+ * The time zone comes first. Obsidian launches its renderer with its own
+ * language, so on desktop every locale it reports is en-US whatever the
+ * system is set to, and a Canadian wall priced in US dollars. The time zone
+ * is untouched by that, and America/Toronto is Canada. The locales follow
+ * for a zone that names no country, such as UTC.
+ */
+export function pricingRegion(timeZone: string, locales: readonly string[]): string {
+  return countryOfZone(timeZone) ?? regionFromLocales(locales);
 }
 
 /** Where a region is assumed when nothing says otherwise, as Steam itself does. */

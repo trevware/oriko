@@ -7,7 +7,7 @@ import {
   SteamStore,
   appDetailsUrl,
   parseAppDetails,
-  regionFromLocales,
+  pricingRegion,
   steamAppId,
   steamFiles,
   steamFolder,
@@ -74,16 +74,10 @@ export class SteamService {
     await this.app.vault.adapter.write(this.storePath(), JSON.stringify(this.store.toJSON()));
   }
 
-  /**
-   * The country to price in: the region the system is set to. navigator's
-   * list comes first because it is the user's own ordering of languages;
-   * Intl's resolved locale is what the runtime settled on from it.
-   */
+  /** The country to price in, from the time zone and then the locales. See pricingRegion. */
   private region(): string {
-    return regionFromLocales([
-      ...navigator.languages,
-      Intl.DateTimeFormat().resolvedOptions().locale,
-    ]);
+    const resolved = Intl.DateTimeFormat().resolvedOptions();
+    return pricingRegion(resolved.timeZone ?? "", [...navigator.languages, resolved.locale]);
   }
 
   private folder(): string {

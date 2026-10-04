@@ -6,6 +6,7 @@ import {
   STEAM_RETRY_MS,
   SteamStore,
   appDetailsUrl,
+  pricingRegion,
   regionFromLocales,
   cardGenres,
   parseAppDetails,
@@ -309,5 +310,23 @@ describe("pricing region", () => {
     const store = new SteamStore();
     store.set("4821880", 0, app("4821880"));
     expect(store.isDue("4821880", 1, "CA")).toBe(true);
+  });
+});
+
+describe("pricingRegion", () => {
+  it("takes the country from the time zone over a locale Obsidian imposes", () => {
+    expect(pricingRegion("America/Toronto", ["en-US"])).toBe("CA");
+    expect(pricingRegion("Asia/Seoul", ["en-US"])).toBe("KR");
+    expect(pricingRegion("Europe/London", ["en-US"])).toBe("GB");
+  });
+
+  it("knows the legacy names some runtimes report", () => {
+    expect(pricingRegion("Asia/Calcutta", [])).toBe("IN");
+    expect(pricingRegion("US/Eastern", [])).toBe("US");
+  });
+
+  it("falls back to the locales for a zone that names no country", () => {
+    expect(pricingRegion("UTC", ["fr-CA"])).toBe("CA");
+    expect(pricingRegion("", ["de-DE"])).toBe("DE");
   });
 });
