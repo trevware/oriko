@@ -29,6 +29,49 @@ export async function park(page) {
 
 export const SCENARIOS = [
   {
+    // The first time each card is hovered, run once and first, while the
+    // GPU has built none of the hover's shaders: every card on screen and on
+    // the screen below, then back up. A new shader is built in the middle of
+    // a frame, and the first time macOS sees one it can take a tenth of a
+    // second, which is the drawer visibly pausing before it opens. Each run
+    // starts from a fresh profile, so the count here is what the hover look
+    // costs and is steady from run to run; the pause itself is not, since
+    // macOS keeps every shader it has built.
+    name: "hover-first-contact",
+    repeats: 1,
+    async run(page) {
+      let at = await park(page);
+      const view = await page.evaluate(() => window.__perf.viewRect());
+      const centre = { x: view.x + view.w / 2, y: view.y + view.h / 2 };
+      let hovered = 0;
+      for (const step of [0, 1]) {
+        if (step > 0) {
+          await page.mouse.move(centre.x, centre.y);
+          for (let i = 0; i < 12; i++) {
+            await page.mouse.wheel(0, 70);
+            await sleep(FRAME);
+          }
+          await sleep(900);
+          at = await park(page);
+        }
+        for (const card of await page.evaluate(() => window.__perf.hoverCards())) {
+          at = await glide(page, at, { x: card.x, y: card.y }, 180);
+          await sleep(600);
+          at = await park(page);
+          await sleep(200);
+          hovered++;
+        }
+      }
+      await page.mouse.move(centre.x, centre.y);
+      for (let i = 0; i < 12; i++) {
+        await page.mouse.wheel(0, -70);
+        await sleep(FRAME);
+      }
+      await sleep(900);
+      return { cards: hovered };
+    },
+  },
+  {
     // Card to card across the wall, resting on each long enough for its
     // band to slide out and the column under it to make room.
     name: "hover-sweep",
@@ -201,7 +244,13 @@ export async function runChecks(page) {
 /* Measurement                                                        */
 /* ------------------------------------------------------------------ */
 
-const TRACE_CATEGORIES = ["devtools.timeline", "disabled-by-default-devtools.timeline", "toplevel"];
+// skia.shaders names every shader the GPU builds; a few hundred events a run.
+const TRACE_CATEGORIES = [
+  "devtools.timeline",
+  "disabled-by-default-devtools.timeline",
+  "toplevel",
+  "disabled-by-default-skia.shaders",
+];
 /** What made each style recalc necessary. Heavy, so only on request, to diagnose. */
 const INVALIDATION = "disabled-by-default-devtools.timeline.invalidationTracking";
 
@@ -223,6 +272,8 @@ function summarizeTrace(buffer) {
     layerize: 0,
     script: 0,
     gpu: 0,
+    gpuLongest: 0,
+    shaderCompiles: 0,
     styleCount: 0,
     layoutCount: 0,
     forcedLayouts: 0,
@@ -242,6 +293,7 @@ function summarizeTrace(buffer) {
     if (e.ph !== "X" || typeof e.dur !== "number") continue;
     const key = `${e.pid}:${e.tid}`;
     const ms = e.dur / 1000;
+    if (e.name === "shader_compile") sum.shaderCompiles++;
     if (key === main) {
       switch (e.name) {
         case "ThreadControllerImpl::RunTask":
@@ -274,6 +326,8 @@ function summarizeTrace(buffer) {
       }
     } else if (names.get(key) === "CrGpuMain" && e.name === "ThreadControllerImpl::RunTask") {
       sum.gpu += ms;
+      // Nothing reaches the screen while the GPU's main thread is held.
+      sum.gpuLongest = Math.max(sum.gpuLongest, ms);
     }
   }
   for (const k of Object.keys(sum)) sum[k] = round(sum[k]);
@@ -314,7 +368,7 @@ function median(values) {
 /** Each scenario `repeats` times, keeping the median of every measure. */
 export async function measure(browser, page, scenario, { repeats, keepTrace, invalidations = false }) {
   const runs = [];
-  for (let i = 0; i < repeats; i++) {
+  for (let i = 0; i < (scenario.repeats ?? repeats); i++) {
     await park(page);
     await browser.startTracing(page, {
       categories: invalidations ? [...TRACE_CATEGORIES, INVALIDATION] : TRACE_CATEGORIES,
@@ -369,7 +423,16 @@ export async function measureSync(page) {
 /* Report                                                             */
 /* ------------------------------------------------------------------ */
 
-const SHOWN = ["frames.interval", "frames.p95", "frames.dropped", "trace.busy", "trace.style", "trace.layout"];
+const SHOWN = [
+  "frames.interval",
+  "frames.p95",
+  "frames.dropped",
+  "trace.busy",
+  "trace.style",
+  "trace.layout",
+  "trace.gpuLongest",
+  "trace.shaderCompiles",
+];
 
 const get = (obj, path) => path.split(".").reduce((o, k) => (o == null ? undefined : o[k]), obj);
 

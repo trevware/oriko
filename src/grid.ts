@@ -1891,13 +1891,14 @@ export class GridRenderer {
     element.sizedFrame = frame;
     element.sized = key;
 
-    // Scale that grows the card by exactly SELECT_LIFT on each edge, whatever
-    // its size. A uniform factor would lift a tall tile far more than a short
-    // one; the anisotropy here is under 2% and invisible.
-    const sx = position.w > SELECT_LIFT * 2 ? position.w / (position.w - SELECT_LIFT * 2) : 1;
-    const sy = position.h > SELECT_LIFT * 2 ? position.h / (position.h - SELECT_LIFT * 2) : 1;
-    frame.style.setProperty("--pg-sx", sx.toFixed(4));
-    frame.style.setProperty("--pg-sy", sy.toFixed(4));
+    // Scale that grows the card's longer side by exactly SELECT_LIFT at each
+    // end and the shorter by a little less, so it never leaves the inset it
+    // owns. One factor for both axes, per card: one constant for the wall
+    // would lift a tall tile far more than a short one, and a factor per
+    // axis stretches the rounded corners into ellipses, which the GPU draws
+    // with shaders of their own, built the first time a card is hovered.
+    const fit = (side: number) => (side > SELECT_LIFT * 2 ? side / (side - SELECT_LIFT * 2) : 1);
+    frame.style.setProperty("--pg-s", Math.min(fit(position.w), fit(position.h)).toFixed(4));
 
     // A card whose band shows on hover holds its picture at the tile's height
     // and grows past it to show the band; see .is-hover-band in styles.css.

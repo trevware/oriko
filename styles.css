@@ -4,12 +4,7 @@
    cards against Obsidian's stylesheet that turned a tile-size step into a
    fifth of a second of restyling, and every hover into a frame or two.
    Universal syntax keeps each var()'s fallback working where it is unset. */
-@property --pg-sx {
-  syntax: "*";
-  inherits: false;
-}
-
-@property --pg-sy {
+@property --pg-s {
   syntax: "*";
   inherits: false;
 }
@@ -90,6 +85,8 @@
   /* Tile shadows are the thing that gives a light wall away fastest: an
      alpha tuned against near-black is a bruise against white. */
   --pg-tile-lift: 0 6px 18px rgba(0, 0, 0, 0.3);
+  /* The lift's own shape with no colour, worn at rest; see .pg-frame. */
+  --pg-tile-rest: 0 6px 18px rgba(0, 0, 0, 0);
   --pg-tile-lift-selected: 0 8px 22px rgba(0, 0, 0, 0.38);
   --pg-tile-lift-strong: 0 10px 26px rgba(0, 0, 0, 0.42);
 
@@ -140,6 +137,7 @@
   --pg-accent: #2563c9;
   --pg-on-accent: #ffffff;
   --pg-tile-lift: 0 4px 14px rgba(0, 0, 0, 0.12);
+  --pg-tile-rest: 0 4px 14px rgba(0, 0, 0, 0);
   --pg-tile-lift-selected: 0 6px 18px rgba(0, 0, 0, 0.16);
   --pg-tile-lift-strong: 0 8px 22px rgba(0, 0, 0, 0.2);
 }
@@ -412,6 +410,12 @@
      or a selected card's ring spills into the gap its own lift just opened. */
   outline: 3px solid transparent;
   outline-offset: -3px;
+  /* The hover lift's shadow, already in place and fully transparent, so
+     lifting a card only fades it in. Grown from none, the blur passed through
+     every radius on the way, and the GPU builds a shader for each blur width
+     the first time it draws one: a pause of a tenth of a second or more, the
+     first time each card was hovered. */
+  box-shadow: var(--pg-tile-rest);
   /* Resting state, so this is the transition that runs on the way OUT.
      Long and soft, so a card settles back to flat instead of snapping. */
   transition:
@@ -809,7 +813,7 @@
 
 .pg-tile.is-selected .pg-frame {
   transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
-    scale(var(--pg-sx, 1), var(--pg-sy, 1));
+    scale(var(--pg-s, 1));
   outline-color: var(--pg-accent);
   box-shadow: var(--pg-tile-lift-selected);
 }
@@ -926,7 +930,7 @@
 @media (hover: hover) {
   .pg-tile:hover .pg-frame {
     transform: perspective(760px) rotateX(var(--pg-rx, 0deg)) rotateY(var(--pg-ry, 0deg))
-      scale(var(--pg-sx, 1), var(--pg-sy, 1));
+      scale(var(--pg-s, 1));
     box-shadow: var(--pg-tile-lift);
     /* While engaged, short enough to follow the cursor. Leaving hover falls
        back to the resting transition above, which is the gentle one. */
@@ -946,11 +950,11 @@
 .pg-viewport.is-panning .pg-tile:hover .pg-frame,
 .pg-viewport.is-selecting .pg-tile:hover .pg-frame {
   transform: perspective(760px) scale(1);
-  box-shadow: none;
+  box-shadow: var(--pg-tile-rest);
 }
 
 .pg-viewport.is-selecting .pg-tile.is-selected .pg-frame {
-  transform: perspective(760px) scale(var(--pg-sx, 1), var(--pg-sy, 1));
+  transform: perspective(760px) scale(var(--pg-s, 1));
 }
 
 @media (prefers-reduced-motion: reduce) {
