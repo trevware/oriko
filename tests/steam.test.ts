@@ -5,6 +5,8 @@ import {
   STEAM_FRESH_MS,
   STEAM_RETRY_MS,
   SteamStore,
+  appDetailsUrl,
+  regionFromLocales,
   cardGenres,
   parseAppDetails,
   platformNames,
@@ -272,5 +274,40 @@ describe("card details", () => {
     expect(cardGenres(app("4821880"), 3)).toEqual(["Action", "Adventure", "Casual"]);
     expect(cardGenres(app("4821880"))).not.toContain("Free To Play");
     expect(cardGenres({ ...app("4821880"), genres: ["Free To Play", "RPG"] })).toEqual(["RPG"]);
+  });
+});
+
+describe("pricing region", () => {
+  it("prices for the country the system names", () => {
+    expect(regionFromLocales(["en-CA"])).toBe("CA");
+    expect(regionFromLocales(["en_CA"])).toBe("CA");
+    expect(regionFromLocales(["en", "fr-FR"])).toBe("FR");
+  });
+
+  it("falls back to the region a bare language implies, then the US", () => {
+    expect(regionFromLocales(["ko"], () => "KR")).toBe("KR");
+    expect(regionFromLocales(["xx"], () => undefined)).toBe("US");
+    expect(regionFromLocales([])).toBe("US");
+    expect(regionFromLocales(["not a locale!"], () => undefined)).toBe("US");
+  });
+
+  it("always sends the country", () => {
+    expect(appDetailsUrl("4821880", "CA")).toContain("cc=ca");
+  });
+
+  it("asks again when the region changes, keeping the card meanwhile", () => {
+    const store = new SteamStore();
+    store.set("4821880", 0, app("4821880"), "", "KR");
+    expect(store.isDue("4821880", 1, "KR")).toBe(false);
+    expect(store.isDue("4821880", 1, "CA")).toBe(true);
+    const back = SteamStore.fromJSON(JSON.parse(JSON.stringify(store.toJSON())));
+    expect(back.get("4821880")?.region).toBe("KR");
+    expect(back.isDue("4821880", 1, "CA")).toBe(true);
+  });
+
+  it("treats an answer saved before regions as due", () => {
+    const store = new SteamStore();
+    store.set("4821880", 0, app("4821880"));
+    expect(store.isDue("4821880", 1, "CA")).toBe(true);
   });
 });

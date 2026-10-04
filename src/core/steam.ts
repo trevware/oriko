@@ -73,11 +73,50 @@ export function steamAppId(url: string): string | null {
 }
 
 /**
- * The store API for one app. No country is sent, so Steam prices it for
- * wherever the request comes from, which is where the person reading it is.
+ * The store API for one app, priced for a country.
+ *
+ * The country is always sent. Left out, Steam is meant to price for wherever
+ * the request comes from, but its answers are cached at the edge without
+ * regard to that, and a Canadian wall came back in Korean won.
  */
-export function appDetailsUrl(id: string): string {
-  return `https://store.steampowered.com/api/appdetails?appids=${id}&l=english`;
+export function appDetailsUrl(id: string, region: string): string {
+  return `https://store.steampowered.com/api/appdetails?appids=${id}&cc=${region.toLowerCase()}&l=english`;
+}
+
+/** Where a region is assumed when nothing says otherwise, as Steam itself does. */
+export const FALLBACK_REGION = "US";
+
+/**
+ * The country to price in, from the locales the system reports, in order of
+ * preference: the first one that names a region ("en-CA"), else the region
+ * the first language implies ("fr" is France), else the US.
+ *
+ * @param maximize Intl.Locale's maximize, passed in so the guess can be
+ * tested without depending on the runtime's locale data.
+ */
+export function regionFromLocales(
+  locales: readonly string[],
+  maximize: (tag: string) => string | undefined = (tag) => new Intl.Locale(tag).maximize().region
+): string {
+  const valid = (region: string | undefined): region is string =>
+    typeof region === "string" && /^[A-Z]{2}$/.test(region);
+  for (const tag of locales) {
+    try {
+      const region = new Intl.Locale(tag.replace(/_/g, "-")).region;
+      if (valid(region)) return region;
+    } catch {
+      // Not a locale; the next one may be.
+    }
+  }
+  for (const tag of locales) {
+    try {
+      const region = maximize(tag.replace(/_/g, "-"));
+      if (valid(region)) return region;
+    } catch {
+      // As above.
+    }
+  }
+  return FALLBACK_REGION;
 }
 
 type Json = Record<string, unknown>;
@@ -333,6 +372,8 @@ export function steamOrphanFiles(
 
 export interface SteamEntry {
   fetchedAt: number;
+  /** The country the price was asked for. A different one is asked again. */
+  region?: string;
   app?: SteamApp;
   /** Why the last ask failed, so a dead id is not asked about on every pass. */
   failed?: string;
@@ -364,19 +405,24 @@ export class SteamStore {
    * Records an answer. A failure keeps the app that was there: a store page
    * that cannot be reached today still has yesterday's card.
    */
-  set(id: string, now: number, app: SteamApp | null, failed = ""): void {
+  set(id: string, now: number, app: SteamApp | null, failed = "", region = ""): void {
     const previous = this.entries.get(id);
     const entry: SteamEntry = { fetchedAt: now };
+    if (region) entry.region = region;
     const kept = app ?? previous?.app;
     if (kept) entry.app = kept;
     if (!app && failed) entry.failed = failed;
     this.entries.set(id, entry);
   }
 
-  /** Whether Steam is due to be asked about this id. */
-  isDue(id: string, now: number): boolean {
+  /**
+   * Whether Steam is due to be asked about this id: never asked, asked for
+   * another country, or asked long enough ago.
+   */
+  isDue(id: string, now: number, region = ""): boolean {
     const entry = this.entries.get(id);
     if (!entry) return true;
+    if (region && entry.region !== region) return true;
     const wait = entry.failed ? STEAM_RETRY_MS : STEAM_FRESH_MS;
     return now - entry.fetchedAt >= wait;
   }
@@ -397,6 +443,7 @@ export class SteamStore {
       // older format cannot leave a card with no name to draw.
       store.entries.set(id, {
         fetchedAt: entry.fetchedAt,
+        ...(typeof entry.region === "string" ? { region: entry.region } : {}),
         ...(app && typeof app.name === "string" && Array.isArray(app.screenshots)
           ? { app: app as unknown as SteamApp }
           : {}),

@@ -7,6 +7,7 @@ import {
   SteamStore,
   appDetailsUrl,
   parseAppDetails,
+  regionFromLocales,
   steamAppId,
   steamFiles,
   steamFolder,
@@ -73,6 +74,18 @@ export class SteamService {
     await this.app.vault.adapter.write(this.storePath(), JSON.stringify(this.store.toJSON()));
   }
 
+  /**
+   * The country to price in: the region the system is set to. navigator's
+   * list comes first because it is the user's own ordering of languages;
+   * Intl's resolved locale is what the runtime settled on from it.
+   */
+  private region(): string {
+    return regionFromLocales([
+      ...navigator.languages,
+      Intl.DateTimeFormat().resolvedOptions().locale,
+    ]);
+  }
+
   private folder(): string {
     return normalizePath(this.settings().attachmentFolder);
   }
@@ -119,14 +132,15 @@ export class SteamService {
 
   private async pass(records: readonly ClippingRecord[], saveArt: boolean): Promise<void> {
     const ids = [...new Set(records.map((r) => steamAppId(r.source)).filter(Boolean))] as string[];
+    const region = this.region();
     let asked = false;
 
     for (const id of ids) {
       let changed = false;
-      if (this.store.isDue(id, Date.now())) {
+      if (this.store.isDue(id, Date.now(), region)) {
         if (asked) await sleep(ASK_GAP_MS);
         asked = true;
-        await this.ask(id);
+        await this.ask(id, region);
         await this.save();
         changed = true;
       }
@@ -136,17 +150,21 @@ export class SteamService {
     }
   }
 
-  private async ask(id: string): Promise<void> {
+  private async ask(id: string, region: string): Promise<void> {
     try {
-      const response = await requestUrl({ url: appDetailsUrl(id), method: "GET", throw: false });
+      const response = await requestUrl({
+        url: appDetailsUrl(id, region),
+        method: "GET",
+        throw: false,
+      });
       if (response.status < 200 || response.status >= 300) {
-        this.store.set(id, Date.now(), null, `HTTP ${response.status}`);
+        this.store.set(id, Date.now(), null, `HTTP ${response.status}`, region);
         return;
       }
       const app = parseAppDetails(response.json, id);
-      this.store.set(id, Date.now(), app, app ? "" : "not on the store");
+      this.store.set(id, Date.now(), app, app ? "" : "not on the store", region);
     } catch (error) {
-      this.store.set(id, Date.now(), null, String(error));
+      this.store.set(id, Date.now(), null, String(error), region);
     }
   }
 
