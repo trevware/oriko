@@ -41,6 +41,7 @@ import {
   toggleSelection,
 } from "./core/selection";
 import type { Rect } from "./core/selection";
+import { cardsBelow } from "./core/push";
 import { BUILDING_PREFIX } from "./core/tile";
 import { previewBlur, stepIcon } from "./core/building";
 import type { TileModel } from "./core/tile";
@@ -1589,7 +1590,6 @@ export class GridRenderer {
     tile.look = "";
     tile.root.removeClass("is-steam");
     tile.root.removeClass("is-pushed");
-    tile.root.style.removeProperty("--pg-push");
     tile.media = null;
     this.pool.push(tile);
   }
@@ -1855,7 +1855,7 @@ export class GridRenderer {
     // otherwise it would visibly fly across the canvas.
     element.root.toggleClass("is-gliding", !this.restaging && element.id === model.id);
     element.root.toggleClass("is-focus-hidden", this.focusedId === model.id);
-    element.root.style.transform = `translate3d(${position.x}px, calc(${position.y}px + var(--pg-push, 0px)), 0)`;
+    element.root.style.transform = this.placement(model.id, position);
     element.root.style.width = `${position.w}px`;
     element.root.style.height = `${position.h}px`;
     // A card whose band shows on hover holds its picture at this height and
@@ -2134,14 +2134,14 @@ export class GridRenderer {
   private pushedIds = new Set<string>();
 
   /**
-   * Makes room under a card whose band has slid out on hover: everything
-   * below it in its column moves down by the band's height. Anything wider
-   * than one column that moves takes the columns it spans with it, so no
-   * card ends up under another. Nothing changes column, which a fresh
-   * layout would do; the cards only slide, and slide back on the way out.
+   * Makes room under a card whose band has slid out on hover; cardsBelow
+   * says which cards move. Each is moved by rewriting its own transform,
+   * which restyles that one element. Carried in an inherited variable, as it
+   * first was, the change restyled every element inside every card that
+   * moved, which against Obsidian's stylesheet was most of a frame per card.
    *
    * Run again after every render while the drawer is open, which is cheap
-   * when nothing moved, so cards mounted by a scroll and positions changed
+   * when nothing moved, so cards a scroll brings near and positions changed
    * by a relayout are pushed too.
    */
   private pushBelow(id: string, amount: number): void {
@@ -2150,48 +2150,50 @@ export class GridRenderer {
       this.clearPush();
       return;
     }
-    const floor = origin.y + origin.h - 1;
-    const lanes: Array<[number, number]> = [[origin.x + 1, origin.x + origin.w - 1]];
-    const below = this.layout.positions
-      .filter((p) => p.id !== id && p.y >= floor)
-      .sort((a, b) => a.y - b.y);
-    const next = new Set<string>();
-    for (const p of below) {
-      const left = p.x + 1;
-      const right = p.x + p.w - 1;
-      if (!lanes.some(([a, b]) => left < b && right > a)) continue;
-      next.add(p.id);
-      lanes.push([left, right]);
-    }
+    const band = visibleContentBand(this.camera, this.viewportSize());
+    const reach = band.top + band.height + Math.min(OVERSCAN / this.camera.zoom, MAX_OVERSCAN);
+    const next = cardsBelow(this.layout.positions, origin, reach);
 
-    for (const gone of this.pushedIds) if (!next.has(gone)) this.unpush(gone);
+    const was = this.pushedIds;
+    const sameAmount = this.pushedAmount === amount;
     this.pushedFor = id;
     this.pushedAmount = amount;
     this.pushedIds = next;
+    for (const gone of was) if (!next.has(gone)) this.unpush(gone);
     for (const pushed of next) {
+      if (sameAmount && was.has(pushed)) continue;
       const el = this.elementFor(pushed);
-      if (!el || el.style.getPropertyValue("--pg-push") === `${amount}px`) continue;
+      const position = this.positionById.get(pushed);
+      if (!el || !position) continue;
       el.addClass("is-pushed");
-      el.style.setProperty("--pg-push", `${amount}px`);
+      el.style.transform = this.placement(pushed, position);
     }
   }
 
   private clearPush(): void {
-    for (const pushed of this.pushedIds) this.unpush(pushed);
+    const was = this.pushedIds;
     this.pushedFor = "";
     this.pushedAmount = 0;
     this.pushedIds = new Set();
+    for (const pushed of was) this.unpush(pushed);
   }
 
   private unpush(id: string): void {
     const el = this.elementFor(id);
-    if (!el) return;
-    el.style.removeProperty("--pg-push");
+    const position = this.positionById.get(id);
+    if (!el || !position) return;
+    el.style.transform = this.placement(id, position);
     // Kept a moment so the slide back runs, then dropped so an ordinary move
     // on the wall is not animated by it.
     window.setTimeout(() => {
-      if (!el.style.getPropertyValue("--pg-push")) el.removeClass("is-pushed");
+      if (!this.pushedIds.has(id)) el.removeClass("is-pushed");
     }, PUSH_MS + 40);
+  }
+
+  /** Where a card is drawn: its place in the layout, lowered while it makes room under an open card. */
+  private placement(id: string, position: Position): string {
+    const push = this.pushedIds.has(id) ? this.pushedAmount : 0;
+    return `translate3d(${position.x}px, ${position.y + push}px, 0)`;
   }
 
   private elementFor(id: string): HTMLElement | undefined {
@@ -2303,7 +2305,7 @@ export class GridRenderer {
     }
 
     root.toggleClass("is-gliding", !this.restaging && root.dataset.signature !== undefined);
-    root.style.transform = `translate3d(${position.x}px, calc(${position.y}px + var(--pg-push, 0px)), 0)`;
+    root.style.transform = this.placement(model.id, position);
     root.style.width = `${position.w}px`;
     root.style.height = `${position.h}px`;
     root.dataset.width = String(model.folder.width);
