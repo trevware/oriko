@@ -4,6 +4,7 @@ import { dedupeMedia, normalizeUrl, sourceVideoKeyFor } from "./normalize";
 import type { CanonicalMedia } from "./normalize";
 import { knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
+import type { SteamLook } from "./steam";
 
 export interface TileModel {
   id: string;
@@ -26,7 +27,16 @@ export interface TileModel {
   provisional: boolean;
   /** Changes whenever the painted content must change. */
   signature: string;
+  /**
+   * Set when the clipping is a Steam store page Steam has told this device
+   * about: the tile is drawn as a store card, its picture the art above a
+   * band of store details, and the detail view as a store page.
+   */
+  steam?: SteamLook;
 }
+
+/** Steam's header capsule, 460 by 215 (or twice that), whatever the game. */
+const STEAM_HEADER = { width: 460, height: 215 };
 
 /** Aspect ratio used when nothing is known about a cover's shape. */
 const DEFAULT_RATIO = { width: 4, height: 3 };
@@ -253,19 +263,46 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
 export function buildTiles(
   records: ClippingRecord[],
   cache: MediaCache,
-  failedSignatures?: ReadonlyMap<string, string>
+  failedSignatures?: ReadonlyMap<string, string>,
+  steamLookFor?: (record: ClippingRecord) => SteamLook | null
 ): TileModel[] {
   const tiles: TileModel[] = [];
 
   for (const record of records) {
-    const cover = pickCover(record, cache);
+    const steam = steamLookFor?.(record) ?? null;
+    const cover = steam ? steamCover(record, cache, steam) : pickCover(record, cache);
     if (!cover) continue;
-    const signature = signatureOf(cover);
+    const signature = steam
+      ? `${signatureOf(cover)}|steam:${steam.stamp}`
+      : signatureOf(cover);
     if (failedSignatures?.get(record.path) === signature) continue;
-    tiles.push({ id: record.path, record, signature, ...cover });
+    tiles.push({ id: record.path, record, signature, ...cover, ...(steam ? { steam } : {}) });
   }
 
   return tiles;
+}
+
+/**
+ * A store card's picture: the game's header capsule, the art the store
+ * itself leads with, unless the clipping names a cover of its own, which is
+ * the hand-set override everywhere else and stays one here.
+ *
+ * Never the trailer, though a saved one outranks every still on an ordinary
+ * tile: on a card the trailer is what the detail view opens on, and a wall
+ * of store cards all playing at once is not a wishlist.
+ */
+function steamCover(record: ClippingRecord, cache: MediaCache, steam: SteamLook): Cover | null {
+  if (record.cover) return pickCover(record, cache);
+  if (!steam.header.path) return pickCover(record, cache);
+  return {
+    posterPath: "",
+    filePath: steam.header.path,
+    remote: steam.header.remote,
+    kind: "image",
+    animated: false,
+    ...STEAM_HEADER,
+    provisional: false,
+  };
 }
 
 export interface Preview {

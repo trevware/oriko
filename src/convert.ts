@@ -1,4 +1,5 @@
 import { FileSystemAdapter, Platform, TFile, Vault, normalizePath } from "obsidian";
+import { ytdlpRecipeFor } from "./core/resolve";
 import { nodeRequire } from "./core/system";
 import { executableCandidates } from "./core/tools";
 import type { ToolEnv } from "./core/tools";
@@ -281,12 +282,18 @@ export async function downloadSourceVideo(pageUrl: string): Promise<SourceVideoD
   let dir: string | null = null;
   try {
     dir = fs.mkdtempSync(`${os.tmpdir()}/oriko-`);
+    const recipe = ytdlpRecipeFor(pageUrl);
+    // Obsidian launched from the Dock does not have Homebrew on its PATH, so
+    // a merging download is told where ffmpeg is rather than left to look.
+    const ffmpeg = recipe.merges ? ffmpegPath() : null;
     const run = await runCapturing(ytdlp, [
       "--no-warnings",
       "--no-playlist",
       "--no-progress",
+      ...recipe.extra,
+      ...(ffmpeg ? ["--ffmpeg-location", ffmpeg] : []),
       "-f",
-      "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best",
+      recipe.format,
       "-o",
       `${dir}/media.%(ext)s`,
       "--no-simulate",

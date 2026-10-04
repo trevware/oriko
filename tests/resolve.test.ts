@@ -18,6 +18,7 @@ import {
   parseFxTweet,
   parsePageMeta,
   supportsSourceDownload,
+  ytdlpRecipeFor,
   buildScanNote,
   xStatus,
 } from "../src/core/resolve";
@@ -396,6 +397,29 @@ describe("instagramPost", () => {
   it("does not spend a subprocess on an ordinary article", () => {
     expect(supportsSourceDownload("https://www.polygon.com/article")).toBe(false);
     expect(supportsSourceDownload("not a url")).toBe(false);
+  });
+
+  it("fetches a Steam store page's trailer", () => {
+    expect(supportsSourceDownload("https://store.steampowered.com/app/4821880/Roco_Kingdom/")).toBe(
+      true
+    );
+  });
+
+  it("asks yt-dlp for one merged 720p H.264 trailer from Steam", () => {
+    const steam = ytdlpRecipeFor("https://store.steampowered.com/app/4821880/");
+    expect(steam.merges).toBe(true);
+    expect(steam.format).toMatch(/^bv\*\[vcodec\^=avc1\]\[height<=720\]/);
+    expect(steam.extra).toEqual(["--playlist-items", "1", "--merge-output-format", "mp4"]);
+  });
+
+  it("keeps the single-file recipe for every other host", () => {
+    for (const url of ["https://x.com/a/status/1", "not a url"]) {
+      expect(ytdlpRecipeFor(url)).toEqual({
+        format: "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best",
+        extra: [],
+        merges: false,
+      });
+    }
   });
 
 

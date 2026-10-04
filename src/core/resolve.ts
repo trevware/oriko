@@ -197,6 +197,9 @@ const DOWNLOADABLE_HOSTS = new Set([
   // webview on desktop instead. Listed here so the source-video pass runs.
   "threads.com",
   "threads.net",
+  // A store page's trailers. Steam serves them only as HLS and DASH, which
+  // desktop Chromium will not stream, so the trailer has to be saved to play.
+  "store.steampowered.com",
 ]);
 
 export function supportsSourceDownload(url: string): boolean {
@@ -206,6 +209,41 @@ export function supportsSourceDownload(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+export interface YtdlpRecipe {
+  format: string;
+  /** Arguments that go before the URL, beyond the ones every download gets. */
+  extra: string[];
+  /** True when the format merges separate streams, which needs ffmpeg. */
+  merges: boolean;
+}
+
+/**
+ * What to ask yt-dlp for, by host.
+ *
+ * Most hosts serve one file with sound in it, so the default takes that.
+ * Steam serves picture and sound apart and lists every trailer on the page,
+ * so it gets the first trailer, merged, in H.264 at no more than 720p: the
+ * codec an iPhone plays without fuss, and a size that has a chance of
+ * fitting under the download limit. Above 720p the file roughly doubles.
+ */
+export function ytdlpRecipeFor(url: string): YtdlpRecipe {
+  let host = "";
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    host = "";
+  }
+  if (host === "store.steampowered.com") {
+    return {
+      format:
+        "bv*[vcodec^=avc1][height<=720]+ba[ext=m4a]/b[vcodec^=avc1][height<=720]/bv*[height<=720]+ba/b",
+      extra: ["--playlist-items", "1", "--merge-output-format", "mp4"],
+      merges: true,
+    };
+  }
+  return { format: "mp4/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best", extra: [], merges: false };
 }
 
 /** True for a Threads post or share link, the hosts the webview sniff owns. */

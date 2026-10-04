@@ -438,3 +438,62 @@ describe("buildTiles with local embeds", () => {
     expect(buildTiles([video], new MediaCache())).toEqual([]);
   });
 });
+
+describe("buildTiles with a Steam look", () => {
+  const roco = {
+    id: "4821880",
+    name: "Roco Kingdom",
+    description: "",
+    developers: [],
+    publishers: [],
+    genres: ["RPG"],
+    isFree: true,
+    price: null,
+    comingSoon: true,
+    releaseDate: "Coming soon",
+    platforms: { windows: true, mac: false, linux: false },
+    header: "https://cdn.example/header.jpg",
+    background: "",
+    screenshots: [],
+    trailers: [],
+  };
+  const record = scanClipping(
+    "Clippings/Roco.md",
+    { title: "Roco", source: "https://store.steampowered.com/app/4821880/" },
+    "![](https://cdn.example/other.jpg)"
+  );
+
+  function look(header: { path: string; remote: boolean }, stamp = "1") {
+    return { app: roco, header, background: null, screenshots: [], trailerFile: "", stamp };
+  }
+
+  it("leads with the header capsule at its fixed shape", () => {
+    const steam = look({ path: "A/Steam/4821880/header.jpg", remote: false });
+    const [tile] = buildTiles([record], new MediaCache(), undefined, () => steam);
+    expect(tile.filePath).toBe("A/Steam/4821880/header.jpg");
+    expect(tile.remote).toBe(false);
+    expect([tile.width, tile.height, tile.provisional]).toEqual([460, 215, false]);
+    expect(tile.steam).toBe(steam);
+  });
+
+  it("is an ordinary tile until Steam has been asked", () => {
+    const [tile] = buildTiles([record], new MediaCache(), undefined, () => null);
+    expect(tile.filePath).toBe("https://cdn.example/other.jpg");
+    expect(tile.steam).toBeUndefined();
+  });
+
+  it("repaints when the card's details change", () => {
+    const header = { path: "https://cdn.example/header.jpg", remote: true };
+    const [one] = buildTiles([record], new MediaCache(), undefined, () => look(header, "1"));
+    const [two] = buildTiles([record], new MediaCache(), undefined, () => look(header, "2"));
+    expect(one.signature).not.toBe(two.signature);
+  });
+
+  it("keeps a hand-set cover", () => {
+    const covered = { ...record, cover: "https://cdn.example/mine.jpg" };
+    const steam = look({ path: "A/Steam/4821880/header.jpg", remote: false });
+    const [tile] = buildTiles([covered], new MediaCache(), undefined, () => steam);
+    expect(tile.filePath).toBe("https://cdn.example/mine.jpg");
+    expect(tile.steam).toBe(steam);
+  });
+});
