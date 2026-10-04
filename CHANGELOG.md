@@ -5,6 +5,19 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.67] - 2026-10-04
+
+### Added
+- **X, Instagram, Threads and YouTube clippings now show as cards.** Each one gets a band under its picture with the person's avatar, name and likes, and the start of what they said. A YouTube video shows its channel, its views and how long it runs, over its title. Keep in mind the avatars, likes and views come from each site, so they need Settings → Oriko → Use community media resolvers on.
+- **You can choose how each site's card shows.** Settings → Oriko → Site cards has a setting each for Steam store pages, X posts, Instagram posts, Threads posts and YouTube videos: Always show, Show on hover, or Never show for a plain tile. The new sites start out matching your X posts setting.
+- **Show on hover slides the band out like a drawer.** Hover a card and it grows downward to show its band with the whole picture still in view, and the cards below it move down to make room until you move on.
+
+### Fixed
+- **A selected card now has its outline all the way round.** On store cards the outline only showed around the band under the picture.
+- **Cards no longer pause before they lift.** The first time you hovered some cards, they held still for a beat before rising. They now move the moment your pointer arrives.
+- **Changing the tile size is much quicker.** On a big wall each step could hold everything up for a third of a second. Now it's close to instant.
+- **Hovering across a big wall is smoother.** Every card was keeping its own set of graphics layers even when nobody was looking at it, and moving from card to card now does about half the work.
+
 ## [0.1.66] - 2026-10-04
 
 ### Added
