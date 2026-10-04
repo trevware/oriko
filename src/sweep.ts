@@ -3,6 +3,7 @@ import type { MediaCache } from "./core/cache";
 import { deadKeys, filesForRefs, liveRefs, orphanFiles } from "./core/media-refs";
 import type { Sweepable } from "./core/media-refs";
 import type { ClippingRecord } from "./core/scan";
+import { steamIdOfPath, steamIdsLeftBehind, steamOrphanFiles } from "./core/steam";
 
 /**
  * Removing archived media, both as a clipping goes and as a sweep of what
@@ -12,6 +13,9 @@ import type { ClippingRecord } from "./core/scan";
  * media-refs, which is pure and tested. This part reads the folder, moves
  * files to trash and forgets their cache entries.
  */
+
+/** A file directly inside a game's art folder: …/Steam/<app id>/<file>. */
+const GAME_FILE = /\/Steam\/\d+\/[^/]+$/;
 
 /** Everything sitting in the attachment folder right now. */
 function folderFiles(app: App, folder: string): TFile[] {
@@ -58,7 +62,17 @@ export function orphansAfterDeleting(
   });
 
   const set = new Set(orphans);
-  return weigh(folderFiles(app, folder).filter((file) => set.has(file.path)));
+  // A game's art goes with the last clipping of that game, as a shared
+  // picture goes with the last clipping that embeds it.
+  const games = new Set(steamIdsLeftBehind(going, surviving));
+  const root = normalizePath(folder);
+  return weigh(
+    folderFiles(app, folder).filter((file) => {
+      if (set.has(file.path)) return true;
+      const id = steamIdOfPath(root, file.path);
+      return id !== null && games.has(id);
+    })
+  );
 }
 
 /** Everything in the attachment folder that no clipping references at all. */
@@ -69,13 +83,13 @@ export function findOrphans(
   folder: string
 ): Sweepable {
   const files = folderFiles(app, folder);
-  const orphans = new Set(
-    orphanFiles({
-      live: liveRefs(records, cache.entries()),
-      cache: cache.entries(),
-      onDisk: files.map((file) => file.path),
-    })
-  );
+  const onDisk = files.map((file) => file.path);
+  const orphans = new Set([
+    ...orphanFiles({ live: liveRefs(records, cache.entries()), cache: cache.entries(), onDisk }),
+    // Art of games no clipping points at, which the hash-named sweep above
+    // never considers.
+    ...steamOrphanFiles(records, onDisk, normalizePath(folder)),
+  ]);
   return weigh(files.filter((file) => orphans.has(file.path)));
 }
 
@@ -103,6 +117,18 @@ export async function removeMedia(
   }
 
   for (const key of deadKeys(cache.entries(), paths)) cache.delete(key);
+
+  // A game's folder emptied by the above goes too, rather than lingering as
+  // an empty folder in the file explorer.
+  const emptied = new Set(
+    paths.filter((path) => GAME_FILE.test(path)).map((path) => path.slice(0, path.lastIndexOf("/")))
+  );
+  for (const path of emptied) {
+    const game = app.vault.getAbstractFileByPath(path);
+    if (game instanceof TFolder && game.children.length === 0) {
+      await app.fileManager.trashFile(game).catch(() => undefined);
+    }
+  }
   return removed;
 }
 
