@@ -24,6 +24,8 @@ import {
 } from "./core/resolve";
 import type { ProgressState } from "./core/progress";
 import { previewFor } from "./core/building";
+import { parseFxDetails } from "./core/xpost";
+import type { XDetails } from "./core/xpost";
 import type { OrikoSettings } from "./core/settings";
 import { scanAvailable, scanPage } from "./page-scanner";
 
@@ -68,6 +70,8 @@ export class CaptureService {
    * wall briefly showing both.
    */
   onCreating: ((path: string) => void) | null = null;
+  /** What fxtwitter said about a post being clipped, handed to the X card's store. */
+  onXDetails: ((id: string, details: XDetails) => void) | null = null;
   /**
    * Carries the note's path as well as its label: the grid flies to what you
    * just clipped, and a title is not enough to find a tile by.
@@ -359,6 +363,10 @@ export class CaptureService {
         throw: false,
       });
       if (response.status < 200 || response.status >= 300) return null;
+      // The same answer carries the avatar, badge and likes the post's card
+      // shows, so the card can land complete.
+      const details = parseFxDetails(response.json);
+      if (details) this.onXDetails?.(status.id, details);
       return parseFxTweet(response.json, url);
     } catch {
       return null;

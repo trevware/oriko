@@ -113,6 +113,8 @@ export class SteamService {
    * cards still appear, drawn from Steam's own copies.
    */
   async refresh(saveArt: boolean): Promise<void> {
+    // Off means a plain tile and a plain detail view, so nothing to ask for.
+    if (this.settings().steamCards === "never") return;
     if (this.running) {
       this.again = true;
       return;

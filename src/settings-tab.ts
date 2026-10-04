@@ -2,6 +2,7 @@ import { AbstractInputSuggest, App, PluginSettingTab, Setting } from "obsidian";
 import type { SettingDefinitionItem } from "obsidian";
 import { slotCandidates, surveyProperties } from "./core/facet-catalog";
 import { facetLabel } from "./core/filter";
+import { isCardMode } from "./core/settings";
 import { OrikoView, VIEW_TYPE_GRID } from "./view";
 import type OrikoPlugin from "./main";
 
@@ -308,6 +309,32 @@ export class OrikoSettingTab extends PluginSettingTab {
       },
       {
         type: "group",
+        heading: "Site cards",
+        items: [
+          {
+            name: "Steam store pages",
+            desc: "A game's name, genres and price in a band under its picture, the band only while you hover, or a plain tile. Never show also opens the clipping without its store page. Phones have no hover, so there Show on hover keeps the band out of sight.",
+            aliases: ["steam", "games", "price", "card", "band"],
+            control: {
+              type: "dropdown",
+              key: "steamCards",
+              options: { always: "Always show", hover: "Show on hover", never: "Never show" },
+            },
+          },
+          {
+            name: "X posts",
+            desc: "Who posted it and the start of what they said, in a band under the picture, only while you hover, or a plain tile. The avatar and likes come from fxtwitter, so they need Use community media resolvers on.",
+            aliases: ["x", "twitter", "posts", "author", "card", "band"],
+            control: {
+              type: "dropdown",
+              key: "xCards",
+              options: { always: "Always show", hover: "Show on hover", never: "Never show" },
+            },
+          },
+        ],
+      },
+      {
+        type: "group",
         heading: "Filter properties",
         items: [
           {
@@ -352,6 +379,12 @@ export class OrikoSettingTab extends PluginSettingTab {
         if (!Number.isFinite(width) || width < 100) return;
         settings.thumbnailWidth = Math.round(width);
         break;
+      }
+      case "steamCards":
+      case "xCards": {
+        settings[key] = isCardMode(value) ? value : "always";
+        // Turning a card on asks the sites about anything not yet looked up.
+        return this.plugin.saveSettings().then(() => this.plugin.scheduleLookups(0));
       }
       case "gridLookScope": {
         settings.gridLookScope = value === "grid" ? "grid" : "all";

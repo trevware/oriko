@@ -47,6 +47,9 @@ import type { TileModel } from "./core/tile";
 import { steamBandHeight } from "./core/steam";
 import type { SteamLook } from "./core/steam";
 import { paintBand } from "./steam-card";
+import { paintXBand } from "./x-card";
+import { bandHeight, bandLines } from "./core/xpost";
+import type { XLook } from "./core/xpost";
 
 /** Layout gap. Cards sit inset inside their box, adding SELECT_LIFT a side. */
 const GAP = 6;
@@ -735,13 +738,12 @@ export class GridRenderer {
           const learned = t.provisional ? this.measured.get(t.id) : undefined;
           const width = learned?.w ?? t.width;
           const height = learned?.h ?? t.height;
-          const card = Boolean(t.steam) || t.building?.shape === "steam";
-          if (!card || !(width > 0)) return { id: t.id, width, height };
-          // A store card is its art at the art's own shape with a band of a
-          // fixed height under it, which no single ratio can describe, so it
-          // is laid out as the height it will be in this column.
+          const band = this.bandFor(t);
+          if (!band || !(width > 0)) return { id: t.id, width, height };
+          // A card with a band is its art at the art's own shape with the
+          // band under it, which no single ratio can describe, so it is laid
+          // out as the height it will be in this column.
           const art = this.columnWidth - FRAME_INSET * 2;
-          const band = steamBandHeight(this.targetColumnWidth);
           return {
             id: t.id,
             width: this.columnWidth,
@@ -1681,8 +1683,45 @@ export class GridRenderer {
   private paintSteamFrame(frame: HTMLElement, steam: SteamLook): HTMLElement {
     frame.addClass("pg-steam");
     const art = frame.createDiv({ cls: "pg-steam-art" });
-    paintBand(frame, steam.app);
+    paintBand(frame, steam.app).addClass("pg-card-band");
     return art;
+  }
+
+  /** The same for an X post: its picture over a band naming who posted it. */
+  private paintXFrame(frame: HTMLElement, x: XLook): HTMLElement {
+    frame.addClass("pg-xcard");
+    const art = frame.createDiv({ cls: "pg-steam-art" });
+    paintXBand(frame, x, bandLines(x.post.text, this.columnWidth - FRAME_INSET * 2));
+    return art;
+  }
+
+  /** Redraws a card's band where it stands, for a new price, avatar or like count. */
+  private repaintBand(frame: HTMLElement, model: TileModel): void {
+    frame.querySelector(".pg-card-band")?.remove();
+    if (model.steam) paintBand(frame, model.steam.app).addClass("pg-card-band");
+    else if (model.x) {
+      paintXBand(frame, model.x, bandLines(model.x.post.text, this.columnWidth - FRAME_INSET * 2));
+    }
+    frame.toggleClass("is-hover-band", model.bandMode === "hover");
+  }
+
+  /**
+   * How much room a card's band takes under its art on the wall: none for a
+   * band shown on hover, which lies over the picture, and none at the
+   * tightest stage, where a card is its art like any tile.
+   */
+  private bandFor(t: TileModel): number {
+    if (t.building) {
+      return t.building.shape === "steam" && t.building.band
+        ? steamBandHeight(this.targetColumnWidth)
+        : 0;
+    }
+    if (t.bandMode !== "always") return 0;
+    if (t.steam) return steamBandHeight(this.targetColumnWidth);
+    if (t.x && this.targetColumnWidth > 140) {
+      return bandHeight(t.x.post.text, this.columnWidth - FRAME_INSET * 2);
+    }
+    return 0;
   }
 
   /**
@@ -1836,20 +1875,22 @@ export class GridRenderer {
       return;
     }
 
-    // A store card already showing keeps its frame: its picture swaps in
-    // place, as any tile's does, and its band is redrawn, which is all a new
-    // price or a saved copy of the art changes. Rebuilt, the card would blink.
+    // A card already showing keeps its frame: its picture swaps in place, as
+    // any tile's does, and its band is redrawn, which is all a new price, a
+    // saved copy of the art, an avatar or a like count changes. Rebuilt, the
+    // card would blink, and a video would start over.
+    const look = model.steam ? "steam" : model.x ? "x" : "";
     if (
+      look &&
       element.id === model.id &&
-      element.look === "steam" &&
-      model.steam &&
-      model.kind === "image" &&
-      element.media instanceof HTMLImageElement
+      element.look === look &&
+      element.kind === model.kind &&
+      (element.media instanceof HTMLImageElement ||
+        (element.media instanceof HTMLVideoElement && element.media.dataset.orig === original))
     ) {
-      this.swapImage(element.media, original);
+      if (element.media instanceof HTMLImageElement) this.swapImage(element.media, original);
       const frame = element.root.querySelector<HTMLElement>(".pg-frame");
-      frame?.querySelector(".pg-steam-band")?.remove();
-      if (frame) paintBand(frame, model.steam.app);
+      if (frame) this.repaintBand(frame, model);
       element.signature = model.signature;
       return;
     }
@@ -1893,8 +1934,13 @@ export class GridRenderer {
     const frame = element.root.createDiv({ cls: "pg-frame" });
     // A store card is its art over a band of details; the picture, and the
     // pills that float over it, go into the art and leave the band alone.
-    const host = model.steam ? this.paintSteamFrame(frame, model.steam) : frame;
-    element.look = model.steam ? "steam" : "";
+    const host = model.steam
+      ? this.paintSteamFrame(frame, model.steam)
+      : model.x
+        ? this.paintXFrame(frame, model.x)
+        : frame;
+    frame.toggleClass("is-hover-band", Boolean(model.bandMode === "hover" && (model.steam || model.x)));
+    element.look = model.steam ? "steam" : model.x ? "x" : "";
     element.root.toggleClass("is-steam", Boolean(model.steam));
 
     if (model.kind === "video") {
@@ -1906,6 +1952,9 @@ export class GridRenderer {
       if (still && !model.remote) video.poster = still;
       if (model.remote) video.src = original;
       else video.dataset.src = original;
+      // What it was built for, so a card repainted for its band can tell the
+      // video is the same one and leave it playing.
+      video.dataset.orig = original;
 
       if (model.provisional) {
         video.addEventListener(

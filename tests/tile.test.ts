@@ -469,7 +469,7 @@ describe("buildTiles with a Steam look", () => {
 
   it("leads with the header capsule at its fixed shape", () => {
     const steam = look({ path: "A/Steam/4821880/header.jpg", remote: false });
-    const [tile] = buildTiles([record], new MediaCache(), undefined, () => steam);
+    const [tile] = buildTiles([record], new MediaCache(), undefined, { steam: () => steam });
     expect(tile.filePath).toBe("A/Steam/4821880/header.jpg");
     expect(tile.remote).toBe(false);
     expect([tile.width, tile.height, tile.provisional]).toEqual([460, 215, false]);
@@ -477,22 +477,22 @@ describe("buildTiles with a Steam look", () => {
   });
 
   it("is an ordinary tile until Steam has been asked", () => {
-    const [tile] = buildTiles([record], new MediaCache(), undefined, () => null);
+    const [tile] = buildTiles([record], new MediaCache(), undefined, { steam: () => null });
     expect(tile.filePath).toBe("https://cdn.example/other.jpg");
     expect(tile.steam).toBeUndefined();
   });
 
   it("repaints when the card's details change", () => {
     const header = { path: "https://cdn.example/header.jpg", remote: true };
-    const [one] = buildTiles([record], new MediaCache(), undefined, () => look(header, "1"));
-    const [two] = buildTiles([record], new MediaCache(), undefined, () => look(header, "2"));
+    const [one] = buildTiles([record], new MediaCache(), undefined, { steam: () => look(header, "1") });
+    const [two] = buildTiles([record], new MediaCache(), undefined, { steam: () => look(header, "2") });
     expect(one.signature).not.toBe(two.signature);
   });
 
   it("keeps a hand-set cover", () => {
     const covered = { ...record, cover: "https://cdn.example/mine.jpg" };
     const steam = look({ path: "A/Steam/4821880/header.jpg", remote: false });
-    const [tile] = buildTiles([covered], new MediaCache(), undefined, () => steam);
+    const [tile] = buildTiles([covered], new MediaCache(), undefined, { steam: () => steam });
     expect(tile.filePath).toBe("https://cdn.example/mine.jpg");
     expect(tile.steam).toBe(steam);
   });
@@ -506,7 +506,7 @@ describe("building cards", () => {
   );
 
   it("holds a store page Steam has not answered for in one waiting state", () => {
-    const [tile] = buildTiles([record], new MediaCache(), undefined, () => "pending");
+    const [tile] = buildTiles([record], new MediaCache(), undefined, { steam: () => "pending" });
     expect(tile.id).toBe("Clippings/Roco.md");
     expect(tile.record).toBe(record);
     expect(tile.building).toMatchObject({ label: STEAM_PENDING, progress: 0.9, shape: "steam" });
@@ -521,7 +521,7 @@ describe("building cards", () => {
       { title: "Hades", source: "https://store.steampowered.com/app/1145360/" },
       "![](https://cdn.example/capsule.jpg)"
     );
-    const [tile] = buildTiles([withImage], new MediaCache(), undefined, () => "pending");
+    const [tile] = buildTiles([withImage], new MediaCache(), undefined, { steam: () => "pending" });
     expect(tile.building?.preview).toEqual({ path: "https://cdn.example/capsule.jpg", remote: true });
   });
 
@@ -532,5 +532,70 @@ describe("building cards", () => {
     expect([plain.width, plain.height]).toEqual([4, 3]);
     expect(plain.id.startsWith(BUILDING_PREFIX)).toBe(true);
     expect(plain.record.path).toBe("");
+  });
+});
+
+describe("site card modes", () => {
+  const post = scanClipping(
+    "Clippings/loop.md",
+    {
+      title: "perfectloop: keep climbing",
+      source: "https://x.com/PERFECTL00P/status/2090086481281069566",
+      author: ["perfectloop"],
+      description: "keep climbing",
+    },
+    "![](https://cdn.example/loop.jpg)"
+  );
+  const look = {
+    post: { id: "2090086481281069566", handle: "PERFECTL00P", name: "perfectloop", text: "keep climbing" },
+    details: null,
+    stamp: "bare",
+  };
+
+  it("draws an X post as a card with its band under the picture by default", () => {
+    const [tile] = buildTiles([post], new MediaCache(), undefined, { x: () => look });
+    expect(tile.x).toBe(look);
+    expect(tile.bandMode).toBe("always");
+    expect(tile.filePath).toBe("https://cdn.example/loop.jpg");
+  });
+
+  it("keeps the band for hovering when asked, and repaints for the change", () => {
+    const [always] = buildTiles([post], new MediaCache(), undefined, { x: () => look });
+    const [hover] = buildTiles([post], new MediaCache(), undefined, { x: () => look, xMode: "hover" });
+    expect(hover.bandMode).toBe("hover");
+    expect(hover.signature).not.toBe(always.signature);
+  });
+
+  it("draws a plain tile when a site's cards are off", () => {
+    const [tile] = buildTiles([post], new MediaCache(), undefined, { x: () => look, xMode: "never" });
+    expect(tile.x).toBeUndefined();
+    expect(tile.bandMode).toBeUndefined();
+  });
+
+  it("never holds a store page waiting when Steam cards are off", () => {
+    const steamPage = scanClipping(
+      "Clippings/Roco.md",
+      { title: "Roco", source: "https://store.steampowered.com/app/4821880/" },
+      "![](https://cdn.example/capsule.jpg)"
+    );
+    const [tile] = buildTiles([steamPage], new MediaCache(), undefined, {
+      steam: () => "pending",
+      steamMode: "never",
+    });
+    expect(tile.building).toBeUndefined();
+    expect(tile.filePath).toBe("https://cdn.example/capsule.jpg");
+  });
+
+  it("waits without a band when Steam cards show on hover", () => {
+    const steamPage = scanClipping(
+      "Clippings/Roco.md",
+      { title: "Roco", source: "https://store.steampowered.com/app/4821880/" },
+      ""
+    );
+    const [tile] = buildTiles([steamPage], new MediaCache(), undefined, {
+      steam: () => "pending",
+      steamMode: "hover",
+    });
+    expect(tile.building).toMatchObject({ shape: "steam", band: false });
   });
 });

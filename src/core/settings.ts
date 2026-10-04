@@ -3,6 +3,16 @@ import type { GridLook, LookScope } from "./look";
 import type { FolderSpace } from "./folders";
 import type { GridSpace, SharedClipTarget } from "./spaces";
 
+/**
+ * How a site's card shows its details on the wall: a band under the picture
+ * all the time, the band over the picture while you hover, or a plain tile.
+ */
+export type CardMode = "always" | "hover" | "never";
+
+export function isCardMode(value: unknown): value is CardMode {
+  return value === "always" || value === "hover" || value === "never";
+}
+
 export interface OrikoSettings {
   clippingsFolder: string;
   attachmentFolder: string;
@@ -79,6 +89,10 @@ export interface OrikoSettings {
    * with the grid, which is why renameGridDef has to move its key.
    */
   gridTileSizes: Record<string, DensityStage>;
+  /** How a Steam store page shows its name, genres and price on the wall. */
+  steamCards: CardMode;
+  /** How an X post shows who posted it and what they said on the wall. */
+  xCards: CardMode;
   /** Full path to yt-dlp, "" to discover it on PATH and in common installs. */
   ytdlpPath: string;
   /** Full path to ffmpeg, "" to discover it on PATH and in common installs. */
@@ -106,6 +120,8 @@ export const DEFAULT_SETTINGS: OrikoSettings = {
   tileSize: "m",
   gridLookScope: "all",
   gridTileSizes: {},
+  steamCards: "always",
+  xCards: "always",
   ytdlpPath: "",
   ffmpegPath: "",
 };

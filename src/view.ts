@@ -81,10 +81,10 @@ import {
 import type { GridSpace, PlacedGrid } from "./core/spaces";
 import { BUILDING_PREFIX, buildTiles, buildingTile, previewOf } from "./core/tile";
 import { advance } from "./core/building";
-import type { TileModel } from "./core/tile";
+import type { TileLooks, TileModel } from "./core/tile";
 import type { ClippingRecord } from "./core/scan";
 import { steamAppId } from "./core/steam";
-import type { SteamLook } from "./core/steam";
+
 
 export const VIEW_TYPE_GRID = "oriko";
 
@@ -176,9 +176,15 @@ export class OrikoView extends ItemView {
    * archiving gives it a different, working cover.
    */
   private unloadable = new Map<string, string>();
-  /** A store page clipping's Steam look, for the tiles drawn as store cards. */
-  private steamLook = (record: ClippingRecord): SteamLook | "pending" | null =>
-    this.plugin.steam.lookFor(record);
+  /** The site cards this wall draws, and how, as the settings say right now. */
+  private looks(): TileLooks {
+    return {
+      steam: (record: ClippingRecord) => this.plugin.steam.lookFor(record),
+      x: (record: ClippingRecord) => this.plugin.x.lookFor(record),
+      steamMode: this.plugin.settings.steamCards,
+      xMode: this.plugin.settings.xCards,
+    };
+  }
   /**
    * Covers waiting on a file the vault has not registered yet, kept apart
    * from `unloadable` because they are not failures: an attachment written a
@@ -509,6 +515,7 @@ export class OrikoView extends ItemView {
     this.plugin.index.onChange(() => this.refresh());
     this.plugin.archiver.onChange(() => this.refresh());
     this.plugin.steam.onChange(() => this.refresh());
+    this.plugin.x.onChange(() => this.refresh());
 
     // The stage is a fixed frame: the wall pans inside it, and nothing else
     // may move it. Overflow: hidden stops a user scrolling it but not the
@@ -1319,6 +1326,9 @@ export class OrikoView extends ItemView {
    */
   applyLiveSettings(): void {
     this.applyLook();
+    // A change of how site cards show rebuilds the tiles, which the look
+    // alone does not.
+    this.refresh();
   }
 
   private paint(options: { replace?: boolean }): void {
@@ -1342,7 +1352,7 @@ export class OrikoView extends ItemView {
           ),
       this.plugin.archiver.cache,
       this.unloadable,
-      this.steamLook
+      this.looks()
     );
 
     // Facets are counted from the whole grid, not from what survives the
@@ -1395,7 +1405,8 @@ export class OrikoView extends ItemView {
     const tile = buildingTile(id, {
       label: "Starting…",
       progress: 0,
-      shape: steamAppId(source) ? "steam" : "plain",
+      shape: steamAppId(source) && this.plugin.settings.steamCards !== "never" ? "steam" : "plain",
+      band: this.plugin.settings.steamCards === "always",
     });
     this.builds.push({ id, tile, path: "", finishedAt: 0, blob: "" });
     this.applyFilter({});
@@ -1703,7 +1714,7 @@ export class OrikoView extends ItemView {
   private previewUrl(path: string): string {
     const record = this.plugin.index.get(path);
     if (!record) return "";
-    const [tile] = buildTiles([record], this.plugin.archiver.cache, undefined, this.steamLook);
+    const [tile] = buildTiles([record], this.plugin.archiver.cache, undefined, this.looks());
     const preview = tile ? previewOf(tile) : null;
     return preview ? resourceUrl(this.app.vault, preview.path, preview.remote) : "";
   }

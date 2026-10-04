@@ -5,6 +5,8 @@ import type { CanonicalMedia } from "./normalize";
 import { knownHostThumbnail } from "./page-cover";
 import type { ClippingRecord } from "./scan";
 import type { SteamLook } from "./steam";
+import type { XLook } from "./xpost";
+import type { CardMode } from "./settings";
 
 export interface TileModel {
   id: string;
@@ -33,6 +35,13 @@ export interface TileModel {
    * band of store details, and the detail view as a store page.
    */
   steam?: SteamLook;
+  /** Set when the clipping is an X post: drawn as its picture over a band naming who posted it. */
+  x?: XLook;
+  /**
+   * How a Steam or X card shows its band: under the picture, with room made
+   * for it on the wall, or over the picture while the card is hovered.
+   */
+  bandMode?: "always" | "hover";
   /**
    * Set while the clipping is still being made, or still waiting on what its
    * final look needs. The card shows this one state until it is ready and
@@ -47,6 +56,8 @@ export interface Building {
   progress: number;
   /** The shape the finished card will have, so it does not change size on arrival. */
   shape: "steam" | "plain";
+  /** Whether that shape includes a store card's band under the art. */
+  band?: boolean;
   /** The page's own picture, shown blurred behind the step until the card lands. */
   preview?: { path: string; remote: boolean };
 }
@@ -319,16 +330,27 @@ function pickCover(record: ClippingRecord, cache: MediaCache): Cover | null {
  * later changes (archiving replaces a dead remote URL with a local file)
  * comes back instead of staying hidden for the rest of the session.
  */
+/** The site cards a wall draws, and how each shows its band. */
+export interface TileLooks {
+  steam?: (record: ClippingRecord) => SteamLook | "pending" | null;
+  x?: (record: ClippingRecord) => XLook | null;
+  steamMode?: CardMode;
+  xMode?: CardMode;
+}
+
 export function buildTiles(
   records: ClippingRecord[],
   cache: MediaCache,
   failedSignatures?: ReadonlyMap<string, string>,
-  steamLookFor?: (record: ClippingRecord) => SteamLook | "pending" | null
+  looks: TileLooks = {}
 ): TileModel[] {
   const tiles: TileModel[] = [];
+  const steamMode = looks.steamMode ?? "always";
+  const xMode = looks.xMode ?? "always";
 
   for (const record of records) {
-    const found = steamLookFor?.(record) ?? null;
+    // Never is a plain tile, the way the clipping looked before it had a card.
+    const found = steamMode === "never" ? null : (looks.steam?.(record) ?? null);
     if (found === "pending") {
       // A store page this device has not heard about from Steam yet. It
       // waits as a card of the right shape rather than showing as an
@@ -346,19 +368,33 @@ export function buildTiles(
         label: STEAM_PENDING,
         progress: 0.9,
         shape: "steam",
+        band: steamMode === "always",
         ...(still ? { preview: still } : {}),
       });
       tiles.push({ ...waiting, record });
       continue;
     }
     const steam = found;
+    const x = steam || xMode === "never" ? null : (looks.x?.(record) ?? null);
     const cover = steam ? steamCover(record, cache, steam) : pickCover(record, cache);
     if (!cover) continue;
+    const mode = steam ? steamMode : x ? xMode : "never";
+    const band = mode === "never" ? "" : `|${mode}`;
     const signature = steam
-      ? `${signatureOf(cover)}|steam:${steam.stamp}`
-      : signatureOf(cover);
+      ? `${signatureOf(cover)}|steam:${steam.stamp}${band}`
+      : x
+        ? `${signatureOf(cover)}|x:${x.stamp}${band}`
+        : signatureOf(cover);
     if (failedSignatures?.get(record.path) === signature) continue;
-    tiles.push({ id: record.path, record, signature, ...cover, ...(steam ? { steam } : {}) });
+    tiles.push({
+      id: record.path,
+      record,
+      signature,
+      ...cover,
+      ...(steam ? { steam } : {}),
+      ...(x ? { x } : {}),
+      ...(mode !== "never" ? { bandMode: mode } : {}),
+    });
   }
 
   return tiles;

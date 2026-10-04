@@ -14,9 +14,10 @@ import { buildDiagnostics } from "./core/diagnose";
 import { setToolOverrides } from "./convert";
 import { ArchiveService } from "./archive-service";
 import { SteamService } from "./steam-service";
+import { XService } from "./x-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
-import { OrikoSettings, DEFAULT_SETTINGS } from "./core/settings";
+import { OrikoSettings, DEFAULT_SETTINGS, isCardMode } from "./core/settings";
 import { isStage } from "./core/density";
 import {
   LEGACY_SHARED_FILES,
@@ -43,6 +44,7 @@ export default class OrikoPlugin extends Plugin {
   index!: ClippingIndex;
   archiver!: ArchiveService;
   steam!: SteamService;
+  x!: XService;
   capture!: CaptureService;
   /** The last shared file this device wrote, to recognise its own echo. */
   private wroteShared = "";
@@ -66,12 +68,14 @@ export default class OrikoPlugin extends Plugin {
    * store card is drawn from what Steam says, not from saved files; the
    * setting only decides whether the art is saved into the vault as well.
    */
-  private scheduleSteam(delayMs: number): void {
+  scheduleLookups(delayMs: number): void {
     window.clearTimeout(this.steamTimer);
-    this.steamTimer = window.setTimeout(
-      () => void this.steam.refresh(this.settings.archiveOnCreate),
-      delayMs
-    );
+    // X posts ride the same timer: both are a per-device look-up that a
+    // new clipping wants answered quickly and a sync storm wants once.
+    this.steamTimer = window.setTimeout(() => {
+      void this.steam.refresh(this.settings.archiveOnCreate);
+      void this.x.refresh();
+    }, delayMs);
   }
 
   async onload(): Promise<void> {
@@ -103,16 +107,24 @@ export default class OrikoPlugin extends Plugin {
       () => this.index.records()
     );
     await this.steam.load();
+    this.x = new XService(
+      this.app,
+      () => this.settings,
+      this.manifest.dir ?? `${this.app.vault.configDir}/plugins/oriko`,
+      () => this.index.records()
+    );
+    await this.x.load();
     this.register(() => window.clearTimeout(this.steamTimer));
     // Prices move while Obsidian stays open for days. The pass asks only
     // about games whose answer is a day old, so an hourly look costs nothing.
-    this.registerInterval(window.setInterval(() => this.scheduleSteam(0), 60 * 60 * 1000));
+    this.registerInterval(window.setInterval(() => this.scheduleLookups(0), 60 * 60 * 1000));
     this.capture = new CaptureService(
       this.app,
       () => this.settings,
       this.archiver,
       this.index
     );
+    this.capture.onXDetails = (id, details) => this.x.seed(id, details);
 
     this.registerView(
       VIEW_TYPE_GRID,
@@ -246,12 +258,12 @@ export default class OrikoPlugin extends Plugin {
         if (this.settings.archiveOnCreate) {
           this.scheduleArchive(1500);
         }
-        this.scheduleSteam(1000);
+        this.scheduleLookups(1000);
         // A clipping added afterwards, by the Web Clipper or by Oriko itself,
         // gets its store card without waiting for the hourly look.
         // Short, because a store page's card waits in its building state
         // until Steam has answered; long enough to fold a sync storm into one.
-        this.index.onChange(() => this.scheduleSteam(400));
+        this.index.onChange(() => this.scheduleLookups(400));
       });
     });
 
@@ -513,6 +525,8 @@ export default class OrikoPlugin extends Plugin {
     // A stage that no longer exists, or a hand-edited data.json, lands on the
     // default rather than on a wall laid out to an undefined width.
     if (!isStage(this.settings.tileSize)) this.settings.tileSize = DEFAULT_SETTINGS.tileSize;
+    if (!isCardMode(this.settings.steamCards)) this.settings.steamCards = DEFAULT_SETTINGS.steamCards;
+    if (!isCardMode(this.settings.xCards)) this.settings.xCards = DEFAULT_SETTINGS.xCards;
     setToolOverrides({ ytdlp: this.settings.ytdlpPath, ffmpeg: this.settings.ffmpegPath });
   }
 
