@@ -108,6 +108,96 @@ export const SCENARIOS = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* Correctness                                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The things a speed-up most easily breaks without slowing anything down:
+ * the drawer opening to its band's height with the picture kept whole, the
+ * column under it moving by exactly that much and moving back, the pills
+ * showing on hover and gone at rest, the tilt following the pointer, and
+ * the tightest stage dropping the bands. Run once, untimed.
+ */
+export async function runChecks(page) {
+  const results = [];
+  const check = (name, ok, detail) => results.push({ name, ok: Boolean(ok), detail });
+  const near = (a, b, tolerance = 2) => Math.abs(a - b) <= tolerance;
+
+  const at = await park(page);
+  const rects = await page.evaluate(() => window.__perf.rects());
+  const cards = await page.evaluate(() => window.__perf.hoverCards());
+  // A card with something under it in its column, so there is room to make.
+  const card =
+    cards.find((c) => rects.some((r) => Math.round(r.x) === Math.round(c.x - c.w / 2) && r.y > c.y + c.h / 2)) ??
+    cards[0];
+  if (!card) {
+    check("a card to hover", false, "no X or Steam card on screen");
+    return results;
+  }
+  // Off centre, so the card tips, and inside the part of it on screen: a
+  // tall card's upper half can be above the top of the wall.
+  const view = await page.evaluate(() => window.__perf.viewRect());
+  const top = Math.max(card.y - card.h / 2, view.y);
+  const target = { x: card.x + card.w * 0.3, y: top + (card.y + card.h / 2 - top) * 0.25 };
+  await glide(page, at, target, 200);
+  await sleep(650);
+  const open = await page.evaluate((id) => window.__perf.cardState(id), card.id);
+  const under = await page.evaluate(({ x, y }) => {
+    const el = document.elementFromPoint(x, y);
+    return (el?.closest(".pg-tile") ?? el)?.className ?? "nothing";
+  }, target);
+  const below = rects.filter((r) => Math.round(r.x) === Math.round(card.x - card.w / 2) && r.y > card.y);
+  check(
+    "drawer opens by its band's height",
+    open && open.bandH > 0 && near(open.frameH, open.tileH - 8 + open.bandH),
+    open && `frame ${open.frameH}px, tile ${open.tileH}px, band ${open.bandH}px`
+  );
+  if (!open || open.metaVisibility !== "visible") check("pointer reaches the card", false, `under the pointer: ${under}`);
+  check(
+    "picture stays whole while open",
+    open && near(open.artH, open.tileH - 8),
+    open && `art ${open.artH}px for a ${open.tileH}px tile`
+  );
+  check(
+    "column below makes exactly that much room",
+    open && (below.length === 0 || (open.lowered.length > 0 && open.lowered.every((l) => near(l.by, open.bandH, 1)))),
+    open && `${open.lowered.length} lowered by ${[...new Set(open.lowered.map((l) => Math.round(l.by)))].join("/") || "-"}px`
+  );
+  check(
+    "pills show on hover",
+    open && open.metaVisibility === "visible" && open.metaOpacity > 0.99,
+    open && `${open.metaVisibility} at ${open.metaOpacity}`
+  );
+  check("card tilts toward the pointer", open && open.tilt !== "|", open && open.tilt);
+
+  await park(page);
+  await sleep(400);
+  const shut = await page.evaluate((id) => window.__perf.cardState(id), card.id);
+  check(
+    "drawer shuts and the column returns",
+    shut && near(shut.frameH, shut.tileH - 8) && shut.lowered.length === 0,
+    shut && `frame ${shut.frameH}px, ${shut.lowered.length} still lowered`
+  );
+  check(
+    "pills hidden at rest, holding no layers",
+    shut && shut.metaVisibility === "hidden",
+    shut && `${shut.metaVisibility} at ${shut.metaOpacity}`
+  );
+
+  await page.evaluate(() => window.__perf.setStage("xs"));
+  await sleep(700);
+  const tiny = await page.evaluate((id) => window.__perf.cardState(id), card.id);
+  check(
+    "tightest stage drops bands and pills",
+    tiny && !tiny.bandShown && tiny.metaDisplay === "none",
+    tiny && `band ${tiny.bandShown ? "shown" : "hidden"}, pills ${tiny.metaDisplay}`
+  );
+  await page.evaluate(() => window.__perf.setStage("m"));
+  await sleep(900);
+  return results;
+}
+
+/* ------------------------------------------------------------------ */
 /* Measurement                                                        */
 /* ------------------------------------------------------------------ */
 
@@ -297,6 +387,13 @@ export function report({ report: data, budgets, budgetSet, resultsDir, save, com
   const failures = [];
 
   console.log(`\nOriko wall performance · ${data.target} · Chrome ${data.chrome}\n`);
+  for (const [wall, checks] of Object.entries(data.checks ?? {})) {
+    console.log(`${wall} · checks`);
+    for (const c of checks) {
+      if (!c.ok) failures.push(`${wall}: ${c.name} (${c.detail})`);
+      console.log(`  ${c.ok ? "✓" : "✗"} ${c.name.padEnd(42)} ${c.detail ?? ""}`);
+    }
+  }
   for (const [name, result] of Object.entries(data.results)) {
     const scenario = name.split(" · ").pop();
     const rules = { ...(rulesFor["*"] ?? {}), ...(rulesFor[scenario] ?? {}) };

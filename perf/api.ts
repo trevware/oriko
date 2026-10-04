@@ -71,6 +71,25 @@ export function nextFrames(n: number): Promise<void> {
 interface GridInternals {
   tiles: TileModel[];
   viewport: HTMLElement;
+  mounted: Map<string, { root: HTMLElement }>;
+  positionById: Map<string, { x: number; y: number; w: number; h: number }>;
+}
+
+/** What a card looks like right now, for the correctness checks. */
+export interface CardState {
+  id: string;
+  /** The tile's height in the layout, and the frame's and art's laid-out heights. */
+  tileH: number;
+  frameH: number;
+  artH: number;
+  bandH: number;
+  bandShown: boolean;
+  metaVisibility: string;
+  metaOpacity: number;
+  metaDisplay: string;
+  tilt: string;
+  /** Cards drawn lower than their layout says, and by how much. */
+  lowered: Array<{ id: string; by: number }>;
 }
 
 export function perfApi(getGrid: () => GridRenderer | null) {
@@ -167,6 +186,42 @@ export function perfApi(getGrid: () => GridRenderer | null) {
     },
 
     nextFrames,
+
+    /** The card as drawn: its parts' sizes, its pills, its tilt, and what it has pushed. */
+    cardState(id: string): CardState | null {
+      const grid = getGrid();
+      if (!grid) return null;
+      const g = inside(grid);
+      const root = g.mounted.get(id)?.root;
+      const position = g.positionById.get(id);
+      const frame = root?.firstElementChild;
+      if (!root || !position || !(frame instanceof HTMLElement)) return null;
+      const art = frame.querySelector<HTMLElement>(":scope > .pg-steam-art");
+      const band = frame.querySelector<HTMLElement>(":scope > .pg-card-band");
+      const meta = frame.querySelector<HTMLElement>(".pg-meta");
+      const metaStyle = meta ? getComputedStyle(meta) : null;
+      const lowered: Array<{ id: string; by: number }> = [];
+      for (const [other, el] of g.mounted) {
+        const p = g.positionById.get(other);
+        const m = /translate3d\([^,]+,\s*(-?[\d.]+)px/.exec(el.root.style.transform);
+        if (!p || !m) continue;
+        const by = Number(m[1]) - p.y;
+        if (Math.abs(by) > 0.5) lowered.push({ id: other, by });
+      }
+      return {
+        id,
+        tileH: position.h,
+        frameH: frame.offsetHeight,
+        artH: art?.offsetHeight ?? 0,
+        bandH: band?.offsetHeight ?? 0,
+        bandShown: band ? getComputedStyle(band).display !== "none" : false,
+        metaVisibility: metaStyle?.visibility ?? "",
+        metaOpacity: metaStyle ? Number(metaStyle.opacity) : 0,
+        metaDisplay: metaStyle?.display ?? "",
+        tilt: `${frame.style.getPropertyValue("--pg-rx")}|${frame.style.getPropertyValue("--pg-ry")}`,
+        lowered,
+      };
+    },
   };
   return api;
 }

@@ -18,7 +18,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SCENARIOS, measure, measureSync, parseArgs, report } from "./scenarios.mjs";
+import { SCENARIOS, measure, measureSync, parseArgs, report, runChecks } from "./scenarios.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -229,6 +229,9 @@ for (const scenario of SCENARIOS.filter((s) => !args.only || s.name.includes(arg
   });
   process.stdout.write(" done\n");
 }
+
+// Last, so nothing they do can disturb a measurement.
+data.checks = { vault: await runChecks(page) };
 
 if (!args.keepOpen) {
   await browser.close().catch(() => {});

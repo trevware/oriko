@@ -14,7 +14,7 @@ import { chromium } from "playwright-core";
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { SCENARIOS, measure, measureSync, parseArgs, report } from "./scenarios.mjs";
+import { SCENARIOS, measure, measureSync, parseArgs, report, runChecks } from "./scenarios.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -57,8 +57,9 @@ writeFileSync(
   }
   html, body { margin: 0; height: 100%; background: var(--background-primary); color: var(--text-normal);
     font-family: var(--font-interface); overflow: hidden; }
-  /* Obsidian's view-content: a flex column the viewport fills. */
-  #view { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  /* Obsidian's view-content: a flex column the viewport fills, with a
+     gutter beside it, as Obsidian has, for the pointer to rest off the wall. */
+  #view { position: absolute; inset: 0 0 0 24px; display: flex; flex-direction: column; }
 </style>
 </head>
 <body>
@@ -98,7 +99,8 @@ await page.waitForFunction(() => document.body.dataset.ready === "1");
 const data = { target: "synthetic", date: new Date().toISOString(), chrome: browser.version(), results: {} };
 for (const [wall, spec] of Object.entries(WALLS)) {
   const scenarios = SCENARIOS.filter((s) => PLAN[wall].includes(s.name) && (!args.only || s.name.includes(args.only)));
-  if (scenarios.length === 0) continue;
+  // `--only checks` runs no scenario, just the correctness checks.
+  if (scenarios.length === 0 && args.only !== "checks") continue;
   await page.evaluate((s) => window.__perf.setup(s), spec);
   data.results[`${wall} · relayout`] = await measureSync(page);
   for (const scenario of scenarios) {
@@ -109,6 +111,8 @@ for (const [wall, spec] of Object.entries(WALLS)) {
     });
     process.stdout.write(" done\n");
   }
+  // Last, so nothing they do can disturb a measurement.
+  if (spec.bandMode === "hover") (data.checks ??= {})[wall] = await runChecks(page);
 }
 await browser.close();
 
