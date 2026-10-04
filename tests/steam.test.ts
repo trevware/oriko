@@ -125,6 +125,13 @@ describe("priceTag", () => {
     expect(priceTag(full)).toEqual({ discount: "", original: "", final: "CDN$ 8.12" });
   });
 
+  it("keeps to the price when the release date has a row of its own", () => {
+    expect(priceTag(app("4821880"), false)?.final).toBe("Free to Play");
+    const paid = { ...app("1145360"), comingSoon: true };
+    expect(priceTag(paid, false)?.final).toBe("CDN$ 8.12");
+    expect(priceTag({ ...paid, price: null }, false)).toBeNull();
+  });
+
   it("has nothing to say for a released game with no price", () => {
     expect(priceTag({ ...app("1145360"), price: null })).toBeNull();
   });
@@ -262,7 +269,8 @@ describe("card details", () => {
   });
 
   it("leaves Free to Play to the price corner", () => {
-    expect(cardGenres(app("4821880"))).toEqual(["Action", "Adventure", "Casual"]);
+    expect(cardGenres(app("4821880"), 3)).toEqual(["Action", "Adventure", "Casual"]);
+    expect(cardGenres(app("4821880"))).not.toContain("Free To Play");
     expect(cardGenres({ ...app("4821880"), genres: ["Free To Play", "RPG"] })).toEqual(["RPG"]);
   });
 });

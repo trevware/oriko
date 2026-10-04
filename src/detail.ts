@@ -17,7 +17,7 @@ import { visibilityAction } from "./core/playback";
 import { isHttpUrl } from "./core/resolve";
 import type { Box, FlightShape } from "./core/layout";
 import type { TileModel } from "./core/tile";
-import { platformNames } from "./core/steam";
+import { cardGenres, platformNames } from "./core/steam";
 import type { SteamAsset, SteamLook } from "./core/steam";
 import { paintGenres, paintPrice } from "./steam-card";
 import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
@@ -714,8 +714,10 @@ export class DetailView {
     head.createDiv({ cls: "pg-steam-heading", text: app.name });
     if (app.description) head.createDiv({ cls: "pg-steam-blurb", text: app.description });
     const buy = head.createDiv({ cls: "pg-steam-buy" });
-    paintPrice(buy, app);
-    paintGenres(head, app.genres);
+    // The release date has its own row here, so the corner says only what
+    // the game costs, and the genres leave Free to Play to the corner.
+    paintPrice(buy, app, false);
+    paintGenres(head, cardGenres(app));
 
     field("Release date", app.releaseDate);
     field(app.developers.length > 1 ? "Developers" : "Developer", app.developers.join(", "));

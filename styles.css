@@ -2699,10 +2699,16 @@ body.is-mobile .pg-spacebar button:active {
   min-width: 0;
 }
 
+/* One row tall, wrapping: a tag that does not fit drops onto a second row
+   that is clipped away, so it disappears whole instead of being cut off
+   mid-word. Only a first tag too wide for the row on its own is truncated. */
 .pg-steam-tags {
+  --pg-steam-tag-line: 13px;
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   min-width: 0;
+  height: calc(var(--pg-steam-tag-line) + 4px);
   overflow: hidden;
 }
 
@@ -2713,12 +2719,11 @@ body.is-mobile .pg-spacebar button:active {
   background: var(--pg-steam-chip);
   color: var(--pg-steam-blue);
   font-size: 10px;
-  line-height: 1.3;
+  line-height: var(--pg-steam-tag-line);
   white-space: nowrap;
 }
 
-/* A tag that does not fit is dropped whole rather than cut off mid-word. */
-.pg-steam-tags .pg-steam-tag:not(:first-child) {
+.pg-steam-tag:first-child {
   flex-shrink: 1;
   min-width: 0;
   overflow: hidden;
@@ -2781,6 +2786,11 @@ body.is-mobile .pg-spacebar button:active {
   font-size: 13px;
 }
 
+.pg-viewport[data-density="l"] .pg-steam-tags,
+.pg-viewport[data-density="xl"] .pg-steam-tags {
+  --pg-steam-tag-line: 14px;
+}
+
 .pg-viewport[data-density="l"] .pg-steam-tag,
 .pg-viewport[data-density="xl"] .pg-steam-tag {
   font-size: 11px;
@@ -2830,7 +2840,9 @@ body.is-mobile .pg-spacebar button:active {
 }
 
 .pg-steam-head .pg-steam-tags {
-  flex-wrap: wrap;
+  --pg-steam-tag-line: 15px;
+  height: auto;
+  overflow: visible;
 }
 
 .pg-steam-head .pg-steam-tag {

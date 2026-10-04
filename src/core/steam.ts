@@ -190,9 +190,12 @@ export interface PriceTag {
  * will not sell it for, because "when can I play it" is the question a
  * wishlist card is being asked. A free game that is not out yet says that
  * too: "Free to Play" on something you cannot play reads as a mistake.
+ *
+ * @param releaseInCorner off where the release date has a row of its own,
+ * as in the detail view, so the corner keeps to what the game costs.
  */
-export function priceTag(app: SteamApp): PriceTag | null {
-  if (app.comingSoon) {
+export function priceTag(app: SteamApp, releaseInCorner = true): PriceTag | null {
+  if (app.comingSoon && releaseInCorner) {
     return { discount: "", original: "", final: app.releaseDate || "Coming soon" };
   }
   if (app.isFree) return { discount: "", original: "", final: "Free to Play" };
@@ -481,7 +484,7 @@ export function steamBandHeight(columnWidth: number): number {
 /** Genres the price corner already says, so the tags need not. */
 const SAID_BY_PRICE = new Set(["free to play"]);
 
-/** The few genres a card has room for, in Steam's order. */
-export function cardGenres(app: SteamApp, max = 3): string[] {
+/** The genres worth a tag, in Steam's order, at most `max` of them. */
+export function cardGenres(app: SteamApp, max = Infinity): string[] {
   return app.genres.filter((g) => !SAID_BY_PRICE.has(g.toLowerCase())).slice(0, max);
 }

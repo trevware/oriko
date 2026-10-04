@@ -11,8 +11,12 @@ import type { SteamApp } from "./core/steam";
  * the old price struck through above the new one. A full price, "Free to
  * Play", or a release status is the final line alone.
  */
-export function paintPrice(parent: HTMLElement, app: SteamApp): HTMLElement | null {
-  const tag = priceTag(app);
+export function paintPrice(
+  parent: HTMLElement,
+  app: SteamApp,
+  releaseInCorner = true
+): HTMLElement | null {
+  const tag = priceTag(app, releaseInCorner);
   if (!tag) return null;
   const price = parent.createDiv({ cls: "pg-steam-price" });
   if (tag.discount) price.createDiv({ cls: "pg-steam-discount", text: tag.discount });
@@ -20,7 +24,7 @@ export function paintPrice(parent: HTMLElement, app: SteamApp): HTMLElement | nu
   if (tag.original) amounts.createDiv({ cls: "pg-steam-original", text: tag.original });
   amounts.createDiv({ cls: "pg-steam-final", text: tag.final });
   price.toggleClass("is-discounted", Boolean(tag.discount));
-  price.toggleClass("is-upcoming", app.comingSoon);
+  price.toggleClass("is-upcoming", app.comingSoon && releaseInCorner);
   return price;
 }
 
