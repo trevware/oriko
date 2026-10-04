@@ -65,6 +65,8 @@ const FRAME_INSET = 4;
 /** How long a landing card shows its check before fading, and how long the fade takes. */
 const LAND_HOLD_MS = 650;
 const LAND_FADE_MS = 420;
+/** A store card's band when it rises over the art on hover; matches styles.css. */
+const HOVER_STEAM_BAND = 56;
 
 /** Horizontal padding inside a pill, matching .pg-badge in styles.css. */
 const TICKER_PAD = 9;
@@ -1703,6 +1705,25 @@ export class GridRenderer {
       paintXBand(frame, model.x, bandLines(model.x.post.text, this.columnWidth - FRAME_INSET * 2));
     }
     frame.toggleClass("is-hover-band", model.bandMode === "hover");
+    this.setHoverBand(frame, model);
+  }
+
+  /**
+   * How tall a hover band stands, so the bottom pill can ride up with it and
+   * sit just above it. The X band's own estimate, which is close enough for a
+   * pill to clear it; the store band is a fixed height.
+   */
+  private setHoverBand(frame: HTMLElement, model: TileModel): void {
+    if (model.bandMode !== "hover") {
+      frame.style.removeProperty("--pg-band-h");
+      return;
+    }
+    const height = model.steam
+      ? HOVER_STEAM_BAND
+      : model.x
+        ? bandHeight(model.x.post.text, this.columnWidth - FRAME_INSET * 2)
+        : 0;
+    frame.style.setProperty("--pg-band-h", `${height}px`);
   }
 
   /**
@@ -1940,6 +1961,7 @@ export class GridRenderer {
         ? this.paintXFrame(frame, model.x)
         : frame;
     frame.toggleClass("is-hover-band", Boolean(model.bandMode === "hover" && (model.steam || model.x)));
+    this.setHoverBand(frame, model);
     element.look = model.steam ? "steam" : model.x ? "x" : "";
     element.root.toggleClass("is-steam", Boolean(model.steam));
 
