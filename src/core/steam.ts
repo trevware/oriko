@@ -464,3 +464,24 @@ export function steamLook(
     stamp: `${fetchedAt}|${local}|${header.remote ? "r" : "l"}|${trailerFile}`,
   };
 }
+
+/**
+ * How tall a store card's band of details is, for a wall laid out to this
+ * column width.
+ *
+ * None at the tightest stage, which exists to show more pictures and has no
+ * room for a name and a price; there the card is its art, like any tile.
+ * Otherwise it grows a little with the column, so the text in it can too.
+ */
+export function steamBandHeight(columnWidth: number): number {
+  if (columnWidth <= 140) return 0;
+  return Math.round(Math.min(78, Math.max(52, 30 + columnWidth * 0.12)));
+}
+
+/** Genres the price corner already says, so the tags need not. */
+const SAID_BY_PRICE = new Set(["free to play"]);
+
+/** The few genres a card has room for, in Steam's order. */
+export function cardGenres(app: SteamApp, max = 3): string[] {
+  return app.genres.filter((g) => !SAID_BY_PRICE.has(g.toLowerCase())).slice(0, max);
+}

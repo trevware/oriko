@@ -2628,3 +2628,267 @@ body.is-mobile .pg-spacebar button:active {
     transform 180ms cubic-bezier(0.22, 0.9, 0.28, 1),
     box-shadow 180ms ease;
 }
+
+/* ---- Steam: store page clippings drawn as store cards ------------------ */
+
+/* The store's own palette, in both themes: a store card is meant to read as
+   Steam at a glance, the way the store's own capsules do. Named once here so
+   the card and the detail view's store panel cannot drift apart. */
+.oriko-view {
+  --pg-steam-navy: #1b2838;
+  --pg-steam-ink: #c7d5e0;
+  --pg-steam-dim: #8f98a0;
+  --pg-steam-blue: #67c1f5;
+  --pg-steam-chip: rgba(103, 193, 245, 0.16);
+  --pg-steam-green: #beee11;
+  --pg-steam-green-box: #4c6b22;
+  --pg-steam-price-box: #344654;
+  --pg-steam-struck: #738895;
+}
+
+/* The art on top, the band under it. Stretched rather than centred, which is
+   what .pg-frame does for a lone picture. */
+.pg-frame.pg-steam {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  background: var(--pg-steam-navy);
+}
+
+.pg-steam-art {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pg-steam-band {
+  flex: 0 0 var(--pg-steam-band, 0px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 10px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #16202d 0%, var(--pg-steam-navy) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: var(--pg-steam-ink);
+}
+
+/* At the tightest stage the card is its art, like any tile. The layout
+   reserves no room for the band there either; see steamBandHeight. */
+.pg-viewport[data-density="xs"] .pg-steam-band {
+  display: none;
+}
+
+.pg-steam-name {
+  overflow: hidden;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pg-steam-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.pg-steam-tags {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pg-steam-tag {
+  flex: none;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background: var(--pg-steam-chip);
+  color: var(--pg-steam-blue);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+/* A tag that does not fit is dropped whole rather than cut off mid-word. */
+.pg-steam-tags .pg-steam-tag:not(:first-child) {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-steam-price {
+  flex: none;
+  display: flex;
+  align-items: stretch;
+  margin-left: auto;
+  border-radius: 2px;
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 1.15;
+}
+
+.pg-steam-discount {
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+  background: var(--pg-steam-green-box);
+  color: var(--pg-steam-green);
+  font-weight: 700;
+}
+
+.pg-steam-amounts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 3px 6px;
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--pg-steam-ink);
+}
+
+.pg-steam-price.is-discounted .pg-steam-amounts {
+  background: var(--pg-steam-price-box);
+  color: var(--pg-steam-green);
+}
+
+.pg-steam-original {
+  color: var(--pg-steam-struck);
+  font-size: 0.82em;
+  text-decoration: line-through;
+}
+
+.pg-steam-price.is-upcoming .pg-steam-amounts {
+  color: var(--pg-steam-blue);
+}
+
+/* The band's text grows a little with the band. */
+.pg-viewport[data-density="l"] .pg-steam-name,
+.pg-viewport[data-density="xl"] .pg-steam-name {
+  font-size: 14px;
+}
+
+.pg-viewport[data-density="l"] .pg-steam-price,
+.pg-viewport[data-density="xl"] .pg-steam-price {
+  font-size: 13px;
+}
+
+.pg-viewport[data-density="l"] .pg-steam-tag,
+.pg-viewport[data-density="xl"] .pg-steam-tag {
+  font-size: 11px;
+}
+
+/* The store page in the detail view's panel. Oriko's own labels and rows
+   carry the facts; only the price corner and the genre chips wear the
+   store's colours, so the panel still reads as this plugin's. */
+.pg-steam-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.pg-steam-heading {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-normal);
+}
+
+.pg-steam-blurb {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pg-steam-head .pg-steam-price {
+  margin-left: 0;
+  font-size: 14px;
+}
+
+.pg-steam-head .pg-steam-discount {
+  padding: 0 9px;
+  font-size: 15px;
+}
+
+.pg-steam-head .pg-steam-amounts {
+  padding: 5px 9px;
+  background: var(--pg-steam-navy);
+}
+
+.pg-steam-head .pg-steam-price.is-discounted .pg-steam-amounts {
+  background: var(--pg-steam-price-box);
+}
+
+.pg-steam-head .pg-steam-tags {
+  flex-wrap: wrap;
+}
+
+.pg-steam-head .pg-steam-tag {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* Trailer and screenshots, two to a row at the panel's width. */
+.pg-steam-shots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.oriko-view button.pg-steam-shot {
+  position: relative;
+  height: auto;
+  padding: 0;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: none;
+  border-radius: 4px;
+  background: var(--pg-steam-navy);
+  box-shadow: none;
+  cursor: pointer;
+  opacity: 0.62;
+  transition: opacity 120ms ease;
+}
+
+.oriko-view button.pg-steam-shot:hover,
+.oriko-view button.pg-steam-shot.is-active {
+  opacity: 1;
+}
+
+.oriko-view button.pg-steam-shot.is-active {
+  outline: 2px solid var(--pg-steam-blue);
+  outline-offset: -2px;
+}
+
+.pg-steam-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.pg-steam-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.6));
+}
+
+.pg-steam-play .svg-icon {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}

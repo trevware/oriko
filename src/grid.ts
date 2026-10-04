@@ -42,6 +42,9 @@ import {
 } from "./core/selection";
 import type { Rect } from "./core/selection";
 import type { TileModel } from "./core/tile";
+import { steamBandHeight } from "./core/steam";
+import type { SteamLook } from "./core/steam";
+import { paintBand } from "./steam-card";
 
 /** Layout gap. Cards sit inset inside their box, adding SELECT_LIFT a side. */
 const GAP = 6;
@@ -52,6 +55,8 @@ const GAP = 6;
  * animate it without laying out.
  */
 const SELECT_LIFT = 4;
+/** How far .pg-frame sits inside its tile, on each edge. */
+const FRAME_INSET = 4;
 
 /** Horizontal padding inside a pill, matching .pg-badge in styles.css. */
 const TICKER_PAD = 9;
@@ -103,6 +108,8 @@ interface TileElement {
   id: string;
   signature: string;
   kind: string;
+  /** "steam" while the element is drawn as a store card, otherwise "". */
+  look: string;
 }
 
 /**
@@ -245,6 +252,7 @@ export class GridRenderer {
   constructor(private app: App, container: HTMLElement) {
     this.viewport = container.createDiv({ cls: "pg-viewport" });
     this.viewport.dataset.density = DEFAULT_STAGE;
+    this.setSteamBand();
 
     /*
      * On touch the wall is scrolled by the browser rather than by us.
@@ -391,6 +399,7 @@ export class GridRenderer {
     this.viewport.dataset.density = stage;
     if (width === this.targetColumnWidth) return;
     this.targetColumnWidth = width;
+    this.setSteamBand();
     // Folders count as something to lay out. A grid can hold nothing but
     // folders, and this read `this.tiles.length > 0` from before they
     // existed, so such a wall stored the new width and never reflowed to it:
@@ -719,7 +728,19 @@ export class GridRenderer {
         ...folderItems,
         ...this.tiles.map((t) => {
           const learned = t.provisional ? this.measured.get(t.id) : undefined;
-          return { id: t.id, width: learned?.w ?? t.width, height: learned?.h ?? t.height };
+          const width = learned?.w ?? t.width;
+          const height = learned?.h ?? t.height;
+          if (!t.steam || !(width > 0)) return { id: t.id, width, height };
+          // A store card is its art at the art's own shape with a band of a
+          // fixed height under it, which no single ratio can describe, so it
+          // is laid out as the height it will be in this column.
+          const art = this.columnWidth - FRAME_INSET * 2;
+          const band = steamBandHeight(this.targetColumnWidth);
+          return {
+            id: t.id,
+            width: this.columnWidth,
+            height: (art * height) / width + band + FRAME_INSET * 2,
+          };
         }),
       ],
       size.width,
@@ -1518,7 +1539,7 @@ export class GridRenderer {
     const recycled = this.pool.pop();
     if (recycled) return recycled;
     const root = this.canvas.createDiv({ cls: "pg-tile" });
-    return { root, media: null, id: "", signature: "", kind: "" };
+    return { root, media: null, id: "", signature: "", kind: "", look: "" };
   }
 
   private release(tile: TileElement): void {
@@ -1533,8 +1554,34 @@ export class GridRenderer {
     tile.id = "";
     tile.signature = "";
     tile.kind = "";
+    tile.look = "";
+    tile.root.removeClass("is-steam");
     tile.media = null;
     this.pool.push(tile);
+  }
+
+  /**
+   * Turns a frame into a store card and returns the box its picture goes in.
+   * The band's height is the one the layout reserved, read from the same
+   * place, so the art keeps exactly the shape it was laid out at.
+   */
+  private paintSteamFrame(frame: HTMLElement, steam: SteamLook): HTMLElement {
+    frame.addClass("pg-steam");
+    const art = frame.createDiv({ cls: "pg-steam-art" });
+    paintBand(frame, steam.app);
+    return art;
+  }
+
+  /**
+   * The band's height lives on the viewport, not on each card, so a change of
+   * tile size reaches cards that are not repainted for it: their content has
+   * not changed, only the room the layout gives them.
+   */
+  private setSteamBand(): void {
+    this.viewport.style.setProperty(
+      "--pg-steam-band",
+      `${steamBandHeight(this.targetColumnWidth)}px`
+    );
   }
 
   private sourceFor(path: string, remote: boolean): string {
@@ -1662,6 +1709,7 @@ export class GridRenderer {
     // and let the view decide how long to keep waiting.
     if (!original) {
       element.root.empty();
+      element.look = "";
       element.media = null;
       element.id = model.id;
       element.kind = model.kind;
@@ -1672,10 +1720,14 @@ export class GridRenderer {
 
     // An image tile whose source changed (archiving replaced the remote copy
     // with a local one) swaps in place rather than rebuilding the tile.
+    // Never for a store card, whose band of details has to be redrawn when
+    // its price moves even though its picture has not.
     if (
       element.id === model.id &&
       element.kind === "image" &&
       model.kind === "image" &&
+      !model.steam &&
+      element.look === "" &&
       element.media instanceof HTMLImageElement
     ) {
       const image = element.media;
@@ -1698,9 +1750,14 @@ export class GridRenderer {
     element.media = null;
 
     const frame = element.root.createDiv({ cls: "pg-frame" });
+    // A store card is its art over a band of details; the picture, and the
+    // pills that float over it, go into the art and leave the band alone.
+    const host = model.steam ? this.paintSteamFrame(frame, model.steam) : frame;
+    element.look = model.steam ? "steam" : "";
+    element.root.toggleClass("is-steam", Boolean(model.steam));
 
     if (model.kind === "video") {
-      const video = frame.createEl("video", { cls: "pg-media" });
+      const video = host.createEl("video", { cls: "pg-media" });
       video.muted = true;
       video.loop = true;
       video.playsInline = true;
@@ -1726,7 +1783,7 @@ export class GridRenderer {
       else video.addEventListener("loadeddata", () => video.addClass("is-loaded"), { once: true });
       element.media = video;
     } else {
-      const image = frame.createEl("img", { cls: "pg-media" });
+      const image = host.createEl("img", { cls: "pg-media" });
       // Deliberately not loading="lazy". The grid decides for itself what is
       // worth mounting, and the browser's own heuristic measures intersection
       // against a canvas sitting under a transform, so it holds the fetch back
@@ -1764,7 +1821,7 @@ export class GridRenderer {
       element.media = image;
     }
 
-    this.paintBadges(frame.createDiv({ cls: "pg-meta" }), model);
+    this.paintBadges(host.createDiv({ cls: "pg-meta" }), model);
 
     // Armed on the card because the id is in scope here; every way out of
     // a press (a second finger, movement past the slop, the lift) is on the

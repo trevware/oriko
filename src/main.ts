@@ -13,6 +13,7 @@ import {
 import { buildDiagnostics } from "./core/diagnose";
 import { setToolOverrides } from "./convert";
 import { ArchiveService } from "./archive-service";
+import { SteamService } from "./steam-service";
 import { CaptureService } from "./capture";
 import { ClippingIndex } from "./index-store";
 import { OrikoSettings, DEFAULT_SETTINGS } from "./core/settings";
@@ -41,6 +42,7 @@ export default class OrikoPlugin extends Plugin {
   settings: OrikoSettings = DEFAULT_SETTINGS;
   index!: ClippingIndex;
   archiver!: ArchiveService;
+  steam!: SteamService;
   capture!: CaptureService;
   /** The last shared file this device wrote, to recognise its own echo. */
   private wroteShared = "";
@@ -54,6 +56,22 @@ export default class OrikoPlugin extends Plugin {
   private scheduleArchive(delayMs: number): void {
     window.clearTimeout(this.archiveTimer);
     this.archiveTimer = window.setTimeout(() => void this.archiver.archiveMissing(), delayMs);
+  }
+
+  private steamTimer = 0;
+
+  /**
+   * Asks Steam about any game clipping that is due, debounced like the
+   * archive pass. Runs whether or not automatic downloads are on, because a
+   * store card is drawn from what Steam says, not from saved files; the
+   * setting only decides whether the art is saved into the vault as well.
+   */
+  private scheduleSteam(delayMs: number): void {
+    window.clearTimeout(this.steamTimer);
+    this.steamTimer = window.setTimeout(
+      () => void this.steam.refresh(this.settings.archiveOnCreate),
+      delayMs
+    );
   }
 
   async onload(): Promise<void> {
@@ -77,6 +95,18 @@ export default class OrikoPlugin extends Plugin {
       this.manifest.dir ?? `${this.app.vault.configDir}/plugins/oriko`
     );
     await this.archiver.loadCache();
+    this.steam = new SteamService(
+      this.app,
+      () => this.settings,
+      this.manifest.dir ?? `${this.app.vault.configDir}/plugins/oriko`,
+      () => this.archiver.cache,
+      () => this.index.records()
+    );
+    await this.steam.load();
+    this.register(() => window.clearTimeout(this.steamTimer));
+    // Prices move while Obsidian stays open for days. The pass asks only
+    // about games whose answer is a day old, so an hourly look costs nothing.
+    this.registerInterval(window.setInterval(() => this.scheduleSteam(0), 60 * 60 * 1000));
     this.capture = new CaptureService(
       this.app,
       () => this.settings,
@@ -216,6 +246,10 @@ export default class OrikoPlugin extends Plugin {
         if (this.settings.archiveOnCreate) {
           this.scheduleArchive(1500);
         }
+        this.scheduleSteam(1000);
+        // A clipping added afterwards, by the Web Clipper or by Oriko itself,
+        // gets its store card without waiting for the hourly look.
+        this.index.onChange(() => this.scheduleSteam(1500));
       });
     });
 
@@ -308,6 +342,8 @@ export default class OrikoPlugin extends Plugin {
   archiveAllMedia(): void {
     new Notice("Oriko: downloading media…");
     void this.archiver.archiveEverything().then((r) => this.archiver.notifyResult(r));
+    // Store art is saved by its own pass, which the setting otherwise skips.
+    void this.steam.refresh(true);
   }
 
   /** Lifted out of its command so the grid's create menu can call it too. */

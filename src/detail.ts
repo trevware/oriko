@@ -17,6 +17,9 @@ import { visibilityAction } from "./core/playback";
 import { isHttpUrl } from "./core/resolve";
 import type { Box, FlightShape } from "./core/layout";
 import type { TileModel } from "./core/tile";
+import { platformNames } from "./core/steam";
+import type { SteamAsset, SteamLook } from "./core/steam";
+import { paintGenres, paintPrice } from "./steam-card";
 import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
 import { attachTip } from "./core/tip";
 import { canShareFiles } from "./core/share";
@@ -133,6 +136,23 @@ function naturalSize(
   });
 }
 
+/** What the stage shows: a clipping's own media, or one of a store page's. */
+interface StageMedia {
+  /** A URL the renderer can load. */
+  src: string;
+  kind: "image" | "video";
+  poster: string;
+  /** The size to assume until the real one is known. */
+  fallback: { width: number; height: number };
+}
+
+const SCREEN = { width: 1920, height: 1080 };
+
+/** True where a <video> plays HLS by itself: iOS and Safari, not Chromium. */
+function playsHls(): boolean {
+  return createEl("video").canPlayType("application/vnd.apple.mpegurl") !== "";
+}
+
 export class DetailView {
   private root: HTMLElement | null = null;
   private stage: HTMLElement | null = null;
@@ -247,11 +267,8 @@ export class DetailView {
     this.current = model;
     this.originNow = originNow;
 
-    const url = model.remote ? model.filePath : this.resource(model.filePath);
-    const size = await naturalSize(url, model.kind, {
-      width: model.width,
-      height: model.height,
-    });
+    const media = this.stageMediaFor(model);
+    const size = await naturalSize(media.src, media.kind, media.fallback);
 
     this.root = this.container.createDiv({ cls: "pg-detail" });
     const backdrop = this.root.createDiv({ cls: "pg-detail-backdrop" });
@@ -291,11 +308,11 @@ export class DetailView {
     const target = layout.stage;
     this.place(layout, bounds);
 
-    const image = this.paintMedia(model);
+    const image = this.paintMedia(media);
     const panel = this.paintMeta(model, layout);
     this.meta = panel;
     this.paintActions(model);
-    if (image) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image);
 
     this.onStageReady?.();
     this.zoomedNow = false;
@@ -354,13 +371,13 @@ export class DetailView {
   /** Returns the image on the stage, or null when the stage holds a video.
       The palette needs the decoded element, and this is the only place that
       knows which of the two was built. */
-  private paintMedia(model: TileModel): HTMLImageElement | null {
+  private paintMedia(media: StageMedia): HTMLImageElement | null {
     const host = this.layer;
     if (!host) return null;
 
-    if (model.kind === "video") {
+    if (media.kind === "video") {
       const video = host.createEl("video", { cls: "pg-detail-media" });
-      video.src = model.remote ? model.filePath : this.resource(model.filePath);
+      video.src = media.src;
       // Desktop only fades Chromium's control bar in on hover, but iOS
       // parks its overlay on top of the video from the first frame. So on
       // mobile the video opens bare — it is already playing on a loop — and
@@ -372,15 +389,77 @@ export class DetailView {
       video.autoplay = true;
       video.loop = true;
       video.playsInline = true;
-      if (model.posterPath) video.poster = this.resource(model.posterPath);
+      if (media.poster) video.poster = media.poster;
       this.watchVisibility(video);
       return null;
     }
 
     const image = host.createEl("img", { cls: "pg-detail-media" });
-    image.src = model.remote ? model.filePath : this.resource(model.filePath);
+    image.src = media.src;
     image.decoding = "async";
     return image;
+  }
+
+  /** The stage's media for an ordinary clipping: its own picture or video. */
+  private ownMedia(model: TileModel): StageMedia {
+    return {
+      src: model.remote ? model.filePath : this.resource(model.filePath),
+      kind: model.kind,
+      poster: model.posterPath ? this.resource(model.posterPath) : "",
+      fallback: { width: model.width, height: model.height },
+    };
+  }
+
+  private assetUrl(asset: SteamAsset): string {
+    return asset.remote ? asset.path : this.resource(asset.path);
+  }
+
+  /**
+   * What a store page opens on, which is what the store itself leads with:
+   * the trailer, playing. The saved copy where there is one; Steam's own
+   * stream where the platform can play it, which iOS can and desktop
+   * Chromium cannot; and failing both, the first screenshot.
+   */
+  private stageMediaFor(model: TileModel): StageMedia {
+    const steam = model.steam;
+    if (!steam) return this.ownMedia(model);
+    const trailer = steam.app.trailers[0];
+    const poster = trailer?.thumb ?? "";
+    if (steam.trailerFile) {
+      return { src: this.resource(steam.trailerFile), kind: "video", poster, fallback: SCREEN };
+    }
+    if (trailer && playsHls()) {
+      return { src: trailer.hls, kind: "video", poster, fallback: SCREEN };
+    }
+    const shot = steam.screenshots[0];
+    if (shot) return { src: this.assetUrl(shot.full), kind: "image", poster: "", fallback: SCREEN };
+    return this.ownMedia(model);
+  }
+
+  /**
+   * Puts other media on the stage without leaving the store page: a
+   * screenshot picked from the strip, or the trailer again. The details stay
+   * where they are; the stage refits to the new picture's shape.
+   */
+  private async swapStage(media: StageMedia): Promise<void> {
+    if (!this.root || !this.stage || !this.layer || this.closing || this.flying) return;
+    this.stopWatchingVisibility();
+    const size = await naturalSize(media.src, media.kind, media.fallback);
+    if (!this.root || !this.stage || !this.layer || this.closing) return;
+
+    this.natural = size;
+    this.view = { ...FIT };
+    this.dragging = false;
+    this.zoomedNow = false;
+    this.touches.clear();
+    this.pinchStart = null;
+    this.cancelApply();
+
+    const bounds = this.container.getBoundingClientRect();
+    this.layer.empty();
+    this.place(detailLayout(size, { width: bounds.width, height: bounds.height }), bounds);
+    this.applyView();
+    this.paintMedia(media);
   }
 
   /** Parity with the wall: nothing plays behind a window you cannot see. */
@@ -445,11 +524,8 @@ export class DetailView {
     this.stopWatchingVisibility();
     this.suspended = false;
 
-    const url = model.remote ? model.filePath : this.resource(model.filePath);
-    const size = await naturalSize(url, model.kind, {
-      width: model.width,
-      height: model.height,
-    });
+    const media = this.stageMediaFor(model);
+    const size = await naturalSize(media.src, media.kind, media.fallback);
     if (!this.root || !this.stage || !this.layer || this.closing) return;
 
     this.natural = size;
@@ -470,11 +546,11 @@ export class DetailView {
 
     this.place(layout, bounds);
     this.applyView();
-    const image = this.paintMedia(model);
+    const image = this.paintMedia(media);
     const panel = this.paintMeta(model, layout, false);
     this.meta = panel;
     this.paintActions(model);
-    if (image) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image);
 
     // The return flight heads for the card this shows now, not the one the
     // overlay was opened from.
@@ -581,11 +657,18 @@ export class DetailView {
       block.createDiv({ cls: "pg-detail-value", text: value });
     };
 
-    field("Title", model.record.title);
-    if (model.width > 4 && model.height > 3) {
-      field("Resolution", `${model.width} × ${model.height}`);
+    if (model.steam) {
+      // The store page's own details lead, in place of the picture's: a
+      // card's header capsule has a resolution and a filename, but they are
+      // not what anyone opened a game to find out.
+      this.paintSteamPanel(panel, model.steam, field);
+    } else {
+      field("Title", model.record.title);
+      if (model.width > 4 && model.height > 3) {
+        field("Resolution", `${model.width} × ${model.height}`);
+      }
+      field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
     }
-    field("Filename", model.filePath.slice(model.filePath.lastIndexOf("/") + 1));
     // The whole address, as a link out to the page. It was shown as the
     // domain with the URL on hover, and the hover is not there on a phone;
     // the value wraps anywhere, so a long one costs lines, not clipping.
@@ -614,6 +697,89 @@ export class DetailView {
     }
 
     return panel;
+  }
+
+  /**
+   * The store page in the details panel: the name and blurb, the price
+   * corner as the store draws it, the genres, the facts, and a strip of the
+   * trailer and screenshots that puts each on the stage when picked.
+   */
+  private paintSteamPanel(
+    panel: HTMLElement,
+    steam: SteamLook,
+    field: (label: string, value: string) => void
+  ): void {
+    const app = steam.app;
+    const head = panel.createDiv({ cls: "pg-steam-head" });
+    head.createDiv({ cls: "pg-steam-heading", text: app.name });
+    if (app.description) head.createDiv({ cls: "pg-steam-blurb", text: app.description });
+    const buy = head.createDiv({ cls: "pg-steam-buy" });
+    paintPrice(buy, app);
+    paintGenres(head, app.genres);
+
+    field("Release date", app.releaseDate);
+    field(app.developers.length > 1 ? "Developers" : "Developer", app.developers.join(", "));
+    // Only when it says something the developer line did not.
+    if (app.publishers.join() !== app.developers.join()) {
+      field(app.publishers.length > 1 ? "Publishers" : "Publisher", app.publishers.join(", "));
+    }
+    field("Platforms", platformNames(app).join(", "));
+
+    const choices = this.steamChoices(steam);
+    if (choices.length < 2) return;
+
+    const block = panel.createDiv({ cls: "pg-detail-field" });
+    block.createDiv({ cls: "pg-detail-label", text: "Media" });
+    const strip = block.createDiv({ cls: "pg-steam-shots" });
+    const thumbs: HTMLElement[] = [];
+    choices.forEach((choice, index) => {
+      const thumb = strip.createEl("button", { cls: "pg-steam-shot" });
+      thumb.setAttribute("aria-label", choice.label);
+      if (choice.thumb) {
+        const image = thumb.createEl("img", { attr: { alt: "", decoding: "async" } });
+        image.src = choice.thumb;
+      }
+      if (choice.media.kind === "video") setIcon(thumb.createDiv({ cls: "pg-steam-play" }), "play");
+      thumb.toggleClass("is-active", index === 0);
+      thumb.onclick = () => {
+        for (const other of thumbs) other.removeClass("is-active");
+        thumb.addClass("is-active");
+        void this.swapStage(choice.media);
+      };
+      thumbs.push(thumb);
+    });
+  }
+
+  /**
+   * What the strip offers, in the store's order: the trailer, when one can
+   * play here, then every screenshot. The first is what the stage opened on.
+   */
+  private steamChoices(
+    steam: SteamLook
+  ): Array<{ media: StageMedia; thumb: string; label: string }> {
+    const choices: Array<{ media: StageMedia; thumb: string; label: string }> = [];
+    const trailer = steam.app.trailers[0];
+    const trailerSrc = steam.trailerFile
+      ? this.resource(steam.trailerFile)
+      : trailer && playsHls()
+        ? trailer.hls
+        : "";
+    if (trailerSrc) {
+      const poster = trailer?.thumb ?? "";
+      choices.push({
+        media: { src: trailerSrc, kind: "video", poster, fallback: SCREEN },
+        thumb: poster,
+        label: "Trailer",
+      });
+    }
+    steam.screenshots.forEach((shot, index) => {
+      choices.push({
+        media: { src: this.assetUrl(shot.full), kind: "image", poster: "", fallback: SCREEN },
+        thumb: this.assetUrl(shot.thumb),
+        label: `Screenshot ${index + 1}`,
+      });
+    });
+    return choices;
   }
 
   /**

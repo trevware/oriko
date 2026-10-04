@@ -5,11 +5,13 @@ import {
   STEAM_FRESH_MS,
   STEAM_RETRY_MS,
   SteamStore,
+  cardGenres,
   parseAppDetails,
   platformNames,
   priceTag,
   screenshotFile,
   steamAppId,
+  steamBandHeight,
   steamFiles,
   steamIdOfPath,
   steamIdsLeftBehind,
@@ -248,5 +250,19 @@ describe("steamLook", () => {
     const one = steamLook(roco, 1, FOLDER, () => false, "");
     expect(steamLook(roco, 2, FOLDER, () => false, "").stamp).not.toBe(one.stamp);
     expect(steamLook(roco, 1, FOLDER, () => false, "v.mp4").stamp).not.toBe(one.stamp);
+  });
+});
+
+describe("card details", () => {
+  it("has no band at the tightest stage and a modest one elsewhere", () => {
+    expect(steamBandHeight(120)).toBe(0);
+    expect(steamBandHeight(200)).toBe(54);
+    expect(steamBandHeight(300)).toBe(66);
+    expect(steamBandHeight(600)).toBe(78);
+  });
+
+  it("leaves Free to Play to the price corner", () => {
+    expect(cardGenres(app("4821880"))).toEqual(["Action", "Adventure", "Casual"]);
+    expect(cardGenres({ ...app("4821880"), genres: ["Free To Play", "RPG"] })).toEqual(["RPG"]);
   });
 });

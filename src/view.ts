@@ -81,6 +81,8 @@ import {
 import type { GridSpace, PlacedGrid } from "./core/spaces";
 import { buildTiles, previewOf } from "./core/tile";
 import type { TileModel } from "./core/tile";
+import type { ClippingRecord } from "./core/scan";
+import type { SteamLook } from "./core/steam";
 
 export const VIEW_TYPE_GRID = "oriko";
 
@@ -152,6 +154,9 @@ export class OrikoView extends ItemView {
    * archiving gives it a different, working cover.
    */
   private unloadable = new Map<string, string>();
+  /** A store page clipping's Steam look, for the tiles drawn as store cards. */
+  private steamLook = (record: ClippingRecord): SteamLook | null =>
+    this.plugin.steam.lookFor(record);
   /**
    * Covers waiting on a file the vault has not registered yet, kept apart
    * from `unloadable` because they are not failures: an attachment written a
@@ -467,6 +472,7 @@ export class OrikoView extends ItemView {
 
     this.plugin.index.onChange(() => this.refresh());
     this.plugin.archiver.onChange(() => this.refresh());
+    this.plugin.steam.onChange(() => this.refresh());
 
     // The stage is a fixed frame: the wall pans inside it, and nothing else
     // may move it. Overflow: hidden stops a user scrolling it but not the
@@ -1296,7 +1302,8 @@ export class OrikoView extends ItemView {
             this.registered()
           ),
       this.plugin.archiver.cache,
-      this.unloadable
+      this.unloadable,
+      this.steamLook
     );
 
     // Facets are counted from the whole grid, not from what survives the
@@ -1559,7 +1566,7 @@ export class OrikoView extends ItemView {
   private previewUrl(path: string): string {
     const record = this.plugin.index.get(path);
     if (!record) return "";
-    const [tile] = buildTiles([record], this.plugin.archiver.cache);
+    const [tile] = buildTiles([record], this.plugin.archiver.cache, undefined, this.steamLook);
     const preview = tile ? previewOf(tile) : null;
     return preview ? resourceUrl(this.app.vault, preview.path, preview.remote) : "";
   }
