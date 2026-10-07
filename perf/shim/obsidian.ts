@@ -24,13 +24,18 @@ function classesOf(cls: string | string[] | undefined): string[] {
   return (Array.isArray(cls) ? cls : cls.split(" ")).filter(Boolean);
 }
 
+// This file stands in for createEl itself, so it has to build with the native
+// call underneath it. In an HTML document, createElementNS with the HTML
+// namespace is exactly what createElement does.
+const HTML_NS = "http://www.w3.org/1999/xhtml";
+
 function build<K extends keyof HTMLElementTagNameMap>(
   parent: HTMLElement | null,
   tag: K,
   info?: ElInfo | string,
   callback?: (el: HTMLElementTagNameMap[K]) => void
 ): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
+  const el = document.createElementNS(HTML_NS, tag) as HTMLElementTagNameMap[K];
   const o: ElInfo = typeof info === "string" ? { cls: info } : info ?? {};
   for (const c of classesOf(o.cls)) el.classList.add(c);
   if (o.text !== undefined) el.textContent = o.text;

@@ -1,5 +1,10 @@
 // The check the Obsidian community directory runs on every submission and
 // release. Run `npm run lint` before anything is pushed.
+//
+// The directory runs its own copy of these rules and never reads this file,
+// so a rule turned off here still counts against the plugin there. Only turn
+// rules off for files the directory skips (tests/ and .mjs scripts); fix
+// everything else at the source.
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 
@@ -29,14 +34,6 @@ export default defineConfig([
       "obsidianmd/rule-custom-message": "off",
       "obsidianmd/no-nodejs-modules": "off",
       "obsidianmd/prefer-window-timers": "off",
-    },
-  },
-  {
-    // The perf shim stands in for Obsidian's own DOM helpers, so it has to
-    // build elements the way those helpers do underneath.
-    files: ["perf/shim/**/*.ts"],
-    rules: {
-      "obsidianmd/prefer-create-el": "off",
     },
   },
 ]);
