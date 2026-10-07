@@ -89,11 +89,19 @@ writeFileSync(join(vault, ".obsidian", "core-plugins.json"), JSON.stringify({}))
 
 const plugin = join(vault, ".obsidian", "plugins", "oriko");
 for (const f of ["main.js", "manifest.json", "styles.css"]) cpSync(join(root, "dist", f), join(plugin, f));
-for (const f of ["cache.json", "steam.json", "x.json"]) clone(join(source, ".obsidian", "plugins", "oriko", f), join(plugin, f));
-// Nothing reaches out to the network mid-measurement.
+for (const f of ["cache.json", "steam.json", "posts.json", "avatars"]) {
+  clone(join(source, ".obsidian", "plugins", "oriko", f), join(plugin, f));
+}
+// Nothing reaches out to the network mid-measurement. Every site's cards
+// open on hover whatever your own settings say, since that is the motion
+// the scenarios and budgets measure: with cards set to Never show there is
+// nothing on the wall to hover.
+const cards = Object.fromEntries(
+  ["steamCards", "xCards", "instagramCards", "threadsCards", "youtubeCards"].map((k) => [k, "hover"])
+);
 writeFileSync(
   join(plugin, "data.json"),
-  JSON.stringify({ ...settings, useResolvers: false, scanPages: false, readImageText: false, panelOpen: false })
+  JSON.stringify({ ...settings, ...cards, useResolvers: false, scanPages: false, readImageText: false, panelOpen: false })
 );
 
 // The app version you run, if Obsidian has updated itself past the installer.
