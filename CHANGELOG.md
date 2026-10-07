@@ -5,6 +5,11 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.68] - 2026-10-07
+
+### Fixed
+- **Oriko passes the community directory's code check again.** The last release picked up one warning, from a tool Oriko uses to measure how fast the wall is. That tool isn't part of what you install, so nothing about the plugin itself changes in this release.
+
 ## [0.1.67] - 2026-10-04
 
 ### Added
