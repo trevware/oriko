@@ -452,7 +452,9 @@ export function previewOf(tile: TileModel): Preview | null {
  * The picture a tile's colours are read from: the same still its palette
  * row shows, and only once it is on this device. A picture still on the
  * origin server carries no CORS headers, so reading its pixels would taint
- * the canvas; it is read once it has been archived.
+ * the canvas; it is read once it has been archived. Being on this device is
+ * not enough on its own: the bytes have to be read from the vault, since an
+ * <img> on an `app://` resource taints the canvas too.
  */
 export function colorSource(tile: TileModel): string | null {
   const preview = previewOf(tile);

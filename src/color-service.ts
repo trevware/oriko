@@ -1,6 +1,6 @@
-import { App, TFile, normalizePath } from "obsidian";
+import { App, TFile, Vault, normalizePath } from "obsidian";
 import { ColorStore } from "./core/color-store";
-import { SAMPLE_WIDTH, paletteOfImage } from "./core/swatch-strip";
+import { paletteOfBlob } from "./core/swatch-strip";
 import type { Swatch } from "./core/swatches";
 
 const STORE_FILE = "colors.json";
@@ -136,53 +136,26 @@ export class ColorService {
     this.store.prune(keep);
   }
 
-  /**
-   * A picture's palette, or an empty one when it cannot be read, which the
-   * store keeps so the picture is not tried again until it changes.
-   *
-   * Decoded straight to sample size where the platform can: a 12-megapixel
-   * photo decoded whole to be shrunk to 96 pixels costs a hundred times the
-   * memory and most of the time. SVG and anything createImageBitmap turns
-   * down go through an image element instead.
-   */
   private async read(file: TFile): Promise<Swatch[]> {
-    try {
-      const blob = new Blob([await this.app.vault.readBinary(file)], {
-        type: file.extension.toLowerCase() === "svg" ? "image/svg+xml" : "",
-      });
-      if (file.extension.toLowerCase() !== "svg") {
-        try {
-          const bitmap = await createImageBitmap(blob, {
-            resizeWidth: SAMPLE_WIDTH,
-            resizeQuality: "low",
-          });
-          try {
-            return paletteOfImage(bitmap, bitmap.width, bitmap.height);
-          } finally {
-            bitmap.close();
-          }
-        } catch {
-          // Fall through to the image element.
-        }
-      }
-      return await this.readByElement(blob);
-    } catch {
-      return [];
-    }
+    return await paletteOfFile(this.app.vault, file);
   }
+}
 
-  private async readByElement(blob: Blob): Promise<Swatch[]> {
-    const url = URL.createObjectURL(blob);
-    try {
-      const image = createEl("img");
-      image.decoding = "async";
-      image.src = url;
-      await image.decode();
-      return paletteOfImage(image, image.naturalWidth, image.naturalHeight);
-    } catch {
-      return [];
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+/**
+ * A picture's palette, or an empty one when it cannot be read.
+ *
+ * From the bytes, never from an <img> on the file: an `app://` resource is
+ * cross-origin to the page, so the canvas is tainted and the read comes back
+ * empty. The detail view's palette row reads through here for that reason,
+ * and so that it and the colour facet cannot disagree about a picture.
+ */
+export async function paletteOfFile(vault: Vault, file: TFile): Promise<Swatch[]> {
+  try {
+    const svg = file.extension.toLowerCase() === "svg";
+    return await paletteOfBlob(
+      new Blob([await vault.readBinary(file)], { type: svg ? "image/svg+xml" : "" })
+    );
+  } catch {
+    return [];
   }
 }

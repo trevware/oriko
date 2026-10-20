@@ -75,6 +75,51 @@ const STAGGER_MS = 32;
 const SWATCH_MS = 200;
 
 /**
+ * The palette of a picture held as bytes, decoded straight to sample size
+ * where the platform can.
+ *
+ * The only way to read a picture that lives in the vault. An <img> pointed
+ * at an `app://` resource is cross-origin to the page, so the canvas it is
+ * drawn into is tainted and getImageData throws; a Blob made here is
+ * same-origin and reads fine. SVG and anything createImageBitmap turns down
+ * go through an image element instead, which the blob's own type says:
+ * the caller has already had to name it to make the blob at all.
+ */
+export async function paletteOfBlob(blob: Blob): Promise<Swatch[]> {
+  if (blob.type !== "image/svg+xml") {
+    try {
+      const bitmap = await createImageBitmap(blob, {
+        resizeWidth: SAMPLE_WIDTH,
+        resizeQuality: "low",
+      });
+      try {
+        return paletteOfImage(bitmap, bitmap.width, bitmap.height);
+      } finally {
+        bitmap.close();
+      }
+    } catch {
+      // Fall through to the image element.
+    }
+  }
+  return await paletteByElement(blob);
+}
+
+async function paletteByElement(blob: Blob): Promise<Swatch[]> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const image = createEl("img");
+    image.decoding = "async";
+    image.src = url;
+    await image.decode();
+    return paletteOfImage(image, image.naturalWidth, image.naturalHeight);
+  } catch {
+    return [];
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * The palette of an image element, or an empty array when there is none to
  * be had.
  *

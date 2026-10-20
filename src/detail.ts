@@ -16,10 +16,12 @@ import { flightMidpoint, flipTransform } from "./core/layout";
 import { visibilityAction } from "./core/playback";
 import { isHttpUrl } from "./core/resolve";
 import type { Box, FlightShape } from "./core/layout";
+import { colorSource } from "./core/tile";
 import type { TileModel } from "./core/tile";
 import { cardGenres, platformNames } from "./core/steam";
 import type { SteamAsset, SteamLook } from "./core/steam";
 import { paintGenres, paintPrice } from "./steam-card";
+import { paletteOfFile } from "./color-service";
 import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
 import { attachTip } from "./core/tip";
 import { canShareFiles } from "./core/share";
@@ -319,7 +321,7 @@ export class DetailView {
     const panel = this.paintMeta(model, layout);
     this.meta = panel;
     this.paintActions(model);
-    if (image && !model.steam) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image, model);
 
     this.onStageReady?.();
     this.zoomedNow = false;
@@ -559,7 +561,7 @@ export class DetailView {
     const panel = this.paintMeta(model, layout, false);
     this.meta = panel;
     this.paintActions(model);
-    if (image && !model.steam) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image, model);
 
     // The return flight heads for the card this shows now, not the one the
     // overlay was opened from.
@@ -803,10 +805,11 @@ export class DetailView {
    */
   private async paintSwatches(
     panel: HTMLElement | null,
-    image: HTMLImageElement
+    image: HTMLImageElement,
+    model: TileModel
   ): Promise<void> {
     if (!panel) return;
-    const swatches = await readSwatches(image);
+    const swatches = await this.readPalette(image, model);
     if (!panel.isConnected || swatches.length === 0) return;
 
     // Held until the panel has actually arrived. Reading the colours takes a
@@ -819,6 +822,30 @@ export class DetailView {
     if (!panel.isConnected) return;
 
     paintSwatchStrip(panel, swatches);
+  }
+
+  /**
+   * The palette, read from the vault copy wherever there is one.
+   *
+   * Not from the picture on the stage: its src is an `app://` resource,
+   * which is cross-origin to the page, so the canvas readSwatches draws it
+   * into is tainted and getImageData throws. Every read came back empty and
+   * the row was never painted. The bytes out of the vault are same-origin
+   * and read fine, and it is the same picture the colour facet reads, so
+   * the row and the facet cannot disagree.
+   *
+   * A tile still showing the origin server's copy has no vault file yet and
+   * falls back to the element, which taints as well; that one starts working
+   * once the archiver has replaced the URL with a local file.
+   */
+  private async readPalette(image: HTMLImageElement, model: TileModel): Promise<string[]> {
+    const path = colorSource(model);
+    const file = path ? this.app.vault.getFileByPath(path) : null;
+    if (file) {
+      const swatches = await paletteOfFile(this.app.vault, file);
+      if (swatches.length > 0) return swatches.map((swatch) => swatch.hex);
+    }
+    return await readSwatches(image);
   }
 
   private paintActions(model: TileModel): void {
