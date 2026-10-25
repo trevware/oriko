@@ -42,8 +42,13 @@
   /* A panel sitting slightly above the wall, and not much more than that.
      The specular rim and top sheen this replaced were the glossy part: they
      read as varnish rather than as glass, and there is no version of that
-     which is subtle. Flat fill, one hairline, one soft shadow. */
-  --pg-surface: rgba(32, 32, 35, 0.88);
+     which is subtle. Flat fill, one hairline, one soft shadow.
+     Tinted by the theme: the pane's own background lifted a touch toward its
+     text colour, so a blue or warm theme gets blue or warm glass instead of a
+     neutral grey slab. Text and washes come from that text colour too. */
+  --pg-ink: var(--text-normal);
+  --pg-glass-base: color-mix(in oklab, var(--background-primary) 93%, var(--pg-ink));
+  --pg-surface: color-mix(in oklab, var(--pg-glass-base) 84%, transparent);
   --pg-surface-radius: 22px;
   --pg-surface-pad: 10px;
 
@@ -54,19 +59,21 @@
      being lighter than what is behind it, with the edge only just resolving
      the boundary. At 0.075 it was drawing an outline, which puts the panel
      in front of the wall rather than just above it. */
-  --pg-surface-ring: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --pg-surface-ring: inset 0 0 0 1px color-mix(in srgb, var(--pg-ink) 7%, transparent);
   /* Every value below is a role, not a colour, so the light theme can
      restate the set without touching a single rule that uses them. The
      alphas differ between themes on purpose: a wash that reads as a gentle
-     lift on a dark panel reads as a smudge on a light one. */
-  --pg-surface-mid: rgba(255, 255, 255, 0.72);
-  --pg-surface-dim: rgba(255, 255, 255, 0.45);
-  --pg-surface-faint: rgba(255, 255, 255, 0.35);
-  --pg-inner-active: rgba(255, 255, 255, 0.14);
-  --pg-inner-press: rgba(255, 255, 255, 0.22);
-  --pg-inner-well: rgba(255, 255, 255, 0.07);
-  --pg-inner-chip: rgba(255, 255, 255, 0.1);
-  --pg-rule: rgba(255, 255, 255, 0.12);
+     lift on a dark panel reads as a smudge on a light one. Quieter text is
+     the theme's text colour faded, not its own muted and faint colours: some
+     themes draw faint text barely off the background. */
+  --pg-surface-mid: color-mix(in srgb, var(--pg-ink) 76%, transparent);
+  --pg-surface-dim: color-mix(in srgb, var(--pg-ink) 52%, transparent);
+  --pg-surface-faint: color-mix(in srgb, var(--pg-ink) 42%, transparent);
+  --pg-inner-active: color-mix(in srgb, var(--pg-ink) 15%, transparent);
+  --pg-inner-press: color-mix(in srgb, var(--pg-ink) 24%, transparent);
+  --pg-inner-well: color-mix(in srgb, var(--pg-ink) 8%, transparent);
+  --pg-inner-chip: color-mix(in srgb, var(--pg-ink) 11%, transparent);
+  --pg-rule: color-mix(in srgb, var(--pg-ink) 13%, transparent);
   --pg-scrim: rgba(0, 0, 0, 0.42);
   --pg-peek-ring: rgba(255, 255, 255, 0.55);
   --pg-stage-lift: 0 24px 70px rgba(0, 0, 0, 0.45);
@@ -94,12 +101,12 @@
      second outline underneath the first. */
   --pg-surface-lift: 0 1px 6px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.16);
 
-  --pg-surface-text: rgba(255, 255, 255, 0.88);
+  --pg-surface-text: var(--pg-ink);
 
   /* Concentric: an inner corner should be the outer corner less the padding
      between them, or the two curves fight each other at the corner. */
   --pg-inner-radius: calc(var(--pg-surface-radius) - var(--pg-surface-pad));
-  --pg-inner-hover: rgba(255, 255, 255, 0.09);
+  --pg-inner-hover: color-mix(in srgb, var(--pg-ink) 10%, transparent);
 
   position: relative;
   height: 100%;
@@ -117,19 +124,21 @@
 /* Obsidian carries the theme on the body, so the panels follow it with no
    setting of ours and no flash on load. */
 .theme-light .oriko-view {
-  --pg-surface: rgba(252, 252, 253, 0.9);
-  --pg-surface-ring: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  /* Light glass lifts toward white, the way paper catches light, still
+     carrying the theme's own tint. */
+  --pg-glass-base: color-mix(in oklab, var(--background-primary) 70%, #fff);
+  --pg-surface: color-mix(in oklab, var(--pg-glass-base) 86%, transparent);
+  --pg-surface-ring: inset 0 0 0 1px color-mix(in srgb, var(--pg-ink) 9%, transparent);
   --pg-surface-lift: 0 1px 6px rgba(0, 0, 0, 0.07), 0 8px 24px rgba(0, 0, 0, 0.09);
-  --pg-surface-text: rgba(22, 22, 26, 0.92);
-  --pg-surface-mid: rgba(22, 22, 26, 0.72);
-  --pg-surface-dim: rgba(22, 22, 26, 0.5);
-  --pg-surface-faint: rgba(22, 22, 26, 0.38);
-  --pg-inner-hover: rgba(0, 0, 0, 0.06);
-  --pg-inner-active: rgba(0, 0, 0, 0.09);
-  --pg-inner-press: rgba(0, 0, 0, 0.14);
-  --pg-inner-well: rgba(0, 0, 0, 0.05);
-  --pg-inner-chip: rgba(0, 0, 0, 0.07);
-  --pg-rule: rgba(0, 0, 0, 0.1);
+  --pg-surface-mid: color-mix(in srgb, var(--pg-ink) 74%, transparent);
+  --pg-surface-dim: color-mix(in srgb, var(--pg-ink) 52%, transparent);
+  --pg-surface-faint: color-mix(in srgb, var(--pg-ink) 40%, transparent);
+  --pg-inner-hover: color-mix(in srgb, var(--pg-ink) 6%, transparent);
+  --pg-inner-active: color-mix(in srgb, var(--pg-ink) 9%, transparent);
+  --pg-inner-press: color-mix(in srgb, var(--pg-ink) 14%, transparent);
+  --pg-inner-well: color-mix(in srgb, var(--pg-ink) 5%, transparent);
+  --pg-inner-chip: color-mix(in srgb, var(--pg-ink) 7%, transparent);
+  --pg-rule: color-mix(in srgb, var(--pg-ink) 10%, transparent);
   --pg-scrim: rgba(0, 0, 0, 0.25);
   --pg-peek-ring: rgba(28, 28, 32, 0.6);
   --pg-stage-lift: 0 20px 56px rgba(0, 0, 0, 0.18);
