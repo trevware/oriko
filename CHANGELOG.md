@@ -5,6 +5,11 @@ All notable changes to Oriko will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.76] - 2026-10-25
+
+### Changed
+- **Oriko's panels now match your theme.** The selection bar, the ⌘K palette, menus and the bar along the bottom take on your theme's own background and text colors, so on a blue or warm theme they blend in instead of sitting on the wall as a gray slab. Default Obsidian looks the same as before.
+
 ## [0.1.75] - 2026-10-19
 
 ### Added
