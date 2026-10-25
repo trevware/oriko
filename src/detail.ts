@@ -21,6 +21,7 @@ import { cardGenres, platformNames } from "./core/steam";
 import type { SteamAsset, SteamLook } from "./core/steam";
 import { paintGenres, paintPrice } from "./steam-card";
 import { paintSwatchStrip, readSwatches } from "./core/swatch-strip";
+import type { Swatch } from "./core/swatches";
 import { attachTip } from "./core/tip";
 import { canShareFiles } from "./core/share";
 import { systemAvailable } from "./core/system";
@@ -234,7 +235,9 @@ export class DetailView {
         change without the view being rebuilt. */
     private properties: () => string[],
     /** Whether videos open without sound, read fresh like the properties. */
-    private openMuted: () => boolean
+    private openMuted: () => boolean,
+    /** The palette the Color facet keeps for a clipping's picture, if it has read it yet. */
+    private storedPalette: (model: TileModel) => Swatch[] | undefined
   ) {}
 
   get isOpen(): boolean {
@@ -319,7 +322,7 @@ export class DetailView {
     const panel = this.paintMeta(model, layout);
     this.meta = panel;
     this.paintActions(model);
-    if (image && !model.steam) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image, model);
 
     this.onStageReady?.();
     this.zoomedNow = false;
@@ -559,7 +562,7 @@ export class DetailView {
     const panel = this.paintMeta(model, layout, false);
     this.meta = panel;
     this.paintActions(model);
-    if (image && !model.steam) void this.paintSwatches(panel, image);
+    if (image && !model.steam) void this.paintSwatches(panel, image, model);
 
     // The return flight heads for the card this shows now, not the one the
     // overlay was opened from.
@@ -796,6 +799,13 @@ export class DetailView {
   /**
    * Adds the palette once the picture has decoded.
    *
+   * The Color facet's own reading of the picture when it has one, so the row
+   * shows the colours a colour search matches on. Reading the stage again
+   * does not give the same answer: the facet shrinks the file as it decodes
+   * it and the stage draws the full-size element down, and the two land on
+   * different pixels. The stage is read only for a picture the facet has not
+   * got to yet.
+   *
    * Not awaited before the flight: the colours are worth a moment's wait, the
    * opening animation is not. A large picture can still be decoding when the
    * view is closed and another opened, so the panel is only written to while
@@ -803,10 +813,14 @@ export class DetailView {
    */
   private async paintSwatches(
     panel: HTMLElement | null,
-    image: HTMLImageElement
+    image: HTMLImageElement,
+    model: TileModel
   ): Promise<void> {
     if (!panel) return;
-    const swatches = await readSwatches(image);
+    const stored = this.storedPalette(model);
+    const swatches = stored?.length
+      ? stored.map((swatch) => swatch.hex)
+      : await readSwatches(image);
     if (!panel.isConnected || swatches.length === 0) return;
 
     // Held until the panel has actually arrived. Reading the colours takes a

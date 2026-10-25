@@ -19,10 +19,9 @@ export const SAMPLE_WIDTH = 96;
 let sampler: HTMLCanvasElement | null = null;
 
 /**
- * The palette of anything a canvas can draw, read at SAMPLE_WIDTH so the
- * detail view's row and the colour search agree about every picture. An
- * empty array when the pixels cannot be read: a cross-origin picture taints
- * the canvas.
+ * The palette of anything a canvas can draw, read at SAMPLE_WIDTH. An empty
+ * array when the pixels cannot be read: a cross-origin picture taints the
+ * canvas.
  */
 export function paletteOfImage(
   source: CanvasImageSource,
@@ -78,9 +77,10 @@ const SWATCH_MS = 200;
  * The palette of an image element, or an empty array when there is none to
  * be had.
  *
- * Reads the element the stage is already showing rather than loading the
- * file again, so this costs one small drawImage on top of a decode the
- * detail view was doing anyway.
+ * For a picture the colour search has not read yet; the detail view shows
+ * that reading when there is one. Reads the element the stage is already
+ * showing rather than loading the file again, so this costs one small
+ * drawImage on top of a decode the detail view was doing anyway.
  */
 export async function readSwatches(image: HTMLImageElement): Promise<string[]> {
   if (!image.complete || image.naturalWidth === 0) {
