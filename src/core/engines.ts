@@ -3,7 +3,7 @@ import type { DescribeEngine } from "./describe-run";
 
 /**
  * Which engine does Describe's work: the Claude Code the user installed and
- * signed into, their own Anthropic API key, or Trevware Plus, the paid engine
+ * signed into, their own Anthropic API key, or Power-Up, the paid engine
  * on Trevware's server. The first two are the user's own and free; the
  * choice says whose bill a run lands on and what has to be set up.
  */

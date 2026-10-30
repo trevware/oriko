@@ -206,7 +206,7 @@ export class OrikoSettingTab extends PluginSettingTab {
               },
               {
                 name: "Describe engine",
-                desc: this.offersPlus() ? "Your own Claude, or Trevware Plus." : "Runs on your own Claude.",
+                desc: this.offersPlus() ? "Your own Claude, or Power-Up." : "Runs on your own Claude.",
                 visible: () => this.describing(),
                 control: {
                   type: "dropdown",
@@ -244,7 +244,7 @@ export class OrikoSettingTab extends PluginSettingTab {
               },
               {
                 name: "License key",
-                desc: "From your Trevware Plus receipt, kept in Obsidian's keychain.",
+                desc: "From your Power-Up receipt, kept in Obsidian's keychain.",
                 visible: () => this.describing("oriko-plus"),
                 render: (setting) => {
                   setting.addText((text) => {
@@ -519,7 +519,7 @@ export class OrikoSettingTab extends PluginSettingTab {
   private plusKnown: { key: string; status: PlusStatus } | null = null;
 
   /**
-   * The engines settings offer. Trevware Plus joins once it launches, or when
+   * The engines settings offer. Power-Up joins once it launches, or when
    * it is already the engine in force, so a tester's choice still shows; the
    * engine row's description follows the same rule.
    */
@@ -528,7 +528,7 @@ export class OrikoSettingTab extends PluginSettingTab {
       "claude-code": "Claude Code on this computer",
       "api-key": "Anthropic API key",
     };
-    if (this.offersPlus()) options["oriko-plus"] = "Trevware Plus";
+    if (this.offersPlus()) options["oriko-plus"] = "Power-Up";
     return options;
   }
 

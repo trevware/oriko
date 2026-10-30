@@ -65,7 +65,7 @@ export default class OrikoPlugin extends Plugin {
   describer!: DescribeService;
   /** Describes clippings that land while the wall is open, when the setting asks for it. */
   private autoDescribe!: AutoDescribe;
-  /** Trevware Plus's account calls, for the engine and for settings. */
+  /** Power-Up's account calls, for the engine and for settings. */
   plus!: PlusAccount;
   /** The last shared file this device wrote, to recognise its own echo. */
   private wroteShared = "";
@@ -645,12 +645,12 @@ export default class OrikoPlugin extends Plugin {
     return effectiveEngine(this.settings.describeEngine, Platform.isDesktopApp && claudeAvailable());
   }
 
-  /** The Trevware Plus license key, from Obsidian's keychain on this device. */
+  /** The Power-Up license key, from Obsidian's keychain on this device. */
   plusLicense(): string | null {
     return this.app.secretStorage.getSecret(LICENSE_SECRET)?.trim() || null;
   }
 
-  /** This device's Trevware Plus install id, made the first time it is asked for. */
+  /** This device's Power-Up install id, made the first time it is asked for. */
   plusInstall(): string {
     const saved: unknown = this.app.loadLocalStorage(INSTALL_KEY);
     if (typeof saved === "string" && saved) return saved;
@@ -717,7 +717,7 @@ export default class OrikoPlugin extends Plugin {
   }
 }
 
-/** How Trevware Plus names this device, beside the vault's name. */
+/** How Power-Up names this device, beside the vault's name. */
 function platformName(): string {
   if (Platform.isMacOS) return "macOS";
   if (Platform.isWin) return "Windows";

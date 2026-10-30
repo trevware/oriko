@@ -105,7 +105,7 @@ describe("ActivationGate", () => {
 
 describe("PLUS_PAGE", () => {
   it("opens Oriko's page at the top, marked as coming from settings", () => {
-    expect(PLUS_PAGE).toBe("https://trevware.com/plus/?utm_source=oriko&utm_medium=settings");
+    expect(PLUS_PAGE).toBe("https://trevware.com/power-up/?utm_source=oriko&utm_medium=settings");
   });
 });
 

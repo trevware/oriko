@@ -54,17 +54,17 @@ export type EngineFailure =
   | "key-rejected"
   /** The API account has no credit left. */
   | "no-credit"
-  /** Trevware Plus does not recognize the license key. */
+  /** Power-Up does not recognize the license key. */
   | "license-rejected"
-  /** The Trevware Plus subscription has lapsed, been canceled or refunded. */
+  /** The Power-Up subscription has lapsed, been canceled or refunded. */
   | "license-inactive"
   /** The license is already active on as many devices as it allows. */
   | "device-limit"
-  /** This month's Trevware Plus allowance is used up. */
+  /** This month's Power-Up allowance is used up. */
   | "allowance-used"
-  /** Trevware Plus cannot take work right now. */
+  /** Power-Up cannot take work right now. */
   | "plus-unavailable"
-  /** Trevware Plus couldn't read what this version of Oriko sent. */
+  /** Power-Up couldn't read what this version of Oriko sent. */
   | "plus-refused"
   /**
    * The batch went out but no answer came back in time. The server may still

@@ -2,21 +2,21 @@ import { resultsFrom } from "./claude-engine";
 import type { Depth, DescribeJob, EngineFailure, RunOutcome } from "./claude-engine";
 
 /**
- * Trevware Plus, the paid engine: Describe on Trevware's server, for people
+ * Power-Up, the paid engine: Describe on Trevware's server, for people
  * with no Claude Code and no Anthropic account. The server owns the prompt,
  * so a batch goes as structured jobs; this is that request and how each
  * answer the server gives is read. Pure; the calls are src/plus-engine.ts.
  */
 
-export const PLUS_BASE = "https://plus.trevware.com";
-/** Launched in 0.1.70: settings offer Trevware Plus and show Subscribe to anyone without a key. */
+export const PLUS_BASE = "https://powerup.trevware.com";
+/** Launched in 0.1.70: settings offer Power-Up and show Subscribe to anyone without a key. */
 export const PLUS_LAUNCHED = true;
 /** Marks a visit as coming from Oriko's settings, in the site's stats and in Polar's checkouts. */
 const FROM_SETTINGS = "utm_source=oriko&utm_medium=settings";
 /** Where Subscribe goes: the Polar checkout, with both plans. */
 export const PLUS_CHECKOUT = `https://buy.polar.sh/polar_cl_pzcr2OMDKqtA0UBKHdiRqnI6h68WBHNIrLOst49JIJi?${FROM_SETTINGS}`;
 /** Oriko's page, from the top: the Learn more link beside Subscribe. */
-export const PLUS_PAGE = `https://trevware.com/plus/?${FROM_SETTINGS}`;
+export const PLUS_PAGE = `https://trevware.com/power-up/?${FROM_SETTINGS}`;
 export const PLUS_PROTOCOL = 1;
 /** Obsidian keychain id for the license key. */
 export const LICENSE_SECRET = "oriko-plus-license";
@@ -25,7 +25,7 @@ export const INSTALL_KEY = "oriko-plus-install";
 /** The server's cap on one picture, in base64 characters. */
 export const PLUS_IMAGE_MAX = 1_000_000;
 /**
- * The least Oriko waits for an answer from Trevware Plus: the server gives
+ * The least Oriko waits for an answer from Power-Up: the server gives
  * Claude 45 seconds and may check the license with Polar first, so the 60
  * seconds Oriko gives a lone clip elsewhere could give up on an answer that
  * was on its way and charged.
@@ -110,7 +110,7 @@ export function plusOutcome(status: number, body: unknown): RunOutcome | "not-ac
     return { ok: true, results: resultsFrom({ items: v.results }) };
   }
   const code = typeof v.error === "string" ? v.error : "";
-  const message = typeof v.message === "string" && v.message ? v.message : `Trevware Plus answered ${status}`;
+  const message = typeof v.message === "string" && v.message ? v.message : `Power-Up answered ${status}`;
   if (code === "not-activated") return "not-activated";
   return { ok: false, failure: FAILURES[code] ?? "error", message };
 }

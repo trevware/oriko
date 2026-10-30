@@ -80,7 +80,7 @@ You pick how Describe runs:
 
 - **Claude Code on this computer.** Describe runs the Claude Code you installed and signed into. Anthropic may count it as third-party app usage. Oriko never sees your login.
 - **Anthropic API key.** Describe calls Claude Haiku with a key from the [Claude Console](https://platform.claude.com). Paste the key in settings; it is kept in Obsidian's keychain, never in Oriko's settings file.
-- **Trevware Plus.** A subscription that runs Describe on Trevware's server, with no Claude Code or API key to set up. It covers 1,000 clippings a month on up to five devices, and clippings Claude couldn't label don't count. The same subscription also brings calendar sync to Sidebar Highlights and Tasks. See [what's included](https://trevware.com/plus/), then paste the license key from your receipt under **Settings → Oriko → License key**. Questions go to [hello@trevware.com](mailto:hello@trevware.com).
+- **Power-Up.** A subscription that runs Describe on trevware's server, with no Claude Code or API key to set up. It covers 1,000 clippings a month on up to five devices, and clippings Claude couldn't label don't count. The same subscription also brings calendar sync to Sidebar Highlights and Tasks. See [what's included](https://trevware.com/power-up/), then paste the license key from your receipt under **Settings → Oriko → License key**. Questions go to [hello@trevware.com](mailto:hello@trevware.com).
 
 Oriko is independent of Anthropic.
 
@@ -104,7 +104,7 @@ Remote media is copied into your attachment folder under a name derived from its
 
 ## Privacy
 
-Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. When you run Describe, the clipping's picture or video frames and its note text go to Anthropic, through your own Claude Code or your own API key, and nowhere else. With Trevware Plus they go to Trevware's server (`plus.trevware.com`) and on to Anthropic, and are not stored; see its [privacy policy](https://trevware.com/plus/privacy/). There are no analytics and nothing is reported anywhere.
+Oriko fetches only what you clip: the page you pasted and the media it references. The optional community resolvers send X and Instagram URLs to public mirrors (fxtwitter, kkinstagram) to reach video those sites hide; turn them off in settings to stay first party. When you run Describe, the clipping's picture or video frames and its note text go to Anthropic, through your own Claude Code or your own API key, and nowhere else. With Power-Up they go to trevware's server (`powerup.trevware.com`) and on to Anthropic, and are not stored; see its [privacy policy](https://trevware.com/power-up/privacy/). There are no analytics and nothing is reported anywhere.
 
 ## Installation
 
