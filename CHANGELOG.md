@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.77] - 2026-10-30
 
 ### Changed
-- **Oriko Plus is now Power-Up.** It's the same subscription under a new name, and it now covers Sidebar Highlights and Tasks too, where it'll bring calendar sync. Your license key keeps working with nothing to set up again, and Settings → Oriko → Describe engine lists it as Power-Up.
+- **Oriko Plus is now Power-Up.** It's the same subscription under a new name, and it now covers Sidebar Highlights and Tasks too, where it'll bring calendar sync. Settings → Oriko → Describe engine lists it as Power-Up.
 
 ### Fixed
 - **The palette in a clip's details matches the colors you search by.** The swatches under a picture now come from the same reading the Color filter uses, so a color you see there is one a color search will find.
