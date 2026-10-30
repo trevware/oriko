@@ -32,7 +32,7 @@ describe("engineReady", () => {
     expect(engineReady({ ...base, engine: "claude-code", claudeFound: false })).toBe(false);
   });
 
-  it("offers Oriko Plus once a license key is saved", () => {
+  it("offers Trevware Plus once a license key is saved", () => {
     expect(engineReady({ ...base, engine: "oriko-plus" })).toBe(false);
     expect(engineReady({ ...base, engine: "oriko-plus", hasLicense: true })).toBe(true);
   });

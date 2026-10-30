@@ -5,7 +5,7 @@ import type { Depth, DescribeJob, EngineFailure, RunOutcome } from "./core/claud
 import type { DescribeEngine } from "./core/describe-run";
 
 /**
- * Oriko Plus's calls: Describe batches, and the account calls settings make
+ * Trevware Plus's calls: Describe batches, and the account calls settings make
  * (activate this device, show usage, remove this device). The thin half; what
  * each answer means is in core/plus-engine.ts.
  */
@@ -44,7 +44,7 @@ export class PlusAccount {
     if (body !== undefined) headers["Content-Type"] = "application/json";
     let timer = 0;
     const timeout = new Promise<never>((_, reject) => {
-      timer = window.setTimeout(() => reject(new NoAnswer("Oriko Plus did not answer in time")), timeoutMs);
+      timer = window.setTimeout(() => reject(new NoAnswer("Trevware Plus did not answer in time")), timeoutMs);
     });
     const request = requestUrl({
       url: `${PLUS_BASE}${path}`,
@@ -123,7 +123,7 @@ function status(answer: Answer): PlusStatus {
   if (answer.status === 200 && usage && typeof usage.used === "number") return { ok: true, usage };
   const outcome = plusOutcome(answer.status, answer.body);
   if (outcome !== "not-activated" && !outcome.ok) return { ok: false, failure: outcome.failure, message: outcome.message };
-  return { ok: false, failure: "error", message: `Oriko Plus answered ${answer.status}.` };
+  return { ok: false, failure: "error", message: `Trevware Plus answered ${answer.status}.` };
 }
 
 export class OrikoPlusEngine implements DescribeEngine {
@@ -150,7 +150,7 @@ export class OrikoPlusEngine implements DescribeEngine {
     const second = await this.describe(jobs, vocabulary, timeoutMs, depth);
     // Still settling on the server: waited out and tried again like a rate
     // limit, never retried clip by clip, which would only fail ten times over.
-    return second === "not-activated" ? { ok: false, failure: "rate-limit", message: "Oriko Plus is still activating this device" } : second;
+    return second === "not-activated" ? { ok: false, failure: "rate-limit", message: "Trevware Plus is still activating this device" } : second;
   }
 
   private async describe(
